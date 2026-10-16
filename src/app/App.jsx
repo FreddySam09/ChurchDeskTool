@@ -5,7 +5,7 @@ import {
   Route,
   Routes,
 } from 'react-router-dom'
-
+import AnnualRegister from "../features/membership/annual-register/AnnualRegister";
 import { AuthProvider } from '../features/auth/AuthContext'
 import LoginPage from '../features/auth/LoginPage'
 import MembershipPage from '../features/membership/MembershipPage'
@@ -28,6 +28,7 @@ function AppRoutes() {
           <Route path="/members" element={<MemberList />} />
           <Route path="/members/:memberId" element={<MemberDetails />} />
           <Route path="/groups" element={<GroupsPage />} />
+          <Route path="/annual-register" element={<AnnualRegister />} />
 
           <Route
             path="/memberships/:membershipRowId"

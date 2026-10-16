@@ -1,0 +1,263 @@
+
+import { useCallback, useEffect, useState } from 'react'
+import {
+  createAnnualRegister,
+  createRegisterSnapshot,
+  getAnnualRegister,
+  listAnnualRegisters,
+  listRegisterEntries,
+  listRegisterHistory,
+  recordRegisterHistory,
+  saveEntryOrder,
+  setEntryHead,
+  setEntryIncluded,
+  setRegisterStatus,
+  splitBranchInDraft,
+} from './annualRegisterService'
+
+export default function useAnnualRegister() {
+  const [registers, setRegisters] = useState([])
+  const [selectedRegisterId, setSelectedRegisterId] = useState('')
+  const [selectedRegister, setSelectedRegister] = useState(null)
+  const [entries, setEntries] = useState([])
+  const [history, setHistory] = useState([])
+
+  const [loading, setLoading] = useState(true)
+  const [working, setWorking] = useState(false)
+  const [error, setError] = useState('')
+
+  const loadRegisters = useCallback(async () => {
+    const data = await listAnnualRegisters()
+    setRegisters(data)
+
+    setSelectedRegisterId((currentId) => {
+      if (currentId && data.some((item) => item.id === currentId)) {
+        return currentId
+      }
+
+      return data[0]?.id ?? ''
+    })
+
+    return data
+  }, [])
+
+  const loadSelectedRegister = useCallback(async (registerId) => {
+    if (!registerId) {
+      setSelectedRegister(null)
+      setEntries([])
+      setHistory([])
+      return
+    }
+
+    const [register, registerEntries, registerHistory] = await Promise.all([
+      getAnnualRegister(registerId),
+      listRegisterEntries(registerId),
+      listRegisterHistory(registerId),
+    ])
+
+    setSelectedRegister(register)
+    setEntries(registerEntries)
+    setHistory(registerHistory)
+  }, [])
+
+  const refresh = useCallback(async () => {
+    setError('')
+    setLoading(true)
+
+    try {
+      const data = await listAnnualRegisters()
+
+      setRegisters(data)
+
+      const validSelectedId =
+        selectedRegisterId && data.some((item) => item.id === selectedRegisterId)
+          ? selectedRegisterId
+          : data[0]?.id ?? ''
+
+      setSelectedRegisterId(validSelectedId)
+
+      if (validSelectedId) {
+        await loadSelectedRegister(validSelectedId)
+      } else {
+        setSelectedRegister(null)
+        setEntries([])
+        setHistory([])
+      }
+    } catch (loadError) {
+      setError(loadError?.message || 'Unable to load annual registers.')
+    } finally {
+      setLoading(false)
+    }
+  }, [loadSelectedRegister, selectedRegisterId])
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function initialLoad() {
+      setLoading(true)
+      setError('')
+
+      try {
+        const data = await listAnnualRegisters()
+        if (cancelled) return
+
+        setRegisters(data)
+
+        const initialId = data[0]?.id ?? ''
+        setSelectedRegisterId(initialId)
+
+        if (initialId) {
+          const [register, registerEntries, registerHistory] = await Promise.all([
+            getAnnualRegister(initialId),
+            listRegisterEntries(initialId),
+            listRegisterHistory(initialId),
+          ])
+
+          if (cancelled) return
+
+          setSelectedRegister(register)
+          setEntries(registerEntries)
+          setHistory(registerHistory)
+        }
+      } catch (loadError) {
+        if (!cancelled) {
+          setError(loadError?.message || 'Unable to load annual registers.')
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    initialLoad()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const selectRegister = useCallback(
+    async (registerId) => {
+      setSelectedRegisterId(registerId)
+      setError('')
+      setLoading(true)
+
+      try {
+        await loadSelectedRegister(registerId)
+      } catch (loadError) {
+        setError(loadError?.message || 'Unable to open this register.')
+      } finally {
+        setLoading(false)
+      }
+    },
+    [loadSelectedRegister],
+  )
+
+  const runAction = useCallback(async (action) => {
+    setWorking(true)
+    setError('')
+
+    try {
+      const result = await action()
+
+      // Reload from the database so the UI reflects persisted state.
+      const data = await listAnnualRegisters()
+      setRegisters(data)
+
+      if (selectedRegisterId) {
+        await loadSelectedRegister(selectedRegisterId)
+      }
+
+      return result
+    } catch (actionError) {
+      setError(actionError?.message || 'The operation failed.')
+      throw actionError
+    } finally {
+      setWorking(false)
+    }
+  }, [loadSelectedRegister, selectedRegisterId])
+
+  const createDraft = useCallback(
+    async ({ name, year, populateSnapshot }) => {
+      return runAction(async () => {
+        const register = await createAnnualRegister({ name, year })
+
+        if (populateSnapshot) {
+          try {
+            await createRegisterSnapshot(register.id)
+          } catch (snapshotError) {
+            // Keep the draft available so the user can inspect/retry it.
+            setSelectedRegisterId(register.id)
+            throw new Error(
+              `The draft was created, but copying current memberships failed: ${snapshotError.message}`,
+            )
+          }
+        }
+
+        setSelectedRegisterId(register.id)
+        await recordRegisterHistory(register.id, 'REGISTER_READY', {
+          snapshot_created: Boolean(populateSnapshot),
+        })
+
+        return register
+      })
+    },
+    [runAction],
+  )
+
+  const changeStatus = useCallback(
+    (status) => {
+      if (!selectedRegisterId) return Promise.resolve()
+
+      return runAction(() =>
+        setRegisterStatus(selectedRegisterId, status),
+      )
+    },
+    [runAction, selectedRegisterId],
+  )
+
+  const toggleEntryIncluded = useCallback(
+    (entry, included) => runAction(() => setEntryIncluded(entry, included)),
+    [runAction],
+  )
+
+  const designateHead = useCallback(
+    (entry, memberId) => runAction(() => setEntryHead(entry, memberId)),
+    [runAction],
+  )
+
+  const reorderEntries = useCallback(
+    (nextEntries) => {
+      if (!selectedRegisterId) return Promise.resolve()
+
+      return runAction(() =>
+        saveEntryOrder(selectedRegisterId, nextEntries),
+      )
+    },
+    [runAction, selectedRegisterId],
+  )
+
+  const splitBranch = useCallback(
+    (entry, label) => runAction(() => splitBranchInDraft(entry, label)),
+    [runAction],
+  )
+
+  return {
+    registers,
+    selectedRegisterId,
+    selectedRegister,
+    entries,
+    history,
+    loading,
+    working,
+    error,
+    setError,
+    selectRegister,
+    refresh,
+    createDraft,
+    changeStatus,
+    toggleEntryIncluded,
+    designateHead,
+    reorderEntries,
+    splitBranch,
+  }
+}

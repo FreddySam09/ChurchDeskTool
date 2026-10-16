@@ -118,9 +118,13 @@ export default function Sidebar({ open = false, onClose }) {
                     Fellowships & Groups
                   </NavLink>
 
-                  <div className="cursor-default rounded-r-lg border-l-2 border-transparent px-3 py-[9px] text-[13px] text-white/40">
+                  <NavLink
+                    to="/annual-register"
+                    onClick={onClose}
+                    className={linkClass}
+                  >
                     Annual Membership Register
-                  </div>
+                  </NavLink>
 
                   <div className="cursor-default rounded-r-lg border-l-2 border-transparent px-3 py-[9px] text-[13px] text-white/40">
                     Membership History
