@@ -1,5 +1,4 @@
-
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from "react";
 import {
   createAnnualRegister,
   createRegisterSnapshot,
@@ -15,85 +14,83 @@ import {
   setRegisterStatus,
   splitBranchInDraft,
   undoBranchSplitInDraft,
-} from './annualRegisterService'
+} from "./annualRegisterService";
 
 export default function useAnnualRegister() {
-  const [registers, setRegisters] = useState([])
-  const [selectedRegisterId, setSelectedRegisterId] = useState('')
-  const [selectedRegister, setSelectedRegister] = useState(null)
-  const [entries, setEntries] = useState([])
-  const [history, setHistory] = useState([])
+  const [registers, setRegisters] = useState([]);
+  const [selectedRegisterId, setSelectedRegisterId] = useState("");
+  const [selectedRegister, setSelectedRegister] = useState(null);
+  const [entries, setEntries] = useState([]);
+  const [history, setHistory] = useState([]);
 
-  const [loading, setLoading] = useState(true)
-  const [working, setWorking] = useState(false)
-  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(true);
+  const [working, setWorking] = useState(false);
+  const [error, setError] = useState("");
 
   const loadSelectedRegister = useCallback(async (registerId) => {
     if (!registerId) {
-      setSelectedRegister(null)
-      setEntries([])
-      setHistory([])
-      return
+      setSelectedRegister(null);
+      setEntries([]);
+      setHistory([]);
+      return;
     }
 
     const [register, registerEntries, registerHistory] = await Promise.all([
       getAnnualRegister(registerId),
       listRegisterEntries(registerId),
       listRegisterHistory(registerId),
-    ])
+    ]);
 
-    setSelectedRegister(register)
-    setEntries(registerEntries)
-    setHistory(registerHistory)
-  }, [])
+    setSelectedRegister(register);
+    setEntries(registerEntries);
+    setHistory(registerHistory);
+  }, []);
 
   const refresh = useCallback(async () => {
-    setError('')
-    setLoading(true)
+    setError("");
+    setLoading(true);
 
     try {
-      const data = await listAnnualRegisters()
-      setRegisters(data)
+      const data = await listAnnualRegisters();
+      setRegisters(data);
 
       const validSelectedId =
         selectedRegisterId &&
         data.some((item) => item.id === selectedRegisterId)
           ? selectedRegisterId
-          : data[0]?.id ?? ''
+          : (data[0]?.id ?? "");
 
-      setSelectedRegisterId(validSelectedId)
+      setSelectedRegisterId(validSelectedId);
 
       if (validSelectedId) {
-        await loadSelectedRegister(validSelectedId)
+        await loadSelectedRegister(validSelectedId);
       } else {
-        setSelectedRegister(null)
-        setEntries([])
-        setHistory([])
+        setSelectedRegister(null);
+        setEntries([]);
+        setHistory([]);
       }
     } catch (loadError) {
-      setError(
-        loadError?.message || 'Unable to load annual registers.',
-      )
+      setError(loadError?.message || "Unable to load annual registers.");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [loadSelectedRegister, selectedRegisterId])
+  }, [loadSelectedRegister, selectedRegisterId]);
 
   useEffect(() => {
-    let cancelled = false
+    let cancelled = false;
 
     async function initialLoad() {
-      setLoading(true)
-      setError('')
+      setLoading(true);
+      setError("");
 
       try {
-        const data = await listAnnualRegisters()
-        if (cancelled) return
+        const data = await listAnnualRegisters();
+        if (cancelled) return;
 
-        setRegisters(data)
+        setRegisters(data);
 
-        const initialId = data[0]?.id ?? ''
-        setSelectedRegisterId(initialId)
+        const initialId = data[0]?.id ?? "";
+        setSelectedRegisterId(initialId);
 
         if (initialId) {
           const [register, registerEntries, registerHistory] =
@@ -101,154 +98,141 @@ export default function useAnnualRegister() {
               getAnnualRegister(initialId),
               listRegisterEntries(initialId),
               listRegisterHistory(initialId),
-            ])
+            ]);
 
-          if (cancelled) return
+          if (cancelled) return;
 
-          setSelectedRegister(register)
-          setEntries(registerEntries)
-          setHistory(registerHistory)
+          setSelectedRegister(register);
+          setEntries(registerEntries);
+          setHistory(registerHistory);
         }
       } catch (loadError) {
         if (!cancelled) {
-          setError(
-            loadError?.message || 'Unable to load annual registers.',
-          )
+          setError(loadError?.message || "Unable to load annual registers.");
         }
       } finally {
-        if (!cancelled) setLoading(false)
+        if (!cancelled) setLoading(false);
       }
     }
 
-    initialLoad()
+    initialLoad();
 
     return () => {
-      cancelled = true
-    }
-  }, [])
+      cancelled = true;
+    };
+  }, []);
 
   const selectRegister = useCallback(
     async (registerId) => {
-      setSelectedRegisterId(registerId)
-      setError('')
-      setLoading(true)
+      setSelectedRegisterId(registerId);
+      setError("");
+      setLoading(true);
 
       try {
-        await loadSelectedRegister(registerId)
+        await loadSelectedRegister(registerId);
       } catch (loadError) {
-        setError(
-          loadError?.message || 'Unable to open this register.',
-        )
+        setError(loadError?.message || "Unable to open this register.");
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
     },
     [loadSelectedRegister],
-  )
+  );
 
   const runAction = useCallback(
     async (action) => {
-      setWorking(true)
-      setError('')
+      setWorking(true);
+      setError("");
 
       try {
-        const result = await action()
-        const data = await listAnnualRegisters()
-        setRegisters(data)
+        const result = await action();
+        const data = await listAnnualRegisters();
+        setRegisters(data);
 
         if (selectedRegisterId) {
-          await loadSelectedRegister(selectedRegisterId)
+          await loadSelectedRegister(selectedRegisterId);
         }
 
-        return result
+        return result;
       } catch (actionError) {
-        setError(actionError?.message || 'The operation failed.')
-        throw actionError
+        setError(actionError?.message || "The operation failed.");
+        throw actionError;
       } finally {
-        setWorking(false)
+        setWorking(false);
       }
     },
     [loadSelectedRegister, selectedRegisterId],
-  )
+  );
 
   const createDraft = useCallback(
     async ({ name, year, populateSnapshot }) =>
       runAction(async () => {
-        const register = await createAnnualRegister({ name, year })
+        const register = await createAnnualRegister({ name, year });
 
         if (populateSnapshot) {
           try {
-            await createRegisterSnapshot(register.id)
+            await createRegisterSnapshot(register.id);
           } catch (snapshotError) {
-            setSelectedRegisterId(register.id)
+            setSelectedRegisterId(register.id);
             throw new Error(
               `The draft was created, but copying current memberships failed: ${snapshotError.message}`,
-            )
+            );
           }
         }
 
-        setSelectedRegisterId(register.id)
+        setSelectedRegisterId(register.id);
 
-        await recordRegisterHistory(register.id, 'REGISTER_READY', {
+        await recordRegisterHistory(register.id, "REGISTER_READY", {
           snapshot_created: Boolean(populateSnapshot),
-        })
+        });
 
-        return register
+        return register;
       }),
     [runAction],
-  )
+  );
 
   const changeStatus = useCallback(
     (status) => {
-      if (!selectedRegisterId) return Promise.resolve()
+      if (!selectedRegisterId) return Promise.resolve();
 
-      return runAction(() =>
-        setRegisterStatus(selectedRegisterId, status),
-      )
+      return runAction(() => setRegisterStatus(selectedRegisterId, status));
     },
     [runAction, selectedRegisterId],
-  )
+  );
 
   const toggleEntryIncluded = useCallback(
-    (entry, included) =>
-      runAction(() => setEntryIncluded(entry, included)),
+    (entry, included) => runAction(() => setEntryIncluded(entry, included)),
     [runAction],
-  )
+  );
 
   const designateHead = useCallback(
-    (entry, memberId) =>
-      runAction(() => setEntryHead(entry, memberId)),
+    (entry, memberId) => runAction(() => setEntryHead(entry, memberId)),
     [runAction],
-  )
+  );
 
   const reorderEntries = useCallback(
     (nextEntries) => {
-      if (!selectedRegisterId) return Promise.resolve()
+      if (!selectedRegisterId) return Promise.resolve();
 
-      return runAction(() =>
-        saveEntryOrder(selectedRegisterId, nextEntries),
-      )
+      return runAction(() => saveEntryOrder(selectedRegisterId, nextEntries));
     },
     [runAction, selectedRegisterId],
-  )
+  );
 
   const updateEntryNumber = useCallback(
-    (entry, value) =>
-      runAction(() => setEntryNumber(entry, value)),
+    (entry, value) => runAction(() => setEntryNumber(entry, value)),
     [runAction],
-  )
+  );
 
   const splitBranch = useCallback(
-    (entry, label) =>
-      runAction(() => splitBranchInDraft(entry, label)),
+    (entry, label) => runAction(() => splitBranchInDraft(entry, label)),
     [runAction],
-  )
+  );
 
   const undoSplitBranch = useCallback(
-    (entry) =>
-      runAction(() => undoBranchSplitInDraft(entry)),
+    (entry) => runAction(() => undoBranchSplitInDraft(entry)),
     [runAction],
-  )
+  );
 
   return {
     registers,
@@ -270,5 +254,5 @@ export default function useAnnualRegister() {
     updateEntryNumber,
     splitBranch,
     undoSplitBranch,
-  }
+  };
 }

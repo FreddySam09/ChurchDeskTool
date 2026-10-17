@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useNavigate, useOutletContext } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate, useOutletContext } from "react-router-dom";
 import {
   ArrowDownToLine,
   ArrowUpFromLine,
@@ -10,32 +10,30 @@ import {
   Search,
   Users,
   UserRound,
-} from 'lucide-react'
-import { getMembershipDirectory } from '../../services/membershipService'
-import AddMembershipModal from './AddMembershipModal'
-import MembershipImportModal from './import/MembershipImportModal'
+} from "lucide-react";
+import { getMembershipDirectory } from "../../services/membershipService";
+import AddMembershipModal from "./AddMembershipModal";
+import MembershipImportModal from "./import/MembershipImportModal";
 
-const FILTERS = ['All', 'Active', 'Inactive']
+const FILTERS = ["All", "Active", "Inactive"];
 
 const membershipNumberCollator = new Intl.Collator(undefined, {
   numeric: true,
-  sensitivity: 'base',
-})
+  sensitivity: "base",
+});
 
 function StatusBadge({ status }) {
-  const active = status === 'Active'
+  const active = status === "Active";
 
   return (
     <span
       className={`inline-flex shrink-0 items-center rounded-full px-3 py-1.5 text-[11px] font-semibold ${
-        active
-          ? 'bg-[#e5f6ec] text-[#159568]'
-          : 'bg-[#eeeeef] text-[#53555e]'
+        active ? "bg-[#e5f6ec] text-[#159568]" : "bg-[#eeeeef] text-[#53555e]"
       }`}
     >
-      {status || 'Unknown'}
+      {status || "Unknown"}
     </span>
-  )
+  );
 }
 
 function ActionButton({
@@ -53,13 +51,13 @@ function ActionButton({
       title={title}
       className={`inline-flex min-h-[46px] items-center justify-center gap-2 rounded-[15px] border px-4 py-2.5 text-[13px] font-semibold transition sm:px-5 ${
         primary
-          ? 'border-[#191a1f] bg-[#191a1f] text-white hover:bg-black'
-          : 'border-[#e9e9eb] bg-white text-[#131418] hover:bg-[#f8f8f9]'
+          ? "border-[#191a1f] bg-[#191a1f] text-white hover:bg-black"
+          : "border-[#e9e9eb] bg-white text-[#131418] hover:bg-[#f8f8f9]"
       } disabled:cursor-not-allowed disabled:opacity-50`}
     >
       {children}
     </button>
-  )
+  );
 }
 
 function getDisplayNumber(membership) {
@@ -67,28 +65,25 @@ function getDisplayNumber(membership) {
     membership.display_number ??
     membership.membership_number ??
     membership.annual_number ??
-    null
+    null;
 
-  if (number === null || number === '') return '—'
+  if (number === null || number === "") return "—";
 
-  return String(number)
+  return String(number);
 }
 
-
 function MembershipCard({ membership, onOpen }) {
-  const displayNumber = getDisplayNumber(membership)
-  const isBranch = membership.is_branch === true
+  const displayNumber = getDisplayNumber(membership);
+  const isBranch = membership.is_branch === true;
 
-  const area = [membership.area, membership.city]
-    .filter(Boolean)
-    .join(', ')
+  const area = [membership.area, membership.city].filter(Boolean).join(", ");
 
   // Use a real membership image when available; otherwise show a placeholder.
   const imageUrl =
     membership.head_photo_url ||
     membership.photo_url ||
     membership.head_photo ||
-    null
+    null;
 
   return (
     <article
@@ -97,9 +92,9 @@ function MembershipCard({ membership, onOpen }) {
       aria-label={`Open membership ${displayNumber}`}
       onClick={() => onOpen(membership)}
       onKeyDown={(event) => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault()
-          onOpen(membership)
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onOpen(membership);
         }
       }}
       className="group flex min-h-[270px] cursor-pointer flex-col rounded-[28px] border border-[#e9e9eb] bg-white p-6 shadow-[0_1px_2px_rgba(15,15,20,0.04)] transition duration-200 hover:-translate-y-0.5 hover:border-[#d9def8] hover:shadow-[0_8px_25px_rgba(15,15,20,0.06)] sm:p-7"
@@ -120,7 +115,7 @@ function MembershipCard({ membership, onOpen }) {
               alt={
                 membership.card_head_name ||
                 membership.head_name ||
-                'Membership'
+                "Membership"
               }
               className="h-full w-full object-cover"
             />
@@ -135,9 +130,7 @@ function MembershipCard({ membership, onOpen }) {
           {isBranch && (
             <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-[#536bd6]">
               <GitBranch size={13} />
-              <span>
-                Branch of {membership.membership_number || '—'}
-              </span>
+              <span>Branch of {membership.membership_number || "—"}</span>
             </div>
           )}
 
@@ -145,16 +138,16 @@ function MembershipCard({ membership, onOpen }) {
             {membership.card_head_name ||
               membership.head_name ||
               membership.head?.name ||
-              'Head not assigned'}
+              "Head not assigned"}
           </h2>
 
           <p className="mt-1.5 flex items-start gap-1.5 text-[13px] leading-5 text-[#92939b]">
             <span className="min-w-0 break-words">
-              {area || 'Not Recorded'}
+              {area || "Not Recorded"}
             </span>
           </p>
 
-          {displayNumber === '—' && (
+          {displayNumber === "—" && (
             <p className="mt-1 text-[11px] text-[#92939b]">
               Awaiting membership number
             </p>
@@ -166,18 +159,13 @@ function MembershipCard({ membership, onOpen }) {
       <div className="mt-auto flex flex-wrap items-center justify-between gap-x-3 gap-y-3 border-t border-[#f0f0f1] pt-4">
         <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
           <span className="text-[12px] text-[#777984]">
-            {membership.member_count ?? 0}{' '}
-            {(membership.member_count ?? 0) === 1
-              ? 'Member'
-              : 'Members'}
-
+            {membership.member_count ?? 0}{" "}
+            {(membership.member_count ?? 0) === 1 ? "Member" : "Members"}
             {!isBranch && membership.branch_count > 0 && (
               <>
-                {' · '}
-                {membership.branch_count}{' '}
-                {membership.branch_count === 1
-                  ? 'branch'
-                  : 'branches'}
+                {" · "}
+                {membership.branch_count}{" "}
+                {membership.branch_count === 1 ? "branch" : "branches"}
               </>
             )}
           </span>
@@ -191,46 +179,45 @@ function MembershipCard({ membership, onOpen }) {
         </span>
       </div>
     </article>
-  )
+  );
 }
 
-
 export default function MembershipPage() {
-  const navigate = useNavigate()
-  const { searchValue, setSearchValue } = useOutletContext()
+  const navigate = useNavigate();
+  const { searchValue, setSearchValue } = useOutletContext();
 
-  const [directory, setDirectory] = useState([])
-  const [registerYear, setRegisterYear] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [statusFilter, setStatusFilter] = useState('All')
-  const [addModalOpen, setAddModalOpen] = useState(false)
-  const [importModalOpen, setImportModalOpen] = useState(false)
+  const [directory, setDirectory] = useState([]);
+  const [registerYear, setRegisterYear] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [statusFilter, setStatusFilter] = useState("All");
+  const [addModalOpen, setAddModalOpen] = useState(false);
+  const [importModalOpen, setImportModalOpen] = useState(false);
 
   const loadDirectory = useCallback(async () => {
-    setLoading(true)
-    setError('')
+    setLoading(true);
+    setError("");
 
     try {
-      const result = await getMembershipDirectory()
+      const result = await getMembershipDirectory();
 
       if (Array.isArray(result)) {
-        setDirectory(result)
-        setRegisterYear(null)
+        setDirectory(result);
+        setRegisterYear(null);
       } else {
-        setDirectory(result?.memberships ?? [])
-        setRegisterYear(result?.annualRegisterYear ?? null)
+        setDirectory(result?.memberships ?? []);
+        setRegisterYear(result?.annualRegisterYear ?? null);
       }
     } catch (err) {
-      setError(err.message || 'Unable to load memberships.')
+      setError(err.message || "Unable to load memberships.");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [])
+  }, []);
 
   useEffect(() => {
-    loadDirectory()
-  }, [loadDirectory])
+    loadDirectory();
+  }, [loadDirectory]);
 
   // Branches are displayed as cards but remain linked to their parent record.
   const displayCards = useMemo(() => {
@@ -242,60 +229,57 @@ export default function MembershipPage() {
         card_head_name: membership.head_name,
         member_count:
           membership.main_member_count ?? membership.member_count ?? 0,
-      }
+      };
 
-      
-    const branchCards = (membership.branches ?? []).map((branch) => ({
-    ...membership,
-    ...branch,
+      const branchCards = (membership.branches ?? []).map((branch) => ({
+        ...membership,
+        ...branch,
 
-    // Keep the parent's database ID for the route.
-    parent_membership_row_id: membership.id,
+        // Keep the parent's database ID for the route.
+        parent_membership_row_id: membership.id,
 
-    // Preserve the branch's real database ID separately.
-    branch_id: branch.id,
+        // Preserve the branch's real database ID separately.
+        branch_id: branch.id,
 
-    // A unique card ID for React.
-    id: `${membership.id}:${branch.id}`,
+        // A unique card ID for React.
+        id: `${membership.id}:${branch.id}`,
 
-    is_branch: true,
+        is_branch: true,
 
-    display_number:
-        branch.display_number ??
-        `${membership.membership_number ?? '—'}${branch.suffix ?? ''}`,
+        display_number:
+          branch.display_number ??
+          `${membership.membership_number ?? "—"}${branch.suffix ?? ""}`,
 
-    // Lettered branches retain their parent's membership number.
-    membership_number: membership.membership_number,
+        // Lettered branches retain their parent's membership number.
+        membership_number: membership.membership_number,
 
-    card_head_name: branch.head_name ?? branch.card_head_name ?? null,
-    member_count: branch.member_count ?? 0,
+        card_head_name: branch.head_name ?? branch.card_head_name ?? null,
+        member_count: branch.member_count ?? 0,
 
-    membership_status:
-        branch.branch_status ?? membership.membership_status,
-    }))
+        membership_status: branch.branch_status ?? membership.membership_status,
+      }));
 
-
-      return [mainCard, ...branchCards]
-    })
-  }, [directory])
+      return [mainCard, ...branchCards];
+    });
+  }, [directory]);
 
   const filteredMemberships = useMemo(() => {
-    const query = (searchValue || '').trim().toLowerCase()
+    const query = (searchValue || "").trim().toLowerCase();
 
     // Filter first, then sort the visible results.
     const filtered = displayCards.filter((membership) => {
-      const status = membership.membership_status
+      const status = membership.membership_status;
 
       if (
-        statusFilter !== 'All' &&
-        !(statusFilter === 'Non-current'
-          ? status !== 'Active'
+        statusFilter !== "All" &&
+        !(statusFilter === "Non-current"
+          ? status !== "Active"
           : status === statusFilter)
       ) {
-        return false
+        return false;
       }
 
-      if (!query) return true
+      if (!query) return true;
 
       const searchable = [
         membership.display_number,
@@ -315,115 +299,114 @@ export default function MembershipPage() {
         membership.primary_phone_number,
         membership.alternate_phone_number,
         membership.email,
-        membership.is_branch ? 'branch' : 'membership',
+        membership.is_branch ? "branch" : "membership",
       ]
         .filter((value) => value !== null && value !== undefined)
-        .join(' ')
-        .toLowerCase()
+        .join(" ")
+        .toLowerCase();
 
-      return searchable.includes(query)
-    })
+      return searchable.includes(query);
+    });
 
     // Natural order: 1, 2, 3, 10, 17, 18.
     // Lettered branches follow their parent: 17, 17A, 17B, 18.
     return filtered.sort((a, b) => {
-      const numberA = String(a.membership_number ?? '').trim()
-      const numberB = String(b.membership_number ?? '').trim()
+      const numberA = String(a.membership_number ?? "").trim();
+      const numberB = String(b.membership_number ?? "").trim();
 
       // Memberships without a number appear at the end.
-      if (!numberA && numberB) return 1
-      if (numberA && !numberB) return -1
+      if (!numberA && numberB) return 1;
+      if (numberA && !numberB) return -1;
 
       const numberComparison = membershipNumberCollator.compare(
         numberA,
         numberB,
-      )
+      );
 
       if (numberComparison !== 0) {
-        return numberComparison
+        return numberComparison;
       }
 
       // For the same membership number, show the main record first.
       if (a.is_branch !== b.is_branch) {
-        return a.is_branch ? 1 : -1
+        return a.is_branch ? 1 : -1;
       }
 
       // If both are branches of the same membership, sort by suffix.
       if (a.is_branch && b.is_branch) {
         return membershipNumberCollator.compare(
-          String(a.suffix ?? ''),
-          String(b.suffix ?? ''),
-        )
+          String(a.suffix ?? ""),
+          String(b.suffix ?? ""),
+        );
       }
 
       // Stable, predictable ordering when main records share a number.
       return membershipNumberCollator.compare(
-        String(a.head_name ?? ''),
-        String(b.head_name ?? ''),
-      )
-    })
-  }, [displayCards, searchValue, statusFilter])
+        String(a.head_name ?? ""),
+        String(b.head_name ?? ""),
+      );
+    });
+  }, [displayCards, searchValue, statusFilter]);
 
   function openMembership(membership) {
     if (membership.is_branch) {
-        navigate(
+      navigate(
         `/memberships/${membership.parent_membership_row_id}?branchId=${membership.branch_id}`,
         {
-            state: {
-            from: 'memberships',
-            },
+          state: {
+            from: "memberships",
+          },
         },
-        )
-        return
+      );
+      return;
     }
 
-    navigate(`/memberships/${membership.id}`)
-    }
+    navigate(`/memberships/${membership.id}`);
+  }
 
   function handleExport() {
     const headers = [
-      'Displayed Number',
-      'Record Type',
-      'Branch Of',
-      'Head of Membership',
-      'Area',
-      'City',
-      'Member Count',
-      'Status',
-      'Permanent Membership ID',
-    ]
+      "Displayed Number",
+      "Record Type",
+      "Branch Of",
+      "Head of Membership",
+      "Area",
+      "City",
+      "Member Count",
+      "Status",
+      "Permanent Membership ID",
+    ];
 
     const rows = filteredMemberships.map((membership) => [
       getDisplayNumber(membership),
-      membership.is_branch ? 'Branch' : 'Membership',
-      membership.is_branch ? membership.membership_number : '',
+      membership.is_branch ? "Branch" : "Membership",
+      membership.is_branch ? membership.membership_number : "",
       membership.card_head_name || membership.head_name,
       membership.area,
       membership.city,
       membership.member_count,
       membership.membership_status,
       membership.membership_id,
-    ])
+    ]);
 
-    const escapeCsv = (value) =>
-      `"${String(value ?? '').replace(/"/g, '""')}"`
+    const escapeCsv = (value) => `"${String(value ?? "").replace(/"/g, '""')}"`;
 
     const csv = [headers, ...rows]
-      .map((row) => row.map(escapeCsv).join(','))
-      .join('\r\n')
+      .map((row) => row.map(escapeCsv).join(","))
+      .join("\r\n");
 
-    const blob = new Blob(['\uFEFF', csv], {
-      type: 'text/csv;charset=utf-8;',
-    })
+    const blob = new Blob(["\uFEFF", csv], {
+      type: "text/csv;charset=utf-8;",
+    });
 
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
 
-    link.href = url
-    link.download = 'church-desk-memberships.csv'
-    link.click()
+    link.href = url;
+    link.download = "church-desk-memberships.csv";
+    link.click();
 
-    URL.revokeObjectURL(url)
+    URL.revokeObjectURL(url);
   }
 
   return (
@@ -434,8 +417,8 @@ export default function MembershipPage() {
         </h1>
 
         <p className="mt-2 text-[14px] text-[#6b6d76] sm:text-[16px]">
-          Manage church memberships and members · Current register:{' '}
-          {registerYear ?? 'Not finalised'}
+          Manage church memberships and members · Current register:{" "}
+          {registerYear ?? "Not finalised"}
         </p>
       </header>
 
@@ -445,9 +428,7 @@ export default function MembershipPage() {
           Import
         </ActionButton>
         {importModalOpen && (
-          <MembershipImportModal
-            onClose={() => setImportModalOpen(false)}
-          />
+          <MembershipImportModal onClose={() => setImportModalOpen(false)} />
         )}
 
         <ActionButton onClick={handleExport} disabled={loading}>
@@ -470,7 +451,7 @@ export default function MembershipPage() {
 
           <input
             type="search"
-            value={searchValue || ''}
+            value={searchValue || ""}
             onChange={(event) => setSearchValue(event.target.value)}
             placeholder="Search memberships, branches, members, phone numbers, address..."
             aria-label="Search memberships"
@@ -486,8 +467,8 @@ export default function MembershipPage() {
               onClick={() => setStatusFilter(filter)}
               className={`rounded-full border px-5 py-3 text-[13px] font-medium transition ${
                 statusFilter === filter
-                  ? 'border-[#191a1f] bg-[#191a1f] text-white'
-                  : 'border-[#e9e9eb] bg-white text-[#53555e] hover:bg-[#f8f8f9]'
+                  ? "border-[#191a1f] bg-[#191a1f] text-white"
+                  : "border-[#e9e9eb] bg-white text-[#53555e] hover:bg-[#f8f8f9]"
               }`}
             >
               {filter}
@@ -523,18 +504,18 @@ export default function MembershipPage() {
           </div>
 
           <h2 className="text-[16px] font-bold text-[#131418]">
-            {searchValue || statusFilter !== 'All'
-              ? 'No matching memberships'
-              : 'No membership records yet'}
+            {searchValue || statusFilter !== "All"
+              ? "No matching memberships"
+              : "No membership records yet"}
           </h2>
 
           <p className="mt-2 max-w-[390px] text-[13px] leading-6 text-[#92939b]">
-            {searchValue || statusFilter !== 'All'
-              ? 'Try a different search or status filter.'
-              : 'Memberships created in Church Desk will appear here.'}
+            {searchValue || statusFilter !== "All"
+              ? "Try a different search or status filter."
+              : "Memberships created in Church Desk will appear here."}
           </p>
 
-          {!searchValue && statusFilter === 'All' && (
+          {!searchValue && statusFilter === "All" && (
             <button
               type="button"
               onClick={() => setAddModalOpen(true)}
@@ -549,9 +530,9 @@ export default function MembershipPage() {
         <>
           <div className="mb-4 flex items-center justify-between gap-3">
             <p className="text-[12px] text-[#92939b]">
-              {filteredMemberships.length}{' '}
-              {filteredMemberships.length === 1 ? 'record' : 'records'}
-              {' · Includes lettered branches'}
+              {filteredMemberships.length}{" "}
+              {filteredMemberships.length === 1 ? "record" : "records"}
+              {" · Includes lettered branches"}
             </p>
 
             <button
@@ -583,26 +564,21 @@ export default function MembershipPage() {
           not change when membership numbers change.
         </p>
 
-        <p>
-          {loading ? 'Loading...' : `${filteredMemberships.length} shown`}
-        </p>
+        <p>{loading ? "Loading..." : `${filteredMemberships.length} shown`}</p>
       </div>
 
       {addModalOpen && (
         <AddMembershipModal
           onClose={() => setAddModalOpen(false)}
           onCreated={async () => {
-            await loadDirectory()
-            setAddModalOpen(false)
+            await loadDirectory();
+            setAddModalOpen(false);
           }}
         />
-        
       )}
       {importModalOpen && (
-        <MembershipImportModal
-          onClose={() => setImportModalOpen(false)}
-        />
+        <MembershipImportModal onClose={() => setImportModalOpen(false)} />
       )}
     </div>
-  )
+  );
 }

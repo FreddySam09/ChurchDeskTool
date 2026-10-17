@@ -1,12 +1,11 @@
-
 const EVENT_LABELS = {
-  DRAFT_CREATED: 'Draft created',
-  REGISTER_READY: 'Register prepared',
-  SNAPSHOT_CREATED: 'Membership snapshot created',
-  STATUS_CHANGED: 'Register status changed',
-  ENTRIES_REORDERED: 'Entries reordered',
-  BRANCH_SPLIT_IN_DRAFT: 'Branch marked for independent split',
-}
+  DRAFT_CREATED: "Draft created",
+  REGISTER_READY: "Register prepared",
+  SNAPSHOT_CREATED: "Membership snapshot created",
+  STATUS_CHANGED: "Register status changed",
+  ENTRIES_REORDERED: "Entries reordered",
+  BRANCH_SPLIT_IN_DRAFT: "Branch marked for independent split",
+};
 
 export default function RegisterHistory({ history = [], loading = false }) {
   return (
@@ -41,20 +40,19 @@ export default function RegisterHistory({ history = [], loading = false }) {
                   <p className="mt-1 text-xs text-[#92939b]">
                     {event.created_at
                       ? new Date(event.created_at).toLocaleString()
-                      : 'Time unavailable'}
+                      : "Time unavailable"}
                   </p>
 
-                  {event.details &&
-                    Object.keys(event.details).length > 0 && (
-                      <details className="mt-2">
-                        <summary className="cursor-pointer text-xs text-[#777984] hover:text-[#25262c]">
-                          View details
-                        </summary>
-                        <pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-words rounded-lg bg-[#f4f4f5] p-3 text-xs text-[#53555e]">
-                          {JSON.stringify(event.details, null, 2)}
-                        </pre>
-                      </details>
-                    )}
+                  {event.details && Object.keys(event.details).length > 0 && (
+                    <details className="mt-2">
+                      <summary className="cursor-pointer text-xs text-[#777984] hover:text-[#25262c]">
+                        View details
+                      </summary>
+                      <pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-words rounded-lg bg-[#f4f4f5] p-3 text-xs text-[#53555e]">
+                        {JSON.stringify(event.details, null, 2)}
+                      </pre>
+                    </details>
+                  )}
                 </div>
               </li>
             ))}
@@ -62,5 +60,5 @@ export default function RegisterHistory({ history = [], loading = false }) {
         )}
       </div>
     </section>
-  )
+  );
 }

@@ -1,11 +1,10 @@
-
 export {
   getMembershipDirectory,
   getMembershipDetails,
   createMembershipWithHead,
   updateMembership,
   changeMembershipHead,
-} from './membership'
+} from "./membership";
 
 export {
   getMembers,
@@ -14,7 +13,7 @@ export {
   addMemberToMembershipWithGroups,
   recordMemberRelationship,
   updateMember,
-} from './membership'
+} from "./membership";
 
 export {
   getChurchGroups,
@@ -24,12 +23,8 @@ export {
   getGroupAssignments,
   saveMemberGroupAssignments,
   updateMemberGroups,
-} from './membership'
+} from "./membership";
 
-export {
-  getMembershipHistory,
-} from './membership'
+export { getMembershipHistory } from "./membership";
 
-export {
-  createBranchFromMember,
-} from './membership'
+export { createBranchFromMember } from "./membership";

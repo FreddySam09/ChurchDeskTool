@@ -1,21 +1,20 @@
-
-import { useEffect, useState } from 'react'
-import { X, MapPin, Phone, Hash, UserRound } from 'lucide-react'
-import { updateMembership } from '../../services/membershipService'
+import { useEffect, useState } from "react";
+import { X, MapPin, Phone, Hash, UserRound } from "lucide-react";
+import { updateMembership } from "../../services/membershipService";
 
 const inputClass =
-  'mt-1.5 w-full rounded-[10px] border border-[#e5e5e7] bg-white px-3 py-2.5 text-[13px] text-[#131418] outline-none transition placeholder:text-[#a0a1a8] focus:border-[#4f70e8] focus:ring-2 focus:ring-[#4f70e8]/10'
+  "mt-1.5 w-full rounded-[10px] border border-[#e5e5e7] bg-white px-3 py-2.5 text-[13px] text-[#131418] outline-none transition placeholder:text-[#a0a1a8] focus:border-[#4f70e8] focus:ring-2 focus:ring-[#4f70e8]/10";
 
-const labelClass = 'block text-[12px] font-semibold text-[#53555e]'
+const labelClass = "block text-[12px] font-semibold text-[#53555e]";
 
 function Field({
   label,
   name,
   value,
   onChange,
-  type = 'text',
+  type = "text",
   required = false,
-  placeholder = '',
+  placeholder = "",
 }) {
   return (
     <label className={labelClass}>
@@ -31,7 +30,7 @@ function Field({
         className={inputClass}
       />
     </label>
-  )
+  );
 }
 
 function Section({ icon: Icon, title, children }) {
@@ -43,32 +42,24 @@ function Section({ icon: Icon, title, children }) {
         </span>
         <h3 className="text-[13px] font-bold text-[#131418]">{title}</h3>
       </div>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {children}
-      </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">{children}</div>
     </section>
-  )
+  );
 }
 
 function toFormValue(value) {
-  return value == null ? '' : String(value)
+  return value == null ? "" : String(value);
 }
 
-export default function EditMembershipModal({
-  membership,
-  onClose,
-  onSaved,
-}) {
-  const [form, setForm] = useState({})
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
+export default function EditMembershipModal({ membership, onClose, onSaved }) {
+  const [form, setForm] = useState({});
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     setForm({
       membership_number: toFormValue(membership.membership_number),
-      membership_status: toFormValue(
-        membership.membership_status || 'Active',
-      ),
+      membership_status: toFormValue(membership.membership_status || "Active"),
       door_number: toFormValue(membership.door_number),
       street_name: toFormValue(membership.street_name),
       area: toFormValue(membership.area),
@@ -82,38 +73,38 @@ export default function EditMembershipModal({
         membership.year_joined || new Date().getFullYear(),
       ),
       head_photo_path: toFormValue(membership.head_photo_path),
-    })
-  }, [membership])
+    });
+  }, [membership]);
 
   function handleChange(event) {
-    const { name, value } = event.target
-    setForm((current) => ({ ...current, [name]: value }))
+    const { name, value } = event.target;
+    setForm((current) => ({ ...current, [name]: value }));
   }
 
   async function handleSubmit(event) {
-    event.preventDefault()
-    setError('')
+    event.preventDefault();
+    setError("");
 
     if (!membership?.id) {
-      setError('Membership record ID is missing.')
-      return
+      setError("Membership record ID is missing.");
+      return;
     }
 
-    const year = Number(form.year_joined)
+    const year = Number(form.year_joined);
 
     if (!Number.isInteger(year) || year < 1800 || year > 2200) {
-      setError('Enter a valid year joined.')
-      return
+      setError("Enter a valid year joined.");
+      return;
     }
 
-    const number = form.membership_number.trim()
+    const number = form.membership_number.trim();
 
     if (number && !/^[0-9]+$/.test(number)) {
-      setError('Membership number must contain digits only.')
-      return
+      setError("Membership number must contain digits only.");
+      return;
     }
 
-    setSaving(true)
+    setSaving(true);
 
     try {
       await updateMembership(membership.id, {
@@ -130,14 +121,14 @@ export default function EditMembershipModal({
         email: form.email.trim() || null,
         year_joined: year,
         head_photo_path: form.head_photo_path.trim() || null,
-      })
+      });
 
-      await onSaved?.()
-      onClose()
+      await onSaved?.();
+      onClose();
     } catch (err) {
-      setError(err.message || 'Could not update this membership.')
+      setError(err.message || "Could not update this membership.");
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
   }
 
@@ -145,7 +136,7 @@ export default function EditMembershipModal({
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-black/40 p-3 sm:p-5"
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget && !saving) onClose()
+        if (event.target === event.currentTarget && !saving) onClose();
       }}
     >
       <section className="my-auto max-h-[94vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-[#ececed] bg-[#fafafa] shadow-2xl">
@@ -178,7 +169,7 @@ export default function EditMembershipModal({
             <Field
               label="Membership number"
               name="membership_number"
-              value={form.membership_number ?? ''}
+              value={form.membership_number ?? ""}
               onChange={handleChange}
               placeholder="e.g. 1"
             />
@@ -187,12 +178,12 @@ export default function EditMembershipModal({
               Membership status
               <select
                 name="membership_status"
-                value={form.membership_status ?? 'Active'}
+                value={form.membership_status ?? "Active"}
                 onChange={handleChange}
                 className={inputClass}
                 required
               >
-                {['Active', 'Inactive', 'Transferred', 'Closed'].map(
+                {["Active", "Inactive", "Transferred", "Closed"].map(
                   (status) => (
                     <option key={status} value={status}>
                       {status}
@@ -206,7 +197,7 @@ export default function EditMembershipModal({
               label="Year joined"
               name="year_joined"
               type="number"
-              value={form.year_joined ?? ''}
+              value={form.year_joined ?? ""}
               onChange={handleChange}
               required
             />
@@ -214,7 +205,7 @@ export default function EditMembershipModal({
             <Field
               label="Head photo storage path"
               name="head_photo_path"
-              value={form.head_photo_path ?? ''}
+              value={form.head_photo_path ?? ""}
               onChange={handleChange}
               placeholder="Storage path (optional)"
             />
@@ -224,38 +215,38 @@ export default function EditMembershipModal({
             <Field
               label="Door number"
               name="door_number"
-              value={form.door_number ?? ''}
+              value={form.door_number ?? ""}
               onChange={handleChange}
             />
             <Field
               label="Street name"
               name="street_name"
-              value={form.street_name ?? ''}
+              value={form.street_name ?? ""}
               onChange={handleChange}
             />
             <Field
               label="Area"
               name="area"
-              value={form.area ?? ''}
+              value={form.area ?? ""}
               onChange={handleChange}
             />
             <Field
               label="City"
               name="city"
-              value={form.city ?? ''}
+              value={form.city ?? ""}
               onChange={handleChange}
             />
             <Field
               label="Pincode"
               name="pincode"
-              value={form.pincode ?? ''}
+              value={form.pincode ?? ""}
               onChange={handleChange}
               inputMode="numeric"
             />
             <Field
               label="Landmark"
               name="landmark"
-              value={form.landmark ?? ''}
+              value={form.landmark ?? ""}
               onChange={handleChange}
             />
           </Section>
@@ -264,21 +255,21 @@ export default function EditMembershipModal({
             <Field
               label="Primary phone"
               name="primary_phone_number"
-              value={form.primary_phone_number ?? ''}
+              value={form.primary_phone_number ?? ""}
               onChange={handleChange}
               type="tel"
             />
             <Field
               label="Alternate phone"
               name="alternate_phone_number"
-              value={form.alternate_phone_number ?? ''}
+              value={form.alternate_phone_number ?? ""}
               onChange={handleChange}
               type="tel"
             />
             <Field
               label="Household email"
               name="email"
-              value={form.email ?? ''}
+              value={form.email ?? ""}
               onChange={handleChange}
               type="email"
             />
@@ -318,11 +309,11 @@ export default function EditMembershipModal({
               disabled={saving}
               className="rounded-[10px] bg-[#1a1b20] px-5 py-2.5 text-[12px] font-semibold text-white hover:bg-black disabled:opacity-60"
             >
-              {saving ? 'Saving...' : 'Save changes'}
+              {saving ? "Saving..." : "Save changes"}
             </button>
           </footer>
         </form>
       </section>
     </div>
-  )
+  );
 }

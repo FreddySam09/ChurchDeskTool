@@ -1,5 +1,4 @@
-
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from "react";
 import {
   Check,
   ChevronDown,
@@ -9,51 +8,51 @@ import {
   Search,
   Split,
   X,
-} from 'lucide-react'
+} from "lucide-react";
 import {
   getIncludedEntries,
   getRemovedEntries,
   getEntryLabel,
-} from './annualRegisterUtils'
+} from "./annualRegisterUtils";
 
 function isBranchEntry(entry) {
-  return Boolean(entry.branch_id) && entry.entry_type === 'Branch'
+  return Boolean(entry.branch_id) && entry.entry_type === "Branch";
 }
 
 function isSplitEntry(entry) {
-  return entry.entry_type === 'Independent Split'
+  return entry.entry_type === "Independent Split";
 }
 
 function makeGroups(entries) {
-  const byId = new Map(entries.map((entry) => [entry.id, entry]))
-  const groups = []
-  const groupByRoot = new Map()
-  const assigned = new Set()
+  const byId = new Map(entries.map((entry) => [entry.id, entry]));
+  const groups = [];
+  const groupByRoot = new Map();
+  const assigned = new Set();
 
   for (const entry of entries) {
-    if (assigned.has(entry.id)) continue
+    if (assigned.has(entry.id)) continue;
 
     if (
       entry.parent_entry_id &&
       byId.has(entry.parent_entry_id) &&
       isBranchEntry(entry)
     ) {
-      const parent = byId.get(entry.parent_entry_id)
-      let group = groupByRoot.get(parent.id)
+      const parent = byId.get(entry.parent_entry_id);
+      let group = groupByRoot.get(parent.id);
 
       if (!group) {
-        group = { key: parent.id, entries: [parent] }
-        groupByRoot.set(parent.id, group)
-        groups.push(group)
-        assigned.add(parent.id)
+        group = { key: parent.id, entries: [parent] };
+        groupByRoot.set(parent.id, group);
+        groups.push(group);
+        assigned.add(parent.id);
       }
 
       if (!group.entries.some((item) => item.id === entry.id)) {
-        group.entries.push(entry)
+        group.entries.push(entry);
       }
 
-      assigned.add(entry.id)
-      continue
+      assigned.add(entry.id);
+      continue;
     }
 
     if (
@@ -61,40 +60,40 @@ function makeGroups(entries) {
       entry.parent_entry_id &&
       assigned.has(entry.parent_entry_id)
     ) {
-      const group = groupByRoot.get(entry.parent_entry_id)
+      const group = groupByRoot.get(entry.parent_entry_id);
 
       if (group && !group.entries.some((item) => item.id === entry.id)) {
-        group.entries.push(entry)
+        group.entries.push(entry);
       }
 
-      assigned.add(entry.id)
-      continue
+      assigned.add(entry.id);
+      continue;
     }
 
-    const group = { key: entry.id, entries: [entry] }
-    groupByRoot.set(entry.id, group)
-    groups.push(group)
-    assigned.add(entry.id)
+    const group = { key: entry.id, entries: [entry] };
+    groupByRoot.set(entry.id, group);
+    groups.push(group);
+    assigned.add(entry.id);
   }
 
   for (const group of groups) {
     group.entries.sort((a, b) => {
-      if (a.id === group.key) return -1
-      if (b.id === group.key) return 1
+      if (a.id === group.key) return -1;
+      if (b.id === group.key) return 1;
 
-      return String(a.suffix || '').localeCompare(
-        String(b.suffix || ''),
+      return String(a.suffix || "").localeCompare(
+        String(b.suffix || ""),
         undefined,
         { numeric: true },
-      )
-    })
+      );
+    });
   }
 
-  return groups
+  return groups;
 }
 
 function flattenGroups(groups) {
-  return groups.flatMap((group) => group.entries)
+  return groups.flatMap((group) => group.entries);
 }
 
 export default function RegisterEntries({
@@ -109,36 +108,33 @@ export default function RegisterEntries({
   onReorder,
   onNumberChange,
 }) {
-  const [search, setSearch] = useState('')
-  const [showRemoved, setShowRemoved] = useState(false)
-  const [draggedKey, setDraggedKey] = useState(null)
-  const [numberEdits, setNumberEdits] = useState({})
+  const [search, setSearch] = useState("");
+  const [showRemoved, setShowRemoved] = useState(false);
+  const [draggedKey, setDraggedKey] = useState(null);
+  const [numberEdits, setNumberEdits] = useState({});
 
-  const includedCount = getIncludedEntries(entries).length
-  const removedCount = getRemovedEntries(entries).length
+  const includedCount = getIncludedEntries(entries).length;
+  const removedCount = getRemovedEntries(entries).length;
 
   useEffect(() => {
     setNumberEdits(
       Object.fromEntries(
-        entries.map((entry) => [
-          entry.id,
-          entry.membership_number ?? '',
-        ]),
+        entries.map((entry) => [entry.id, entry.membership_number ?? ""]),
       ),
-    )
-  }, [entries])
+    );
+  }, [entries]);
 
-  const groups = useMemo(() => makeGroups(entries), [entries])
+  const groups = useMemo(() => makeGroups(entries), [entries]);
 
   const filteredGroups = useMemo(() => {
-    const query = search.trim().toLowerCase()
+    const query = search.trim().toLowerCase();
 
     return groups
       .map((group) => ({
         ...group,
         entries: group.entries.filter((entry) => {
-          if (!showRemoved && !entry.is_included) return false
-          if (!query) return true
+          if (!showRemoved && !entry.is_included) return false;
+          if (!query) return true;
 
           const haystack = [
             entry.membership_number,
@@ -155,64 +151,54 @@ export default function RegisterEntries({
             ),
           ]
             .filter(Boolean)
-            .join(' ')
-            .toLowerCase()
+            .join(" ")
+            .toLowerCase();
 
-          return haystack.includes(query)
+          return haystack.includes(query);
         }),
       }))
-      .filter((group) => group.entries.length > 0)
-  }, [groups, search, showRemoved])
+      .filter((group) => group.entries.length > 0);
+  }, [groups, search, showRemoved]);
 
   function moveGroup(groupKey, direction) {
-    const currentIndex = groups.findIndex(
-      (group) => group.key === groupKey,
-    )
-    const targetIndex = currentIndex + direction
+    const currentIndex = groups.findIndex((group) => group.key === groupKey);
+    const targetIndex = currentIndex + direction;
 
-    if (
-      currentIndex < 0 ||
-      targetIndex < 0 ||
-      targetIndex >= groups.length
-    ) {
-      return
+    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= groups.length) {
+      return;
     }
 
-    const next = [...groups]
-    const [moved] = next.splice(currentIndex, 1)
-    next.splice(targetIndex, 0, moved)
+    const next = [...groups];
+    const [moved] = next.splice(currentIndex, 1);
+    next.splice(targetIndex, 0, moved);
 
-    onReorder?.(flattenGroups(next))
+    onReorder?.(flattenGroups(next));
   }
 
   function dropOnGroup(targetKey) {
-    if (!draggedKey || draggedKey === targetKey) return
+    if (!draggedKey || draggedKey === targetKey) return;
 
-    const next = [...groups]
-    const from = next.findIndex(
-      (group) => group.key === draggedKey,
-    )
-    const to = next.findIndex(
-      (group) => group.key === targetKey,
-    )
+    const next = [...groups];
+    const from = next.findIndex((group) => group.key === draggedKey);
+    const to = next.findIndex((group) => group.key === targetKey);
 
-    if (from < 0 || to < 0) return
+    if (from < 0 || to < 0) return;
 
-    const [moved] = next.splice(from, 1)
-    next.splice(to, 0, moved)
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
 
-    setDraggedKey(null)
-    onReorder?.(flattenGroups(next))
+    setDraggedKey(null);
+    onReorder?.(flattenGroups(next));
   }
 
   async function saveNumber(entry) {
-    const value = String(numberEdits[entry.id] ?? '').trim()
+    const value = String(numberEdits[entry.id] ?? "").trim();
 
-    if (!value || value === String(entry.membership_number ?? '')) {
-      return
+    if (!value || value === String(entry.membership_number ?? "")) {
+      return;
     }
 
-    await onNumberChange?.(entry, value)
+    await onNumberChange?.(entry, value);
   }
 
   return (
@@ -224,8 +210,8 @@ export default function RegisterEntries({
               Register editor
             </h2>
             <p className="mt-1 text-xs leading-5 text-[#777984]">
-              Edit proposed numbers and arrange membership groups.
-              Branches move with their parent.
+              Edit proposed numbers and arrange membership groups. Branches move
+              with their parent.
             </p>
           </div>
 
@@ -273,12 +259,12 @@ export default function RegisterEntries({
         <div className="p-12 text-center">
           <p className="text-sm font-medium text-[#383a42]">
             {entries.length
-              ? 'No entries match your search.'
-              : 'This draft has no entries yet.'}
+              ? "No entries match your search."
+              : "This draft has no entries yet."}
           </p>
           <p className="mt-1 text-xs text-[#92939b]">
-            Create a draft with a current-membership snapshot to populate
-            the register.
+            Create a draft with a current-membership snapshot to populate the
+            register.
           </p>
         </div>
       ) : (
@@ -298,42 +284,40 @@ export default function RegisterEntries({
               {filteredGroups.map((group) => {
                 const root =
                   group.entries.find((entry) => !isBranchEntry(entry)) ??
-                  group.entries[0]
+                  group.entries[0];
 
                 const groupIndex = groups.findIndex(
                   (item) => item.key === group.key,
-                )
+                );
 
                 return group.entries.map((entry, entryIndex) => {
-                  const isBranch = isBranchEntry(entry)
-                  const split = isSplitEntry(entry)
-                  const isRemoved = !entry.is_included
-                  const head = entry.head_name || 'Head needs review'
+                  const isBranch = isBranchEntry(entry);
+                  const split = isSplitEntry(entry);
+                  const isRemoved = !entry.is_included;
+                  const head = entry.head_name || "Head needs review";
 
                   return (
                     <tr
                       key={entry.id}
-                      draggable={
-                        !readOnly && !working && entryIndex === 0
-                      }
+                      draggable={!readOnly && !working && entryIndex === 0}
                       onDragStart={() => setDraggedKey(group.key)}
                       onDragEnd={() => setDraggedKey(null)}
                       onDragOver={(event) => {
                         if (draggedKey && draggedKey !== group.key) {
-                          event.preventDefault()
+                          event.preventDefault();
                         }
                       }}
                       onDrop={(event) => {
-                        event.preventDefault()
-                        dropOnGroup(group.key)
+                        event.preventDefault();
+                        dropOnGroup(group.key);
                       }}
                       className={`border-b border-[#f0f0f2] last:border-b-0 transition ${
                         isRemoved
-                          ? 'bg-[#fafafa] text-[#92939b]'
+                          ? "bg-[#fafafa] text-[#92939b]"
                           : draggedKey === group.key
-                            ? 'bg-[#f4f6ff]'
-                            : 'bg-white hover:bg-[#fcfcfd]'
-                      } ${isBranch ? 'bg-[#fbfaff]' : ''}`}
+                            ? "bg-[#f4f6ff]"
+                            : "bg-white hover:bg-[#fcfcfd]"
+                      } ${isBranch ? "bg-[#fbfaff]" : ""}`}
                     >
                       <td className="px-3 py-3 align-top">
                         <div className="flex items-center gap-1.5">
@@ -378,16 +362,16 @@ export default function RegisterEntries({
                           <span
                             className={`inline-flex min-w-[54px] justify-center rounded-md border px-2 py-1.5 text-xs font-bold tabular-nums ${
                               isBranch
-                                ? 'border-violet-200 bg-violet-50 text-violet-700'
-                                : 'border-[#e5e7eb] bg-[#f8f8f9] text-[#25262c]'
+                                ? "border-violet-200 bg-violet-50 text-violet-700"
+                                : "border-[#e5e7eb] bg-[#f8f8f9] text-[#25262c]"
                             }`}
                           >
-                            {entry.membership_number || '—'}
+                            {entry.membership_number || "—"}
                           </span>
                         ) : (
                           <input
                             aria-label={`Proposed number for ${head}`}
-                            value={numberEdits[entry.id] ?? ''}
+                            value={numberEdits[entry.id] ?? ""}
                             onChange={(event) =>
                               setNumberEdits((current) => ({
                                 ...current,
@@ -395,23 +379,25 @@ export default function RegisterEntries({
                               }))
                             }
                             onKeyDown={(event) => {
-                              if (event.key === 'Enter') {
-                                event.currentTarget.blur()
+                              if (event.key === "Enter") {
+                                event.currentTarget.blur();
                               }
                             }}
                             onBlur={() => saveNumber(entry)}
                             disabled={working || isRemoved}
                             className={`w-[82px] rounded-md border px-2 py-1.5 text-xs font-semibold tabular-nums outline-none focus:border-[#6b7fe8] focus:ring-2 focus:ring-[#6b7fe8]/10 disabled:bg-[#f5f5f6] ${
                               isBranch
-                                ? 'border-violet-200 bg-violet-50 text-violet-700'
-                                : 'border-[#e5e7eb] bg-white text-[#25262c]'
+                                ? "border-violet-200 bg-violet-50 text-violet-700"
+                                : "border-[#e5e7eb] bg-white text-[#25262c]"
                             }`}
                           />
                         )}
                       </td>
 
                       <td className="px-3 py-3 align-top">
-                        <div className={`flex items-start gap-2 ${isBranch ? 'pl-5' : ''}`}>
+                        <div
+                          className={`flex items-start gap-2 ${isBranch ? "pl-5" : ""}`}
+                        >
                           {isBranch && (
                             <span className="mt-0.5 text-violet-500">↳</span>
                           )}
@@ -421,8 +407,8 @@ export default function RegisterEntries({
                               <span
                                 className={`text-sm font-semibold ${
                                   isRemoved
-                                    ? 'text-[#777984] line-through'
-                                    : 'text-[#25262c]'
+                                    ? "text-[#777984] line-through"
+                                    : "text-[#25262c]"
                                 }`}
                               >
                                 {head}
@@ -431,10 +417,10 @@ export default function RegisterEntries({
                               <span
                                 className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${
                                   isBranch
-                                    ? 'border-violet-200 bg-violet-50 text-violet-700'
+                                    ? "border-violet-200 bg-violet-50 text-violet-700"
                                     : split
-                                      ? 'border-sky-200 bg-sky-50 text-sky-700'
-                                      : 'border-[#e5e7eb] bg-[#f8f8f9] text-[#777984]'
+                                      ? "border-sky-200 bg-sky-50 text-sky-700"
+                                      : "border-[#e5e7eb] bg-[#f8f8f9] text-[#777984]"
                                 }`}
                               >
                                 {getEntryLabel(entry)}
@@ -449,25 +435,26 @@ export default function RegisterEntries({
 
                             <p className="mt-1 text-[11px] text-[#858792]">
                               {entry.membership?.membership_id ||
-                                'Membership ID unavailable'}
-                              {entry.suffix ? ` · Branch ${entry.suffix}` : ''}
+                                "Membership ID unavailable"}
+                              {entry.suffix ? ` · Branch ${entry.suffix}` : ""}
                             </p>
 
                             {isBranch && (
                               <p className="mt-1 text-[11px] text-violet-700">
-                                Branch of{' '}
+                                Branch of{" "}
                                 {root?.membership_number ||
                                   entry.membership_number?.replace(
                                     entry.suffix,
-                                    '',
+                                    "",
                                   ) ||
-                                  'parent membership'}
+                                  "parent membership"}
                               </p>
                             )}
 
                             {split && (
                               <p className="mt-1 text-[11px] text-sky-700">
-                                Proposed as an independent membership after approval
+                                Proposed as an independent membership after
+                                approval
                               </p>
                             )}
 
@@ -475,15 +462,15 @@ export default function RegisterEntries({
                               {(entry.assignments ?? []).map((assignment) => (
                                 <span
                                   key={assignment.id}
-                                  title={assignment.relationship_to_head || ''}
+                                  title={assignment.relationship_to_head || ""}
                                   className={`rounded-md border px-2 py-1 text-[10px] ${
                                     assignment.is_head
-                                      ? 'border-[#dcece2] bg-[#eff8f2] font-semibold text-[#28734b]'
-                                      : 'border-[#ececef] bg-white text-[#777984]'
+                                      ? "border-[#dcece2] bg-[#eff8f2] font-semibold text-[#28734b]"
+                                      : "border-[#ececef] bg-white text-[#777984]"
                                   }`}
                                 >
-                                  {assignment.member?.name || 'Unknown person'}
-                                  {assignment.is_head ? ' · Head' : ''}
+                                  {assignment.member?.name || "Unknown person"}
+                                  {assignment.is_head ? " · Head" : ""}
                                 </span>
                               ))}
                             </div>
@@ -501,13 +488,13 @@ export default function RegisterEntries({
                         <span
                           className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-semibold ${
                             isRemoved
-                              ? 'bg-rose-50 text-rose-700'
+                              ? "bg-rose-50 text-rose-700"
                               : split
-                                ? 'bg-sky-50 text-sky-700'
-                                : 'bg-[#f1f1f3] text-[#555761]'
+                                ? "bg-sky-50 text-sky-700"
+                                : "bg-[#f1f1f3] text-[#555761]"
                           }`}
                         >
-                          {isRemoved ? 'Removed' : split ? 'Split' : 'Continue'}
+                          {isRemoved ? "Removed" : split ? "Split" : "Continue"}
                         </span>
 
                         {entry.removal_reason && isRemoved && (
@@ -528,8 +515,8 @@ export default function RegisterEntries({
                               }
                               className={`inline-flex items-center gap-1 rounded-md border px-2.5 py-1.5 text-[11px] font-medium disabled:opacity-40 ${
                                 isRemoved
-                                  ? 'border-[#dcece2] text-[#28734b] hover:bg-[#eff8f2]'
-                                  : 'border-[#f0d5d2] text-[#b0443e] hover:bg-[#fff4f3]'
+                                  ? "border-[#dcece2] text-[#28734b] hover:bg-[#eff8f2]"
+                                  : "border-[#f0d5d2] text-[#b0443e] hover:bg-[#fff4f3]"
                               }`}
                             >
                               {isRemoved ? (
@@ -580,8 +567,8 @@ export default function RegisterEntries({
                         )}
                       </td>
                     </tr>
-                  )
-                })
+                  );
+                });
               })}
             </tbody>
           </table>
@@ -590,22 +577,22 @@ export default function RegisterEntries({
 
       <div className="flex flex-col gap-2 border-t border-[#e9e9eb] bg-[#fafafa] px-4 py-3 text-[11px] text-[#858792] sm:flex-row sm:items-center sm:justify-between">
         <span>
-          Drag a group's handle or use the arrows to reorder. Branches stay
-          with their parent.
+          Drag a group's handle or use the arrows to reorder. Branches stay with
+          their parent.
         </span>
         {working && (
           <span className="font-medium text-[#555761]">Saving changes…</span>
         )}
       </div>
     </section>
-  )
+  );
 }
 
 function HeadSelector({ entry, working, onDesignateHead }) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(false);
   const currentHead = entry.assignments?.find(
     (assignment) => assignment.is_head,
-  )
+  );
 
   return (
     <div className="relative">
@@ -615,7 +602,7 @@ function HeadSelector({ entry, working, onDesignateHead }) {
         onClick={() => setOpen((value) => !value)}
         className="rounded-md border border-[#e5e7eb] px-2.5 py-1.5 text-[11px] font-medium text-[#555761] hover:bg-[#f8f8f9] disabled:opacity-40"
       >
-        Head: {currentHead?.member?.name?.split(' ')[0] || 'Set'}
+        Head: {currentHead?.member?.name?.split(" ")[0] || "Set"}
       </button>
 
       {open && (
@@ -625,13 +612,13 @@ function HeadSelector({ entry, working, onDesignateHead }) {
               key={assignment.id}
               type="button"
               onClick={async () => {
-                await onDesignateHead?.(entry, assignment.member_id)
-                setOpen(false)
+                await onDesignateHead?.(entry, assignment.member_id);
+                setOpen(false);
               }}
               className="flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-2 text-left text-xs hover:bg-[#f5f6f8]"
             >
               <span className="truncate">
-                {assignment.member?.name || 'Unknown person'}
+                {assignment.member?.name || "Unknown person"}
               </span>
               {assignment.is_head ? (
                 <Check size={13} className="shrink-0 text-[#28734b]" />
@@ -641,5 +628,5 @@ function HeadSelector({ entry, working, onDesignateHead }) {
         </div>
       )}
     </div>
-  )
+  );
 }

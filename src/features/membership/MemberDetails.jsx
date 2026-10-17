@@ -1,50 +1,38 @@
-
-import { useCallback, useEffect, useState } from 'react'
-import { useLocation, useNavigate, useParams } from 'react-router-dom'
-import {
-  ArrowLeft,
-  Pencil,
-  RefreshCw,
-  UserRound,
-  Users,
-} from 'lucide-react'
+import { useCallback, useEffect, useState } from "react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { ArrowLeft, Pencil, RefreshCw, UserRound, Users } from "lucide-react";
 import {
   getMemberDirectory,
   updateMember,
   updateMemberGroups,
-} from '../../services/membershipService'
-import GroupMultiSelect from './GroupMultiSelect'
+} from "../../services/membershipService";
+import GroupMultiSelect from "./GroupMultiSelect";
 
 const inputClass =
-  'mt-1.5 min-h-[42px] w-full rounded-[10px] border border-[#e5e5e7] bg-white px-3 py-2 text-[12px] text-[#25262c] outline-none focus:border-[#9b9da5]'
+  "mt-1.5 min-h-[42px] w-full rounded-[10px] border border-[#e5e5e7] bg-white px-3 py-2 text-[12px] text-[#25262c] outline-none focus:border-[#9b9da5]";
 
-const labelClass = 'block text-[11.5px] font-semibold text-[#53555e]'
+const labelClass = "block text-[11.5px] font-semibold text-[#53555e]";
 
-const STATUS_OPTIONS = [
-  'Active',
-  'Inactive',
-  'Deceased',
-  'Removed',
-]
+const STATUS_OPTIONS = ["Active", "Inactive", "Deceased", "Removed"];
 
 function displayValue(value) {
-  return value === null || value === undefined || value === ''
-    ? 'Not Recorded'
-    : String(value)
+  return value === null || value === undefined || value === ""
+    ? "Not Recorded"
+    : String(value);
 }
 
 function formatDate(value) {
-  if (!value) return 'Not Recorded'
+  if (!value) return "Not Recorded";
 
-  const date = new Date(`${value}T00:00:00`)
+  const date = new Date(`${value}T00:00:00`);
 
   return Number.isNaN(date.getTime())
     ? value
-    : date.toLocaleDateString('en-IN', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-      })
+    : date.toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      });
 }
 
 function Detail({ label, value }) {
@@ -55,7 +43,7 @@ function Detail({ label, value }) {
         {displayValue(value)}
       </p>
     </div>
-  )
+  );
 }
 
 function FormField({
@@ -63,7 +51,7 @@ function FormField({
   name,
   value,
   onChange,
-  type = 'text',
+  type = "text",
   options,
   required = false,
 }) {
@@ -75,7 +63,7 @@ function FormField({
       {options ? (
         <select
           name={name}
-          value={value ?? ''}
+          value={value ?? ""}
           onChange={onChange}
           required={required}
           className={inputClass}
@@ -90,55 +78,54 @@ function FormField({
         <input
           name={name}
           type={type}
-          value={value ?? ''}
+          value={value ?? ""}
           onChange={onChange}
           required={required}
           className={inputClass}
         />
       )}
     </label>
-  )
+  );
 }
-
 
 function EditMemberModal({ member, onClose, onSaved }) {
   const [form, setForm] = useState({
-    name: member.name ?? '',
-    gender: member.gender ?? '',
-    date_of_birth: member.date_of_birth ?? '',
-    marital_status: member.marital_status ?? 'Unknown',
-    baptism_status: member.baptism_status ?? 'Unknown',
-    date_of_baptism: member.date_of_baptism ?? '',
-    occupation_or_studying: member.occupation_or_studying ?? '',
-    phone_number: member.phone_number ?? '',
-    email: member.email ?? '',
-    status: member.status ?? 'Active',
-  })
+    name: member.name ?? "",
+    gender: member.gender ?? "",
+    date_of_birth: member.date_of_birth ?? "",
+    marital_status: member.marital_status ?? "Unknown",
+    baptism_status: member.baptism_status ?? "Unknown",
+    date_of_baptism: member.date_of_baptism ?? "",
+    occupation_or_studying: member.occupation_or_studying ?? "",
+    phone_number: member.phone_number ?? "",
+    email: member.email ?? "",
+    status: member.status ?? "Active",
+  });
 
-  const [selectedGroupIds, setSelectedGroupIds] = useState(
-    () => [...new Set((member.groups ?? []).map((group) => group.id).filter(Boolean))],
-  )
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
+  const [selectedGroupIds, setSelectedGroupIds] = useState(() => [
+    ...new Set((member.groups ?? []).map((group) => group.id).filter(Boolean)),
+  ]);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
   function handleChange(event) {
-    const { name, value } = event.target
-    setForm((current) => ({ ...current, [name]: value }))
-    setError('')
+    const { name, value } = event.target;
+    setForm((current) => ({ ...current, [name]: value }));
+    setError("");
   }
 
   async function handleSubmit(event) {
-    event.preventDefault()
+    event.preventDefault();
 
-    const cleanName = form.name.trim()
+    const cleanName = form.name.trim();
 
     if (!cleanName) {
-      setError('Member name is required.')
-      return
+      setError("Member name is required.");
+      return;
     }
 
-    setSaving(true)
-    setError('')
+    setSaving(true);
+    setError("");
 
     try {
       // Update the member's editable personal fields.
@@ -149,25 +136,24 @@ function EditMemberModal({ member, onClose, onSaved }) {
         marital_status: form.marital_status || null,
         baptism_status: form.baptism_status || null,
         date_of_baptism: form.date_of_baptism || null,
-        occupation_or_studying:
-          form.occupation_or_studying.trim() || null,
+        occupation_or_studying: form.occupation_or_studying.trim() || null,
         phone_number: form.phone_number.trim() || null,
         email: form.email.trim() || null,
         status: form.status || null,
-      })
+      });
 
       // Synchronise group assignments without deleting assignment history.
-      await updateMemberGroups(member.id, selectedGroupIds)
+      await updateMemberGroups(member.id, selectedGroupIds);
 
-      await onSaved()
-      onClose()
+      await onSaved();
+      onClose();
     } catch (err) {
       setError(
         err.message ||
-          'Could not save the member details and group assignments.',
-      )
+          "Could not save the member details and group assignments.",
+      );
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
   }
 
@@ -175,7 +161,7 @@ function EditMemberModal({ member, onClose, onSaved }) {
     <div
       className="fixed inset-0 z-[120] flex items-center justify-center overflow-y-auto bg-black/45 p-3 backdrop-blur-[2px] sm:p-6"
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget && !saving) onClose()
+        if (event.target === event.currentTarget && !saving) onClose();
       }}
     >
       <section
@@ -231,13 +217,13 @@ function EditMemberModal({ member, onClose, onSaved }) {
                 value={form.gender}
                 onChange={handleChange}
                 options={[
-                  { value: '', label: 'Select gender' },
-                  { value: 'Male', label: 'Male' },
-                  { value: 'Female', label: 'Female' },
-                  { value: 'Other', label: 'Other' },
+                  { value: "", label: "Select gender" },
+                  { value: "Male", label: "Male" },
+                  { value: "Female", label: "Female" },
+                  { value: "Other", label: "Other" },
                   {
-                    value: 'Prefer not to say',
-                    label: 'Prefer not to say',
+                    value: "Prefer not to say",
+                    label: "Prefer not to say",
                   },
                 ]}
               />
@@ -256,12 +242,12 @@ function EditMemberModal({ member, onClose, onSaved }) {
                 value={form.marital_status}
                 onChange={handleChange}
                 options={[
-                  { value: 'Single', label: 'Single' },
-                  { value: 'Married', label: 'Married' },
-                  { value: 'Widowed', label: 'Widowed' },
-                  { value: 'Divorced', label: 'Divorced' },
-                  { value: 'Separated', label: 'Separated' },
-                  { value: 'Unknown', label: 'Unknown' },
+                  { value: "Single", label: "Single" },
+                  { value: "Married", label: "Married" },
+                  { value: "Widowed", label: "Widowed" },
+                  { value: "Divorced", label: "Divorced" },
+                  { value: "Separated", label: "Separated" },
+                  { value: "Unknown", label: "Unknown" },
                 ]}
               />
 
@@ -271,9 +257,9 @@ function EditMemberModal({ member, onClose, onSaved }) {
                 value={form.baptism_status}
                 onChange={handleChange}
                 options={[
-                  { value: 'Unknown', label: 'Unknown' },
-                  { value: 'Baptised', label: 'Baptised' },
-                  { value: 'Not Baptised', label: 'Not Baptised' },
+                  { value: "Unknown", label: "Unknown" },
+                  { value: "Baptised", label: "Baptised" },
+                  { value: "Not Baptised", label: "Not Baptised" },
                 ]}
               />
 
@@ -325,8 +311,8 @@ function EditMemberModal({ member, onClose, onSaved }) {
           <GroupMultiSelect
             selectedIds={selectedGroupIds}
             onChange={(groupIds) => {
-              setSelectedGroupIds(groupIds)
-              setError('')
+              setSelectedGroupIds(groupIds);
+              setError("");
             }}
             disabled={saving}
           />
@@ -366,51 +352,50 @@ function EditMemberModal({ member, onClose, onSaved }) {
               disabled={saving}
               className="rounded-[10px] bg-[#191a1f] px-5 py-3 text-[12px] font-semibold text-white hover:bg-black disabled:opacity-60"
             >
-              {saving ? 'Saving changes...' : 'Save Changes'}
+              {saving ? "Saving changes..." : "Save Changes"}
             </button>
           </footer>
         </form>
       </section>
     </div>
-  )
+  );
 }
 
-
 export default function MemberDetails() {
-  const { memberId } = useParams()
-  const navigate = useNavigate()
-  const location = useLocation()
+  const { memberId } = useParams();
+  const navigate = useNavigate();
+  const location = useLocation();
 
-  const [member, setMember] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [editing, setEditing] = useState(false)
+  const [member, setMember] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [editing, setEditing] = useState(false);
 
   const loadMember = useCallback(async () => {
-    setLoading(true)
-    setError('')
+    setLoading(true);
+    setError("");
 
     try {
-      const directory = await getMemberDirectory()
-      const found = directory.find((item) => item.id === memberId)
+      const directory = await getMemberDirectory();
+      const found = directory.find((item) => item.id === memberId);
 
       if (!found) {
-        setMember(null)
-        setError('This member could not be found.')
-        return
+        setMember(null);
+        setError("This member could not be found.");
+        return;
       }
 
-      setMember(found)
+      setMember(found);
     } catch (err) {
-      setError(err.message || 'Unable to load member details.')
+      setError(err.message || "Unable to load member details.");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [memberId])
+  }, [memberId]);
 
   useEffect(() => {
-    loadMember()
-  }, [loadMember])
+    loadMember();
+  }, [loadMember]);
 
   if (loading) {
     return (
@@ -418,7 +403,7 @@ export default function MemberDetails() {
         <RefreshCw size={16} className="animate-spin" />
         Loading member details...
       </div>
-    )
+    );
   }
 
   if (error || !member) {
@@ -426,16 +411,14 @@ export default function MemberDetails() {
       <section className="rounded-[16px] border border-[#ececed] bg-white p-6">
         <button
           type="button"
-          onClick={() =>
-            navigate(location.state?.returnTo || '/members')
-          }
+          onClick={() => navigate(location.state?.returnTo || "/members")}
           className="mb-4 inline-flex items-center gap-2 text-[12px] font-semibold text-[#53555e]"
         >
           <ArrowLeft size={16} />
           Back
         </button>
         <p role="alert" className="text-[13px] font-semibold text-red-700">
-          {error || 'Member not found.'}
+          {error || "Member not found."}
         </p>
         <button
           type="button"
@@ -446,16 +429,14 @@ export default function MemberDetails() {
           Try again
         </button>
       </section>
-    )
+    );
   }
 
   return (
     <div className="space-y-5">
       <button
         type="button"
-        onClick={() =>
-          navigate(location.state?.returnTo || '/members')
-        }
+        onClick={() => navigate(location.state?.returnTo || "/members")}
         className="inline-flex items-center gap-2 text-[12px] font-semibold text-[#53555e] hover:text-[#131418]"
       >
         <ArrowLeft size={16} />
@@ -477,7 +458,7 @@ export default function MemberDetails() {
             </p>
             <div className="mt-2">
               <span className="rounded-full bg-[#eeeeef] px-2.5 py-1 text-[10.5px] font-semibold text-[#53555e]">
-                {member.status || 'Unknown'}
+                {member.status || "Unknown"}
               </span>
             </div>
           </div>
@@ -488,14 +469,14 @@ export default function MemberDetails() {
             type="button"
             onClick={() => {
               if (member.membership_row_id) {
-                navigate(`/memberships/${member.membership_row_id}`)
+                navigate(`/memberships/${member.membership_row_id}`);
               }
             }}
             disabled={!member.membership_row_id}
             title={
               member.membership_row_id
-                ? 'Open associated membership'
-                : 'No current membership is assigned'
+                ? "Open associated membership"
+                : "No current membership is assigned"
             }
             className="inline-flex min-h-[40px] items-center gap-2 rounded-[10px] border border-[#e5e5e7] bg-white px-3.5 py-2 text-[12px] font-semibold text-[#25262c] hover:bg-[#f7f7f8] disabled:cursor-not-allowed disabled:opacity-50"
           >
@@ -574,13 +555,19 @@ export default function MemberDetails() {
                 label="Membership Number"
                 value={member.display_membership_number}
               />
-              <Detail label="Permanent Membership ID" value={member.membership_id} />
-              <Detail label="Membership Status" value={member.membership_status} />
+              <Detail
+                label="Permanent Membership ID"
+                value={member.membership_id}
+              />
+              <Detail
+                label="Membership Status"
+                value={member.membership_status}
+              />
               <Detail
                 label="Area"
                 value={[member.membership_area, member.membership_city]
                   .filter(Boolean)
-                  .join(', ')}
+                  .join(", ")}
               />
               {!member.membership_row_id && (
                 <p className="py-3 text-[11.5px] text-[#888a93]">
@@ -634,5 +621,5 @@ export default function MemberDetails() {
         />
       )}
     </div>
-  )
+  );
 }

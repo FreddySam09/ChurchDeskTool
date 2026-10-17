@@ -1,10 +1,9 @@
-
-import { useState } from 'react'
-import RegisterSidebar from './RegisterSidebar'
-import RegisterHeader from './RegisterHeader'
-import RegisterEntries from './RegisterEntries'
-import RegisterHistory from './RegisterHistory'
-import useAnnualRegister from './useAnnualRegister'
+import { useState } from "react";
+import RegisterSidebar from "./RegisterSidebar";
+import RegisterHeader from "./RegisterHeader";
+import RegisterEntries from "./RegisterEntries";
+import RegisterHistory from "./RegisterHistory";
+import useAnnualRegister from "./useAnnualRegister";
 
 export default function AnnualRegister() {
   const {
@@ -27,37 +26,35 @@ export default function AnnualRegister() {
     reorderEntries,
     updateEntryNumber,
     undoSplitBranch,
-  } = useAnnualRegister()
+  } = useAnnualRegister();
 
-  const [createDialogOpen, setCreateDialogOpen] = useState(false)
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [draftName, setDraftName] = useState(
     `Annual Membership Register ${new Date().getFullYear()}`,
-  )
-  const [draftYear, setDraftYear] = useState(
-    String(new Date().getFullYear()),
-  )
-  const [populateSnapshot, setPopulateSnapshot] = useState(true)
+  );
+  const [draftYear, setDraftYear] = useState(String(new Date().getFullYear()));
+  const [populateSnapshot, setPopulateSnapshot] = useState(true);
 
-  const readOnly = selectedRegister?.status === 'Finalised'
+  const readOnly = selectedRegister?.status === "Finalised";
 
   async function handleCreateDraft(event) {
-    event.preventDefault()
-    setError('')
+    event.preventDefault();
+    setError("");
 
     try {
       const created = await createDraft({
         name: draftName,
         year: Number(draftYear),
         populateSnapshot,
-      })
+      });
 
       if (created?.id) {
-        await selectRegister(created.id)
+        await selectRegister(created.id);
       }
 
-      setCreateDialogOpen(false)
-      setDraftName(`Annual Membership Register ${new Date().getFullYear()}`)
-      setDraftYear(String(new Date().getFullYear()))
+      setCreateDialogOpen(false);
+      setDraftName(`Annual Membership Register ${new Date().getFullYear()}`);
+      setDraftYear(String(new Date().getFullYear()));
     } catch {
       // The hook exposes the actionable error message.
     }
@@ -65,7 +62,7 @@ export default function AnnualRegister() {
 
   async function handleStatusChange(status) {
     try {
-      await changeStatus(status)
+      await changeStatus(status);
     } catch {
       // Error is shown in the page alert.
     }
@@ -73,7 +70,7 @@ export default function AnnualRegister() {
 
   async function handleToggleIncluded(entry, included) {
     try {
-      await toggleEntryIncluded(entry, included)
+      await toggleEntryIncluded(entry, included);
     } catch {
       // Error is shown in the page alert.
     }
@@ -81,7 +78,7 @@ export default function AnnualRegister() {
 
   async function handleDesignateHead(entry, memberId) {
     try {
-      await designateHead(entry, memberId)
+      await designateHead(entry, memberId);
     } catch {
       // Error is shown in the page alert.
     }
@@ -90,46 +87,46 @@ export default function AnnualRegister() {
   async function handleSplitBranch(entry) {
     const confirmed = window.confirm(
       `Mark branch ${entry.membership_number} as an independent split in this draft? This does not create a new live membership.`,
-    )
+    );
 
-    if (!confirmed) return
+    if (!confirmed) return;
 
     try {
-      await splitBranch(entry)
+      await splitBranch(entry);
     } catch {
       // Error is shown in the page alert.
     }
   }
 
   async function handleReorder(nextEntries) {
-  try {
-    await reorderEntries(nextEntries)
-  } catch {
-    // The hook displays the error in the page alert.
+    try {
+      await reorderEntries(nextEntries);
+    } catch {
+      // The hook displays the error in the page alert.
+    }
   }
-}
 
-async function handleNumberChange(entry, value) {
-  try {
-    await updateEntryNumber(entry, value)
-  } catch {
-    // The hook displays the error in the page alert.
+  async function handleNumberChange(entry, value) {
+    try {
+      await updateEntryNumber(entry, value);
+    } catch {
+      // The hook displays the error in the page alert.
+    }
   }
-}
 
-async function handleUndoSplit(entry) {
-  const confirmed = window.confirm(
-    `Restore branch ${entry.membership_number} under its original parent membership?`,
-  )
+  async function handleUndoSplit(entry) {
+    const confirmed = window.confirm(
+      `Restore branch ${entry.membership_number} under its original parent membership?`,
+    );
 
-  if (!confirmed) return
+    if (!confirmed) return;
 
-  try {
-    await undoSplitBranch(entry)
-  } catch {
-    // The hook displays the error in the page alert.
+    try {
+      await undoSplitBranch(entry);
+    } catch {
+      // The hook displays the error in the page alert.
+    }
   }
-}
 
   return (
     <main className="min-h-screen bg-[#f4f4f5] p-4 text-[#131418] sm:p-6">
@@ -143,8 +140,8 @@ async function handleUndoSplit(entry) {
               Annual Membership Register
             </h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-[#777984]">
-              Prepare yearly membership records, review branch structures,
-              and check assigned household heads.
+              Prepare yearly membership records, review branch structures, and
+              check assigned household heads.
             </p>
           </div>
 
@@ -167,7 +164,7 @@ async function handleUndoSplit(entry) {
             <p className="text-sm leading-6 text-rose-700">{error}</p>
             <button
               type="button"
-              onClick={() => setError('')}
+              onClick={() => setError("")}
               className="self-start text-xs font-medium text-rose-700 underline underline-offset-4 sm:self-center"
             >
               Dismiss
@@ -197,7 +194,8 @@ async function handleUndoSplit(entry) {
                 </h2>
 
                 <p className="mt-2 max-w-lg text-sm leading-6 text-[#777984]">
-                  Create a draft and optionally copy the current membership structure into it.
+                  Create a draft and optionally copy the current membership
+                  structure into it.
                 </p>
 
                 <button
@@ -217,7 +215,7 @@ async function handleUndoSplit(entry) {
                   onStatusChange={handleStatusChange}
                 />
 
-                {selectedRegister.status === 'Finalised' && (
+                {selectedRegister.status === "Finalised" && (
                   <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-800">
                     This register is read-only. Finalisation does not currently
                     have a live-membership update workflow in this page.
@@ -249,7 +247,7 @@ async function handleUndoSplit(entry) {
           className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/40 p-4 backdrop-blur-sm"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget && !working) {
-              setCreateDialogOpen(false)
+              setCreateDialogOpen(false);
             }
           }}
         >
@@ -324,7 +322,9 @@ async function handleUndoSplit(entry) {
                 <input
                   type="checkbox"
                   checked={populateSnapshot}
-                  onChange={(event) => setPopulateSnapshot(event.target.checked)}
+                  onChange={(event) =>
+                    setPopulateSnapshot(event.target.checked)
+                  }
                   className="mt-1 accent-[#25262c]"
                 />
                 <span>
@@ -353,7 +353,7 @@ async function handleUndoSplit(entry) {
                   disabled={working || !draftName.trim() || !draftYear}
                   className="rounded-xl bg-[#191a1f] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#33343a] disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {working ? 'Creating…' : 'Create draft'}
+                  {working ? "Creating…" : "Create draft"}
                 </button>
               </div>
             </form>
@@ -361,5 +361,5 @@ async function handleUndoSplit(entry) {
         </div>
       )}
     </main>
-  )
+  );
 }

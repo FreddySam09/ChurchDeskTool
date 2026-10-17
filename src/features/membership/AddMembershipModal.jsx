@@ -1,51 +1,44 @@
-
-import { useState } from 'react'
-import {
-  X,
-  UserRound,
-  MapPin,
-  Phone,
-  Hash,
-} from 'lucide-react'
-import { createMembershipWithHead } from '../../services/membershipService'
+import { useState } from "react";
+import { X, UserRound, MapPin, Phone, Hash } from "lucide-react";
+import { createMembershipWithHead } from "../../services/membershipService";
 
 const initialForm = {
-  membership_number: '',
-  name: '',
-  gender: '',
-  date_of_birth: '',
-  marital_status: 'Single',
-  baptism_status: 'Unknown',
-  date_of_baptism: '',
-  occupation_or_studying: '',
-  phone_number: '',
-  email: '',
-  door_number: '',
-  street_name: '',
-  area: '',
-  city: '',
-  pincode: '',
-  landmark: '',
-  primary_phone_number: '',
-  alternate_phone_number: '',
-  household_email: '',
+  membership_number: "",
+  name: "",
+  gender: "",
+  date_of_birth: "",
+  marital_status: "Single",
+  baptism_status: "Unknown",
+  date_of_baptism: "",
+  occupation_or_studying: "",
+  phone_number: "",
+  email: "",
+  door_number: "",
+  street_name: "",
+  area: "",
+  city: "",
+  pincode: "",
+  landmark: "",
+  primary_phone_number: "",
+  alternate_phone_number: "",
+  household_email: "",
   year_joined: String(new Date().getFullYear()),
-}
+};
 
 const inputClass =
-  'mt-1.5 w-full rounded-[10px] border border-[#e5e5e7] bg-white px-3 py-2.5 text-[13px] text-[#131418] outline-none transition placeholder:text-[#a0a1a8] focus:border-[#4f70e8] focus:ring-2 focus:ring-[#4f70e8]/10'
+  "mt-1.5 w-full rounded-[10px] border border-[#e5e5e7] bg-white px-3 py-2.5 text-[13px] text-[#131418] outline-none transition placeholder:text-[#a0a1a8] focus:border-[#4f70e8] focus:ring-2 focus:ring-[#4f70e8]/10";
 
-const labelClass = 'block text-[12px] font-semibold text-[#53555e]'
+const labelClass = "block text-[12px] font-semibold text-[#53555e]";
 
 function Field({
   label,
   name,
   form,
   onChange,
-  type = 'text',
+  type = "text",
   required = false,
-  placeholder = '',
-  hint = '',
+  placeholder = "",
+  hint = "",
 }) {
   return (
     <label className={labelClass}>
@@ -69,7 +62,7 @@ function Field({
         </span>
       )}
     </label>
-  )
+  );
 }
 
 function SelectField({
@@ -99,7 +92,7 @@ function SelectField({
         ))}
       </select>
     </label>
-  )
+  );
 }
 
 function Section({ icon: Icon, title, children }) {
@@ -110,37 +103,33 @@ function Section({ icon: Icon, title, children }) {
           <Icon size={16} />
         </span>
 
-        <h3 className="text-[13px] font-bold text-[#131418]">
-          {title}
-        </h3>
+        <h3 className="text-[13px] font-bold text-[#131418]">{title}</h3>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {children}
-      </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">{children}</div>
     </section>
-  )
+  );
 }
 
 export default function AddMembershipModal({ onClose, onCreated }) {
-  const [form, setForm] = useState(initialForm)
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
-  const [created, setCreated] = useState(null)
+  const [form, setForm] = useState(initialForm);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [created, setCreated] = useState(null);
 
   function handleChange(event) {
-    const { name, value } = event.target
+    const { name, value } = event.target;
 
     setForm((current) => ({
       ...current,
-      [name]: name === 'membership_number' ? value.toUpperCase() : value,
-    }))
+      [name]: name === "membership_number" ? value.toUpperCase() : value,
+    }));
   }
 
   async function handleSubmit(event) {
-    event.preventDefault()
-    setError('')
-    setSaving(true)
+    event.preventDefault();
+    setError("");
+    setSaving(true);
 
     try {
       const result = await createMembershipWithHead({
@@ -163,22 +152,19 @@ export default function AddMembershipModal({ onClose, onCreated }) {
           city: form.city,
           pincode: form.pincode,
           landmark: form.landmark,
-          primary_phone_number:
-            form.primary_phone_number || form.phone_number,
+          primary_phone_number: form.primary_phone_number || form.phone_number,
           alternate_phone_number: form.alternate_phone_number,
           email: form.household_email || form.email,
           year_joined: form.year_joined,
         },
-      })
+      });
 
-      setCreated(result)
-      await onCreated?.()
+      setCreated(result);
+      await onCreated?.();
     } catch (err) {
-      setError(
-        err.message || 'Could not create this membership.',
-      )
+      setError(err.message || "Could not create this membership.");
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
   }
 
@@ -187,7 +173,7 @@ export default function AddMembershipModal({ onClose, onCreated }) {
       className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto bg-black/45 p-3 backdrop-blur-[2px] sm:p-6"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget && !saving) {
-          onClose()
+          onClose();
         }
       }}
     >
@@ -207,13 +193,13 @@ export default function AddMembershipModal({ onClose, onCreated }) {
               id="add-membership-title"
               className="text-xl font-extrabold text-[#131418]"
             >
-              {created ? 'Membership created' : 'Add membership'}
+              {created ? "Membership created" : "Add membership"}
             </h2>
 
             <p className="mt-1 text-[12px] text-[#777984]">
               {created
-                ? 'Your membership has been added to the active register.'
-                : 'Enter the current register number and the head of membership details.'}
+                ? "Your membership has been added to the active register."
+                : "Enter the current register number and the head of membership details."}
             </p>
           </div>
 
@@ -262,9 +248,9 @@ export default function AddMembershipModal({ onClose, onCreated }) {
             </div>
 
             <p className="mt-4 text-[12px] leading-5 text-[#777984]">
-              The annual number belongs to this year's register.
-              Permanent IDs remain unchanged if the annual number is
-              revised in a future register.
+              The annual number belongs to this year's register. Permanent IDs
+              remain unchanged if the annual number is revised in a future
+              register.
             </p>
 
             <div className="mt-6 flex justify-end">
@@ -278,10 +264,7 @@ export default function AddMembershipModal({ onClose, onCreated }) {
             </div>
           </div>
         ) : (
-          <form
-            onSubmit={handleSubmit}
-            className="space-y-4 p-4 sm:p-6"
-          >
+          <form onSubmit={handleSubmit} className="space-y-4 p-4 sm:p-6">
             <Section icon={Hash} title="Annual register">
               <Field
                 label="Membership number"
@@ -319,10 +302,10 @@ export default function AddMembershipModal({ onClose, onCreated }) {
                 onChange={handleChange}
                 required
                 options={[
-                  { value: '', label: 'Select gender' },
-                  { value: 'Male', label: 'Male' },
-                  { value: 'Female', label: 'Female' },
-                  { value: 'Other', label: 'Other' },
+                  { value: "", label: "Select gender" },
+                  { value: "Male", label: "Male" },
+                  { value: "Female", label: "Female" },
+                  { value: "Other", label: "Other" },
                 ]}
               />
 
@@ -340,10 +323,10 @@ export default function AddMembershipModal({ onClose, onCreated }) {
                 form={form}
                 onChange={handleChange}
                 options={[
-                  { value: 'Single', label: 'Single' },
-                  { value: 'Married', label: 'Married' },
-                  { value: 'Widowed', label: 'Widowed' },
-                  { value: 'Divorced', label: 'Divorced' },
+                  { value: "Single", label: "Single" },
+                  { value: "Married", label: "Married" },
+                  { value: "Widowed", label: "Widowed" },
+                  { value: "Divorced", label: "Divorced" },
                 ]}
               />
 
@@ -353,9 +336,9 @@ export default function AddMembershipModal({ onClose, onCreated }) {
                 form={form}
                 onChange={handleChange}
                 options={[
-                  { value: 'Unknown', label: 'Unknown' },
-                  { value: 'Baptised', label: 'Baptised' },
-                  { value: 'Not baptised', label: 'Not baptised' },
+                  { value: "Unknown", label: "Unknown" },
+                  { value: "Baptised", label: "Baptised" },
+                  { value: "Not baptised", label: "Not baptised" },
                 ]}
               />
 
@@ -474,8 +457,8 @@ export default function AddMembershipModal({ onClose, onCreated }) {
 
             <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-[#ececed] pt-4">
               <p className="max-w-[330px] text-[11px] leading-5 text-[#92939b]">
-                Permanent IDs are generated by the database. The
-                annual number is recorded in the active register.
+                Permanent IDs are generated by the database. The annual number
+                is recorded in the active register.
               </p>
 
               <div className="flex gap-2">
@@ -493,7 +476,7 @@ export default function AddMembershipModal({ onClose, onCreated }) {
                   disabled={saving}
                   className="rounded-[10px] bg-[#1a1b20] px-5 py-2.5 text-[12px] font-semibold text-white hover:bg-black disabled:opacity-60"
                 >
-                  {saving ? 'Saving…' : 'Create membership'}
+                  {saving ? "Saving…" : "Create membership"}
                 </button>
               </div>
             </footer>
@@ -501,5 +484,5 @@ export default function AddMembershipModal({ onClose, onCreated }) {
         )}
       </div>
     </div>
-  )
+  );
 }

@@ -1,139 +1,133 @@
-
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   ArrowDownToLine,
   ChevronRight,
   RefreshCw,
   Search,
   Users,
-} from 'lucide-react'
-import { getMemberDirectory } from '../../services/membershipService'
+} from "lucide-react";
+import { getMemberDirectory } from "../../services/membershipService";
 
-const STATUS_OPTIONS = [
-  'Active',
-  'Inactive',
-  'Deceased',
-  'Removed',
-]
+const STATUS_OPTIONS = ["Active", "Inactive", "Deceased", "Removed"];
 
 const inputClass =
-  'min-h-[42px] w-full rounded-[10px] border border-[#e5e5e7] bg-white px-3 py-2 text-[12px] text-[#25262c] outline-none focus:border-[#9b9da5]'
+  "min-h-[42px] w-full rounded-[10px] border border-[#e5e5e7] bg-white px-3 py-2 text-[12px] text-[#25262c] outline-none focus:border-[#9b9da5]";
 
 function displayValue(value) {
-  return value === null || value === undefined || value === ''
-    ? 'Not Recorded'
-    : String(value)
+  return value === null || value === undefined || value === ""
+    ? "Not Recorded"
+    : String(value);
 }
 
 function StatusBadge({ status }) {
   const styles = {
-    Active: 'bg-[#e5f6ec] text-[#18794e]',
-    Inactive: 'bg-[#eeeeef] text-[#53555e]',
-    Deceased: 'bg-[#fbe9e6] text-[#aa382d]',
-    Transferred: 'bg-[#fbf1dc] text-[#8a6108]',
-    'Left Church': 'bg-[#fbf1dc] text-[#8a6108]',
-    Removed: 'bg-[#fbe9e6] text-[#aa382d]',
-  }
+    Active: "bg-[#e5f6ec] text-[#18794e]",
+    Inactive: "bg-[#eeeeef] text-[#53555e]",
+    Deceased: "bg-[#fbe9e6] text-[#aa382d]",
+    Transferred: "bg-[#fbf1dc] text-[#8a6108]",
+    "Left Church": "bg-[#fbf1dc] text-[#8a6108]",
+    Removed: "bg-[#fbe9e6] text-[#aa382d]",
+  };
 
   return (
     <span
       className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-[10.5px] font-semibold ${
-        styles[status] ?? 'bg-[#f4f4f5] text-[#6b6d76]'
+        styles[status] ?? "bg-[#f4f4f5] text-[#6b6d76]"
       }`}
     >
-      {status || 'Unknown'}
+      {status || "Unknown"}
     </span>
-  )
+  );
 }
 
 export default function MemberList() {
-  const navigate = useNavigate()
+  const navigate = useNavigate();
 
-  const [members, setMembers] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [search, setSearch] = useState('')
-  const [membershipFilter, setMembershipFilter] = useState('All')
-  const [genderFilter, setGenderFilter] = useState('All')
-  const [groupFilter, setGroupFilter] = useState('All')
-  const [statusFilter, setStatusFilter] = useState('All')
+  const [members, setMembers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
+  const [membershipFilter, setMembershipFilter] = useState("All");
+  const [genderFilter, setGenderFilter] = useState("All");
+  const [groupFilter, setGroupFilter] = useState("All");
+  const [statusFilter, setStatusFilter] = useState("All");
 
   const loadMembers = useCallback(async () => {
-    setLoading(true)
-    setError('')
+    setLoading(true);
+    setError("");
 
     try {
-      const result = await getMemberDirectory()
-      setMembers(Array.isArray(result) ? result : [])
+      const result = await getMemberDirectory();
+      setMembers(Array.isArray(result) ? result : []);
     } catch (err) {
-      setError(err.message || 'Unable to load members.')
+      setError(err.message || "Unable to load members.");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [])
+  }, []);
 
   useEffect(() => {
-    loadMembers()
-  }, [loadMembers])
+    loadMembers();
+  }, [loadMembers]);
 
   const membershipOptions = useMemo(() => {
-    const options = new Map()
+    const options = new Map();
 
     members.forEach((member) => {
       if (member.membership_row_id) {
         options.set(member.membership_row_id, {
           id: member.membership_row_id,
           number: member.display_membership_number,
-        })
+        });
       }
-    })
+    });
 
     return [...options.values()].sort((a, b) =>
       String(a.number).localeCompare(String(b.number), undefined, {
         numeric: true,
       }),
-    )
-  }, [members])
+    );
+  }, [members]);
 
   const groupOptions = useMemo(() => {
-    const names = new Set()
+    const names = new Set();
 
     members.forEach((member) => {
-      ;(member.groups ?? []).forEach((group) => names.add(group.name))
-    })
+      (member.groups ?? []).forEach((group) => names.add(group.name));
+    });
 
-    return [...names].sort((a, b) => a.localeCompare(b))
-  }, [members])
+    return [...names].sort((a, b) => a.localeCompare(b));
+  }, [members]);
 
   const filteredMembers = useMemo(() => {
-    const query = search.trim().toLowerCase()
+    const query = search.trim().toLowerCase();
 
     return members
       .filter((member) => {
         if (
-          membershipFilter !== 'All' &&
+          membershipFilter !== "All" &&
           member.membership_row_id !== membershipFilter
         ) {
-          return false
+          return false;
         }
 
-        if (genderFilter !== 'All' && member.gender !== genderFilter) {
-          return false
+        if (genderFilter !== "All" && member.gender !== genderFilter) {
+          return false;
         }
 
         if (
-          groupFilter !== 'All' &&
+          groupFilter !== "All" &&
           !(member.groups ?? []).some((group) => group.name === groupFilter)
         ) {
-          return false
+          return false;
         }
 
-        if (statusFilter !== 'All' && member.status !== statusFilter) {
-          return false
+        if (statusFilter !== "All" && member.status !== statusFilter) {
+          return false;
         }
 
-        if (!query) return true
+        if (!query) return true;
 
         const searchable = [
           member.name,
@@ -150,18 +144,19 @@ export default function MemberList() {
           ...(member.groups ?? []).map((group) => group.name),
         ]
           .filter(Boolean)
-          .join(' ')
-          .toLowerCase()
+          .join(" ")
+          .toLowerCase();
 
-        return searchable.includes(query)
+        return searchable.includes(query);
       })
-      .sort((a, b) =>
-        String(a.display_membership_number).localeCompare(
-          String(b.display_membership_number),
-          undefined,
-          { numeric: true },
-        ) || String(a.name).localeCompare(String(b.name)),
-      )
+      .sort(
+        (a, b) =>
+          String(a.display_membership_number).localeCompare(
+            String(b.display_membership_number),
+            undefined,
+            { numeric: true },
+          ) || String(a.name).localeCompare(String(b.name)),
+      );
   }, [
     members,
     search,
@@ -169,24 +164,24 @@ export default function MemberList() {
     genderFilter,
     groupFilter,
     statusFilter,
-  ])
+  ]);
 
   function exportCsv() {
     const headers = [
-      'Name',
-      'Person ID',
-      'Membership Number',
-      'Membership ID',
-      'Relationship',
-      'Gender',
-      'Date of Birth',
-      'Phone',
-      'Email',
-      'Marital Status',
-      'Baptism Status',
-      'Fellowships',
-      'Status',
-    ]
+      "Name",
+      "Person ID",
+      "Membership Number",
+      "Membership ID",
+      "Relationship",
+      "Gender",
+      "Date of Birth",
+      "Phone",
+      "Email",
+      "Marital Status",
+      "Baptism Status",
+      "Fellowships",
+      "Status",
+    ];
 
     const rows = filteredMembers.map((member) => [
       member.name,
@@ -200,27 +195,26 @@ export default function MemberList() {
       member.email,
       member.marital_status,
       member.baptism_status,
-      (member.groups ?? []).map((group) => group.name).join('; '),
+      (member.groups ?? []).map((group) => group.name).join("; "),
       member.status,
-    ])
+    ]);
 
-    const escapeCsv = (value) =>
-      `"${String(value ?? '').replace(/"/g, '""')}"`
+    const escapeCsv = (value) => `"${String(value ?? "").replace(/"/g, '""')}"`;
 
     const csv = [headers, ...rows]
-      .map((row) => row.map(escapeCsv).join(','))
-      .join('\r\n')
+      .map((row) => row.map(escapeCsv).join(","))
+      .join("\r\n");
 
-    const blob = new Blob(['\uFEFF', csv], {
-      type: 'text/csv;charset=utf-8;',
-    })
+    const blob = new Blob(["\uFEFF", csv], {
+      type: "text/csv;charset=utf-8;",
+    });
 
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = 'church-desk-members.csv'
-    link.click()
-    URL.revokeObjectURL(url)
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "church-desk-members.csv";
+    link.click();
+    URL.revokeObjectURL(url);
   }
 
   return (
@@ -277,7 +271,7 @@ export default function MemberList() {
             className={inputClass}
           >
             <option value="All">All Genders</option>
-            {['Male', 'Female', 'Other', 'Prefer not to say'].map((gender) => (
+            {["Male", "Female", "Other", "Prefer not to say"].map((gender) => (
               <option key={gender} value={gender}>
                 {gender}
               </option>
@@ -319,11 +313,11 @@ export default function MemberList() {
           <button
             type="button"
             onClick={() => {
-              setSearch('')
-              setMembershipFilter('All')
-              setGenderFilter('All')
-              setGroupFilter('All')
-              setStatusFilter('All')
+              setSearch("");
+              setMembershipFilter("All");
+              setGenderFilter("All");
+              setGroupFilter("All");
+              setStatusFilter("All");
             }}
             className="text-[11.5px] font-semibold text-[#53555e] hover:text-[#131418]"
           >
@@ -386,16 +380,16 @@ export default function MemberList() {
               <thead>
                 <tr className="bg-[#f7f7f8]">
                   {[
-                    'Member',
-                    'Membership No.',
-                    'Relationship',
-                    'Gender',
-                    'DOB',
-                    'Phone',
-                    'Email',
-                    'Fellowships',
-                    'Status',
-                    '',
+                    "Member",
+                    "Membership No.",
+                    "Relationship",
+                    "Gender",
+                    "DOB",
+                    "Phone",
+                    "Email",
+                    "Fellowships",
+                    "Status",
+                    "",
                   ].map((heading) => (
                     <th
                       key={heading}
@@ -414,8 +408,8 @@ export default function MemberList() {
                     tabIndex={0}
                     onClick={() => navigate(`/members/${member.id}`)}
                     onKeyDown={(event) => {
-                      if (event.key === 'Enter') {
-                        navigate(`/members/${member.id}`)
+                      if (event.key === "Enter") {
+                        navigate(`/members/${member.id}`);
                       }
                     }}
                     className="cursor-pointer border-b border-[#f2f2f3] transition last:border-0 hover:bg-[#fafafd]"
@@ -425,7 +419,7 @@ export default function MemberList() {
                         {member.name}
                       </p>
                       <p className="mt-0.5 text-[10px] text-[#888a93]">
-                        {member.person_id || 'No Person ID'}
+                        {member.person_id || "No Person ID"}
                       </p>
                     </td>
                     <td className="px-4 py-3 text-[11.5px] font-semibold text-[#25262c]">
@@ -447,8 +441,9 @@ export default function MemberList() {
                       {displayValue(member.email)}
                     </td>
                     <td className="max-w-[230px] whitespace-normal px-4 py-3 text-[11.5px] text-[#53555e]">
-                      {(member.groups ?? []).map((group) => group.name).join(', ') ||
-                        'Not Recorded'}
+                      {(member.groups ?? [])
+                        .map((group) => group.name)
+                        .join(", ") || "Not Recorded"}
                     </td>
                     <td className="px-4 py-3">
                       <StatusBadge status={member.status} />
@@ -464,5 +459,5 @@ export default function MemberList() {
         )}
       </section>
     </div>
-  )
+  );
 }

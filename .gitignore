@@ -9,7 +9,6 @@ lerna-debug.log*
 
 .env.local
 PROJECT_SNAPSHOT.txt
-export-project.ps1
 node_modules
 dist
 dist-ssr

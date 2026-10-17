@@ -1,5 +1,4 @@
-
-import { getRegisterSummary } from './annualRegisterUtils'
+import { getRegisterSummary } from "./annualRegisterUtils";
 
 export default function RegisterHeader({
   register,
@@ -7,10 +6,10 @@ export default function RegisterHeader({
   working = false,
   onStatusChange,
 }) {
-  if (!register) return null
+  if (!register) return null;
 
-  const summary = getRegisterSummary(entries)
-  const isFinalised = register.status === 'Finalised'
+  const summary = getRegisterSummary(entries);
+  const isFinalised = register.status === "Finalised";
 
   return (
     <section className="rounded-2xl border border-[#e9e9eb] bg-white p-5">
@@ -36,29 +35,27 @@ export default function RegisterHeader({
           </p>
 
           {register.notes && (
-            <p className="mt-3 text-sm text-[#53555e]">
-              {register.notes}
-            </p>
+            <p className="mt-3 text-sm text-[#53555e]">{register.notes}</p>
           )}
         </div>
 
         <div className="flex flex-wrap gap-2">
-          {!isFinalised && register.status === 'Draft' && (
+          {!isFinalised && register.status === "Draft" && (
             <button
               type="button"
               disabled={working}
-              onClick={() => onStatusChange('Under Review')}
+              onClick={() => onStatusChange("Under Review")}
               className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-800 transition hover:bg-amber-100 disabled:opacity-50"
             >
               Submit for review
             </button>
           )}
 
-          {!isFinalised && register.status === 'Under Review' && (
+          {!isFinalised && register.status === "Under Review" && (
             <button
               type="button"
               disabled={working}
-              onClick={() => onStatusChange('Draft')}
+              onClick={() => onStatusChange("Draft")}
               className="rounded-lg border border-[#e5e5e7] bg-white px-4 py-2 text-sm font-medium text-[#25262c] transition hover:bg-[#f7f7f8] disabled:opacity-50"
             >
               Return to draft
@@ -81,7 +78,7 @@ export default function RegisterHeader({
       {summary.needsHeadReview > 0 && (
         <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-800">
           {summary.needsHeadReview} included entr
-          {summary.needsHeadReview === 1 ? 'y needs' : 'ies need'} a designated
+          {summary.needsHeadReview === 1 ? "y needs" : "ies need"} a designated
           head. Review these before finalisation.
         </div>
       )}
@@ -92,7 +89,7 @@ export default function RegisterHeader({
         </div>
       )}
     </section>
-  )
+  );
 }
 
 function SummaryCard({ label, value, warning = false }) {
@@ -101,11 +98,11 @@ function SummaryCard({ label, value, warning = false }) {
       <p className="text-xs text-[#777984]">{label}</p>
       <p
         className={`mt-2 text-2xl font-semibold tabular-nums ${
-          warning ? 'text-amber-700' : 'text-[#131418]'
+          warning ? "text-amber-700" : "text-[#131418]"
         }`}
       >
         {value}
       </p>
     </div>
-  )
+  );
 }

@@ -1,3 +1,4 @@
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   useLocation,
@@ -9,14 +10,12 @@ import {
   ArrowLeft,
   ChevronRight,
   GitBranch,
-  Heart,
   MapPin,
   Pencil,
   Plus,
   RefreshCw,
   UserCog,
   UserRound,
-  Users,
   X,
 } from "lucide-react";
 
@@ -71,7 +70,9 @@ function Panel({ title, subtitle, action, children }) {
     <section className="overflow-hidden rounded-[18px] border border-[#ececed] bg-white shadow-[0_1px_2px_rgba(15,15,20,0.04)]">
       <header className="flex flex-wrap items-start justify-between gap-3 border-b border-[#f2f2f3] px-5 py-4">
         <div>
-          <h2 className="text-[14px] font-extrabold text-[#131418]">{title}</h2>
+          <h2 className="text-[14px] font-extrabold text-[#131418]">
+            {title}
+          </h2>
 
           {subtitle && (
             <p className="mt-1 text-[11.5px] leading-5 text-[#888a93]">
@@ -140,6 +141,7 @@ function PersonCard({ member, membershipRowId }) {
     <article
       role="link"
       tabIndex={0}
+      aria-label={`View details for ${member.name || "member"}`}
       onClick={openMember}
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") {
@@ -147,93 +149,49 @@ function PersonCard({ member, membershipRowId }) {
           openMember();
         }
       }}
-      className="cursor-pointer rounded-xl border border-[#ececed] bg-white p-4 transition hover:border-[#d9dce6] hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-[#3457d5]"
+      className="cursor-pointer rounded-xl border border-[#ececed] bg-white px-3.5 py-3 transition hover:border-[#d9dce6] hover:bg-[#fafafd] hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-[#3457d5]"
     >
-      <div className="flex items-start gap-3">
+      <div className="flex min-w-0 items-center gap-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#eeeeef] text-[13px] font-bold text-[#53555e]">
+          {(member.name || "?").trim().charAt(0).toUpperCase()}
+        </div>
+
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="break-words text-[13px] font-bold text-[#131418]">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <h3 className="break-words text-[12.5px] font-bold text-[#131418]">
               {member.name || "Unnamed member"}
             </h3>
 
             {member.is_head && (
-              <span className="rounded-full bg-[#e9edfd] px-2 py-0.5 text-[10px] font-semibold text-[#3457d5]">
-                Head of membership
+              <span className="rounded-full bg-[#e9edfd] px-2 py-0.5 text-[9px] font-semibold text-[#3457d5]">
+                Head
               </span>
             )}
           </div>
 
-          <p className="mt-1 font-mono text-[10px] text-[#92939b]">
-            Person ID: {member.person_id || "Not assigned"}
+          <p className="mt-0.5 truncate font-mono text-[10px] text-[#92939b]">
+            {member.person_id || "Person ID not assigned"}
           </p>
 
-          <div className="mt-3 flex flex-wrap items-center gap-2">
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
             <StatusBadge status={member.status} />
 
-            <span className="rounded-full bg-[#f2f2f3] px-2.5 py-1 text-[10.5px] font-medium text-[#53555e]">
-              {member.marital_status || "Unknown marital status"}
-            </span>
-
             {member.relationship_to_head && (
-              <span className="rounded-full bg-[#f2f2f3] px-2.5 py-1 text-[10.5px] font-medium text-[#53555e]">
+              <span className="rounded-full bg-[#f2f2f3] px-2 py-0.5 text-[10px] font-medium text-[#53555e]">
                 {member.relationship_to_head}
               </span>
             )}
 
-            {member.branch_suffix && (
-              <span className="rounded-full bg-[#f1f3ff] px-2.5 py-1 text-[10px] font-semibold text-[#536bd6]">
-                Branch {member.branch_suffix}
+            {member.marital_status && (
+              <span className="rounded-full bg-[#f2f2f3] px-2 py-0.5 text-[10px] font-medium text-[#53555e]">
+                {member.marital_status}
               </span>
             )}
           </div>
         </div>
+
+        <ChevronRight size={16} className="shrink-0 text-[#92939b]" />
       </div>
-
-      <div className="mt-4 grid grid-cols-1 gap-x-5 gap-y-3 border-t border-[#f2f2f3] pt-4 sm:grid-cols-2">
-        <DetailField label="Gender" value={member.gender} />
-        <DetailField
-          label="Date of birth"
-          value={formatDate(member.date_of_birth)}
-        />
-        <DetailField label="Baptism status" value={member.baptism_status} />
-        <DetailField
-          label="Date of baptism"
-          value={formatDate(member.date_of_baptism)}
-        />
-        <DetailField
-          label="Occupation / studying"
-          value={member.occupation_or_studying}
-        />
-        <DetailField label="Personal phone" value={member.phone_number} />
-        <DetailField label="Personal email" value={member.email} />
-        <DetailField label="Spouse" value={member.spouse_name} />
-        <DetailField
-          label="Wedding date"
-          value={formatDate(member.date_of_marriage)}
-        />
-      </div>
-
-      {member.groups?.length > 0 && (
-        <div className="mt-4 border-t border-[#f2f2f3] pt-3">
-          <p className="text-[10.5px] font-medium text-[#92939b]">
-            Church groups
-          </p>
-
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {member.groups.map((group, index) => (
-              <span
-                key={
-                  group.assignment_id || group.id || `${group.name}-${index}`
-                }
-                className="rounded-full bg-[#f1f3ff] px-2.5 py-1 text-[10px] font-semibold text-[#536bd6]"
-              >
-                {group.name || "Unnamed group"}
-                {group.role ? ` · ${group.role}` : ""}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
     </article>
   );
 }
@@ -316,7 +274,6 @@ export default function MembershipDetailsPage() {
 
     try {
       const result = await getMembershipDetails(membershipRowId, branchId);
-
       setDetails(result);
     } catch (err) {
       setError(err.message || "Unable to load this membership.");
@@ -349,29 +306,27 @@ export default function MembershipDetailsPage() {
     membership?.door_number,
     membership?.street_name,
     membership?.area,
+    membership?.landmark ? `Near ${membership.landmark}` : null,
     membership?.city,
     membership?.pincode,
   ]
-    .filter(Boolean)
-    .join(", ");
-
-  const googleMapsAddress = [
-    membership?.door_number,
-    membership?.street_name,
-    membership?.area,
-    membership?.landmark,
-    membership?.city,
-    membership?.pincode,
-  ]
-    .filter(Boolean)
+    .filter(
+      (part) =>
+        part !== null &&
+        part !== undefined &&
+        String(part).trim() !== "",
+    )
     .join(", ");
 
   function navigateToAddress() {
-    if (!googleMapsAddress.trim()) return;
+    if (!address.trim()) {
+      window.alert("No address has been recorded for this membership.");
+      return;
+    }
 
-    const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-      googleMapsAddress,
-    )}`;
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
+      address,
+    )}&travelmode=driving`;
 
     window.open(url, "_blank", "noopener,noreferrer");
   }
@@ -522,9 +477,7 @@ export default function MembershipDetailsPage() {
 
         {isBranchView && location.state?.from === "membership-details"
           ? "Back to parent membership"
-          : isBranchView
-            ? "Back to memberships"
-            : "Back to memberships"}
+          : "Back to memberships"}
       </button>
 
       {error && (
@@ -542,6 +495,7 @@ export default function MembershipDetailsPage() {
             <div className="flex h-21 w-21 shrink-0 items-center justify-center rounded-full bg-[#eeeeef] text-[#53555e] -mb-2">
               <UserRound size={19} />
             </div>
+
             <div className="flex flex-col gap-0">
               <h1 className="text-[27px] font-extrabold leading-tight tracking-[-0.8px] text-[#131418] sm:text-[34px]">
                 {isBranchView
@@ -587,8 +541,103 @@ export default function MembershipDetailsPage() {
         </div>
       </header>
 
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.5fr)_minmax(320px,1fr)]">
-        <div className="space-y-5">
+      {/* Two panels only: wider membership details on the left, members on the right. */}
+      <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.85fr)]">
+        {/* LEFT: Membership Details */}
+        <div className="min-w-0">
+          <Panel
+            title={isBranchView ? "Parent membership" : "Membership details"}
+            subtitle={
+              isBranchView
+                ? "The branch remains linked to its parent membership."
+                : "Household information and contact details"
+            }
+            action={
+              !isBranchView && (
+                <button
+                  type="button"
+                  onClick={() => setEditMembershipOpen(true)}
+                  className="rounded-lg border border-[#e5e5e7] p-2 text-[#53555e] hover:bg-[#f7f7f8]"
+                  aria-label="Edit membership"
+                >
+                  <div className="flex gap-4 px-2">
+                    <p className="text-md">Edit</p>
+                    <Pencil size={15} className="mt-[2px]" />
+                  </div>
+                </button>
+              )
+            }
+          >
+            <div className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2">
+              <DetailField
+                label={
+                  isBranchView
+                    ? "Parent membership number"
+                    : "Membership number"
+                }
+                value={membership.membership_number}
+              />
+
+              {isBranchView && (
+                <DetailField
+                  label="Branch number"
+                  value={branchDisplayNumber}
+                />
+              )}
+
+              <DetailField
+                label="Permanent membership ID"
+                value={membership.membership_id}
+              />
+
+              <DetailField
+                label="Head of membership"
+                value={
+                  membership.head_member_id === head?.id
+                    ? head?.name
+                    : details.head?.name || head?.name
+                }
+              />
+
+              <DetailField label="Year joined" value={membership.year_joined} />
+
+              <DetailField label="Address" value={address} />
+
+              <DetailField
+                label="Primary phone"
+                value={membership.primary_phone_number}
+              />
+
+              <DetailField
+                label="Alternate phone"
+                value={membership.alternate_phone_number}
+              />
+
+              <DetailField label="Household email" value={membership.email} />
+
+              {!isBranchView && (
+                <DetailField
+                  label="Head photo storage path"
+                  value={membership.head_photo_path}
+                />
+              )}
+            </div>
+
+            {isBranchView && (
+              <div className="mt-5">
+                <ActionButton
+                  onClick={() => navigate(`/memberships/${membershipRowId}`)}
+                >
+                  <ArrowLeft size={14} />
+                  Return to parent membership
+                </ActionButton>
+              </div>
+            )}
+          </Panel>
+        </div>
+
+        {/* RIGHT: Compact member cards */}
+        <div className="min-w-0">
           <Panel
             title={
               isBranchView
@@ -598,7 +647,7 @@ export default function MembershipDetailsPage() {
             subtitle={
               isBranchView
                 ? "Only people assigned to this branch are shown."
-                : "Saved personal details, marital status and relationships"
+                : "Select a member to view their full details."
             }
             action={
               !isBranchView && (
@@ -634,7 +683,7 @@ export default function MembershipDetailsPage() {
                   : "No member assignments were found."}
               </p>
             ) : (
-              <div className="grid grid-cols-1 gap-3 2xl:grid-cols-2">
+              <div className="grid grid-cols-1 gap-2">
                 {allMembers.map((member) => (
                   <PersonCard
                     key={member.id}
@@ -642,126 +691,6 @@ export default function MembershipDetailsPage() {
                     membershipRowId={membershipRowId}
                   />
                 ))}
-              </div>
-            )}
-          </Panel>
-        </div>
-
-        <div className="space-y-5">
-          <Panel
-            title={isBranchView ? "Parent membership" : "Membership details"}
-            subtitle={
-              isBranchView
-                ? "The branch remains linked to its parent membership."
-                : "Household information and contact details"
-            }
-            action={
-              !isBranchView && (
-                <button
-                  type="button"
-                  onClick={() => setEditMembershipOpen(true)}
-                  className="rounded-lg border border-[#e5e5e7] p-2 text-[#53555e] hover:bg-[#f7f7f8]"
-                  aria-label="Edit membership"
-                >
-                  <div className="flex gap-4 px-2">
-                    <p className="text-md">Edit</p>
-                    <Pencil size={15} className="mt-[2px]" />
-                  </div>
-                </button>
-              )
-            }
-          >
-            <div className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2 xl:grid-cols-1">
-              <DetailField
-                label={
-                  isBranchView
-                    ? "Parent membership number"
-                    : "Membership number"
-                }
-                value={membership.membership_number}
-              />
-
-              {isBranchView && (
-                <DetailField
-                  label="Branch number"
-                  value={branchDisplayNumber}
-                />
-              )}
-
-              <DetailField
-                label="Permanent membership ID"
-                value={membership.membership_id}
-              />
-
-              <DetailField
-                label="Head of membership"
-                value={
-                  membership.head_member_id === head?.id
-                    ? head?.name
-                    : details.head?.name || head?.name
-                }
-              />
-
-              <DetailField label="Year joined" value={membership.year_joined} />
-
-              <DetailField label="Door number" value={membership.door_number} />
-
-              <DetailField label="Street name" value={membership.street_name} />
-
-              <DetailField label="Area" value={membership.area} />
-              <DetailField label="City" value={membership.city} />
-              <DetailField label="Pincode" value={membership.pincode} />
-              <DetailField label="Landmark" value={membership.landmark} />
-
-              <DetailField
-                label="Primary phone"
-                value={membership.primary_phone_number}
-              />
-
-              <DetailField
-                label="Alternate phone"
-                value={membership.alternate_phone_number}
-              />
-
-              <DetailField label="Household email" value={membership.email} />
-
-              {!isBranchView && (
-                <DetailField
-                  label="Head photo storage path"
-                  value={membership.head_photo_path}
-                />
-              )}
-            </div>
-
-            {address && (
-              <div className="mt-5 border-t border-[#f2f2f3] pt-4">
-                <div className="flex items-start gap-2 text-[12px] text-[#6b6d76]">
-                  <MapPin size={15} className="mt-0.5 shrink-0" />
-
-                  <div className="min-w-0">
-                    <p className="font-semibold text-[#2b2d34]">
-                      Household address
-                    </p>
-
-                    <p className="mt-1 leading-5">
-                      {address}
-                      {membership.landmark
-                        ? ` · Near ${membership.landmark}`
-                        : ""}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {isBranchView && (
-              <div className="mt-5">
-                <ActionButton
-                  onClick={() => navigate(`/memberships/${membershipRowId}`)}
-                >
-                  <ArrowLeft size={14} />
-                  Return to parent membership
-                </ActionButton>
               </div>
             )}
           </Panel>
@@ -981,7 +910,7 @@ export default function MembershipDetailsPage() {
                     notes: event.target.value,
                   }))
                 }
-                className="mt-1.5 w-full rounded-[10px] border border-[#e5e5e7] bg-white px-3 py-2.5 text-[13px]"
+                className="mt-1.5 w-full rounded-[10px] border border-[#e5e5e7] px-3 py-2.5 text-[13px]"
               />
             </label>
 

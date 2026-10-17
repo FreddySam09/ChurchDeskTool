@@ -1,5 +1,4 @@
-
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   Check,
@@ -11,7 +10,7 @@ import {
   Trash2,
   Upload,
   X,
-} from 'lucide-react'
+} from "lucide-react";
 import {
   createEmptyRow,
   DATE_HEADERS,
@@ -19,114 +18,114 @@ import {
   MEMBERSHIP_HEADERS,
   prepareImportedRows,
   validateMembershipRows,
-} from './membershipImportConfig'
+} from "./membershipImportConfig";
 import {
   downloadWorkbook,
   readWorkbook,
-} from '../../../services/imports/excelUtils'
-import { importMembershipRows } from '../../../services/membership/importMembershipsService'
+} from "../../../services/imports/excelUtils";
+import { importMembershipRows } from "../../../services/membership/importMembershipsService";
 
 const QUICK_COLUMNS = [
-  'Membership Number',
-  'Record Type',
-  'Branch Suffix',
-  'Is Head',
-  'Name',
-  'Relationship to Head',
-  'Gender',
-  'Date of Birth',
-  'Marital Status',
-  'Date of Marriage',
-  'Membership Status',
-]
+  "Membership Number",
+  "Record Type",
+  "Branch Suffix",
+  "Is Head",
+  "Name",
+  "Relationship to Head",
+  "Gender",
+  "Date of Birth",
+  "Marital Status",
+  "Date of Marriage",
+  "Membership Status",
+];
 
 const SELECT_OPTIONS = {
-  'Record Type': ['Membership', 'Branch'],
-  'Branch Suffix': [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'],
-  'Is Head': ['Yes', 'No'],
-    'Relationship to Head': [
-    'Spouse',
-    'Parent',
-    'Child',
-    'Sibling',
-    'Guardian',
-    'Other',
+  "Record Type": ["Membership", "Branch"],
+  "Branch Suffix": [..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"],
+  "Is Head": ["Yes", "No"],
+  "Relationship to Head": [
+    "Spouse",
+    "Parent",
+    "Child",
+    "Sibling",
+    "Guardian",
+    "Other",
   ],
-  Gender: ['Male', 'Female', 'Other'],
-  'Marital Status': ['Single', 'Married', 'Widowed', 'Divorced'],
-  'Baptism Status': ['Unknown', 'Baptised', 'Not Baptised'],
-  Role: ['Head', 'Member'],
-  'Membership Status': ['Active', 'Inactive', 'Closed'],
-}
+  Gender: ["Male", "Female", "Other"],
+  "Marital Status": ["Single", "Married", "Widowed", "Divorced"],
+  "Baptism Status": ["Unknown", "Baptised", "Not Baptised"],
+  Role: ["Head", "Member"],
+  "Membership Status": ["Active", "Inactive", "Closed"],
+};
 
 const FIELD_SECTIONS = [
   {
-    title: 'Membership identity',
+    title: "Membership identity",
     fields: [
-      'Membership Number',
-      'Record Type',
-      'Branch Suffix',
-      'Is Head',
-      'Membership Status',
-      'Year Joined',
+      "Membership Number",
+      "Record Type",
+      "Branch Suffix",
+      "Is Head",
+      "Membership Status",
+      "Year Joined",
     ],
   },
   {
-    title: 'Personal details',
+    title: "Personal details",
     fields: [
-      'Name',
-      'Relationship to Head',
-      'Gender',
-      'Date of Birth',
-      'Marital Status',
-      'Married To',
-      'Date of Marriage',
-      'Baptism Status',
-      'Date of Baptism',
-      'Occupation',
-      'Role',
+      "Name",
+      "Relationship to Head",
+      "Gender",
+      "Date of Birth",
+      "Marital Status",
+      "Married To",
+      "Date of Marriage",
+      "Baptism Status",
+      "Date of Baptism",
+      "Occupation",
+      "Role",
     ],
   },
   {
-    title: 'Personal contact',
-    fields: ['Phone Number', 'Email', 'Fellowship / Groups'],
+    title: "Personal contact",
+    fields: ["Phone Number", "Email", "Fellowship / Groups"],
   },
   {
-    title: 'Household address',
+    title: "Household address",
     fields: [
-      'Door Number',
-      'Street Name',
-      'Area',
-      'City',
-      'Pincode',
-      'Landmark',
-      'Primary Phone Number',
-      'Alternate Phone Number',
-      'Membership Email',
+      "Door Number",
+      "Street Name",
+      "Area",
+      "City",
+      "Pincode",
+      "Landmark",
+      "Primary Phone Number",
+      "Alternate Phone Number",
+      "Membership Email",
     ],
   },
-]
+];
 
 function issueKey(issue) {
-  return `${issue.index}:${issue.field}:${issue.message}`
+  return `${issue.index}:${issue.field}:${issue.message}`;
 }
 
 function FieldEditor({ field, value, onChange, issues }) {
-  const options = SELECT_OPTIONS[field]
+  const options = SELECT_OPTIONS[field];
   const hasError = issues.some(
-    (issue) => issue.type === 'error' && issue.field === field,
-  )
+    (issue) => issue.type === "error" && issue.field === field,
+  );
   const hasWarning = issues.some(
-    (issue) => issue.type === 'warning' && issue.field === field,
-  )
+    (issue) => issue.type === "warning" && issue.field === field,
+  );
 
   const inputClass = `mt-1 w-full rounded-xl border bg-white px-3 py-2.5 text-sm text-[#202127] outline-none transition focus:border-[#9aa8ed] ${
     hasError
-      ? 'border-red-300'
+      ? "border-red-300"
       : hasWarning
-        ? 'border-amber-300'
-        : 'border-[#e5e6eb]'
-  }`
+        ? "border-amber-300"
+        : "border-[#e5e6eb]"
+  }`;
 
   return (
     <label className="block min-w-0 text-xs font-semibold text-[#555762]">
@@ -134,7 +133,7 @@ function FieldEditor({ field, value, onChange, issues }) {
 
       {options ? (
         <select
-          value={value ?? ''}
+          value={value ?? ""}
           onChange={(event) => onChange(event.target.value)}
           className={inputClass}
         >
@@ -149,14 +148,14 @@ function FieldEditor({ field, value, onChange, issues }) {
         <input
           type={
             DATE_HEADERS.includes(field)
-              ? 'date'
-              : field === 'Email' || field === 'Membership Email'
-                ? 'email'
-                : field.includes('Phone')
-                  ? 'tel'
-                  : 'text'
+              ? "date"
+              : field === "Email" || field === "Membership Email"
+                ? "email"
+                : field.includes("Phone")
+                  ? "tel"
+                  : "text"
           }
-          value={value ?? ''}
+          value={value ?? ""}
           onChange={(event) => onChange(event.target.value)}
           className={inputClass}
         />
@@ -166,8 +165,7 @@ function FieldEditor({ field, value, onChange, issues }) {
         <span className="mt-1 block font-normal text-red-600">
           {
             issues.find(
-              (issue) =>
-                issue.type === 'error' && issue.field === field,
+              (issue) => issue.type === "error" && issue.field === field,
             )?.message
           }
         </span>
@@ -177,100 +175,89 @@ function FieldEditor({ field, value, onChange, issues }) {
         <span className="mt-1 block font-normal text-amber-700">
           {
             issues.find(
-              (issue) =>
-                issue.type === 'warning' && issue.field === field,
+              (issue) => issue.type === "warning" && issue.field === field,
             )?.message
           }
         </span>
       )}
     </label>
-  )
+  );
 }
 
 export default function MembershipImportModal({ onClose }) {
-  const fileInputRef = useRef(null)
+  const fileInputRef = useRef(null);
 
-  const [rows, setRows] = useState([])
-  const [selectedIndex, setSelectedIndex] = useState(0)
-  const [filter, setFilter] = useState('all')
-  const [search, setSearch] = useState('')
-  const [fileName, setFileName] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [message, setMessage] = useState('')
-  const [error, setError] = useState('')
+  const [rows, setRows] = useState([]);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [filter, setFilter] = useState("all");
+  const [search, setSearch] = useState("");
+  const [fileName, setFileName] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
 
-  const validation = useMemo(
-    () => validateMembershipRows(rows),
-    [rows],
-  )
+  const validation = useMemo(() => validateMembershipRows(rows), [rows]);
 
   const issuesByRow = useMemo(() => {
-    const map = new Map()
+    const map = new Map();
 
-    for (const issue of [
-      ...validation.errors,
-      ...validation.warnings,
-    ]) {
-      const list = map.get(issue.index) ?? []
-      list.push(issue)
-      map.set(issue.index, list)
+    for (const issue of [...validation.errors, ...validation.warnings]) {
+      const list = map.get(issue.index) ?? [];
+      list.push(issue);
+      map.set(issue.index, list);
     }
 
-    return map
-  }, [validation])
+    return map;
+  }, [validation]);
 
   const visibleRows = useMemo(() => {
-    const query = search.trim().toLowerCase()
+    const query = search.trim().toLowerCase();
 
     return rows
       .map((row, index) => ({ row, index }))
       .filter(({ row, index }) => {
-        const rowIssues = issuesByRow.get(index) ?? []
-        const hasErrors = rowIssues.some(
-          (issue) => issue.type === 'error',
-        )
-        const hasWarnings = rowIssues.some(
-          (issue) => issue.type === 'warning',
-        )
+        const rowIssues = issuesByRow.get(index) ?? [];
+        const hasErrors = rowIssues.some((issue) => issue.type === "error");
+        const hasWarnings = rowIssues.some((issue) => issue.type === "warning");
 
-        if (filter === 'errors' && !hasErrors) return false
-        if (filter === 'warnings' && !hasWarnings) return false
-        if (filter === 'clean' && (hasErrors || hasWarnings)) {
-          return false
+        if (filter === "errors" && !hasErrors) return false;
+        if (filter === "warnings" && !hasWarnings) return false;
+        if (filter === "clean" && (hasErrors || hasWarnings)) {
+          return false;
         }
 
-        if (!query) return true
+        if (!query) return true;
 
         return MEMBERSHIP_HEADERS.some((header) =>
-          String(row[header] ?? '').toLowerCase().includes(query),
-        )
-      })
-  }, [rows, search, filter, issuesByRow])
+          String(row[header] ?? "")
+            .toLowerCase()
+            .includes(query),
+        );
+      });
+  }, [rows, search, filter, issuesByRow]);
 
-  const selectedRow = rows[selectedIndex] ?? null
-  const selectedIssues = issuesByRow.get(selectedIndex) ?? []
+  const selectedRow = rows[selectedIndex] ?? null;
+  const selectedIssues = issuesByRow.get(selectedIndex) ?? [];
 
   function updateCell(index, field, value) {
     setRows((current) =>
       current.map((row, rowIndex) =>
-        rowIndex === index
-          ? { ...row, [field]: value }
-          : row,
+        rowIndex === index ? { ...row, [field]: value } : row,
       ),
-    )
+    );
 
-    setError('')
-    setMessage('')
+    setError("");
+    setMessage("");
   }
 
   function addRow() {
-    const nextIndex = rows.length
+    const nextIndex = rows.length;
 
-    setRows((current) => [...current, createEmptyRow()])
-    setSelectedIndex(nextIndex)
-    setFilter('all')
-    setMessage('Blank row added. Complete the required fields.')
-    setError('')
+    setRows((current) => [...current, createEmptyRow()]);
+    setSelectedIndex(nextIndex);
+    setFilter("all");
+    setMessage("Blank row added. Complete the required fields.");
+    setError("");
   }
 
   function deleteRow(index) {
@@ -278,135 +265,133 @@ export default function MembershipImportModal({ onClose }) {
       `Remove spreadsheet row ${
         rows[index]?.__sourceRow ?? index + 2
       } from this import preview?`,
-    )
+    );
 
-    if (!confirmed) return
+    if (!confirmed) return;
 
-    setRows((current) =>
-      current.filter((_, rowIndex) => rowIndex !== index),
-    )
+    setRows((current) => current.filter((_, rowIndex) => rowIndex !== index));
 
     setSelectedIndex((current) => {
-      if (index < current) return current - 1
-      if (index === current) return Math.max(0, current - 1)
-      return current
-    })
+      if (index < current) return current - 1;
+      if (index === current) return Math.max(0, current - 1);
+      return current;
+    });
 
-    setError('')
+    setError("");
     setMessage(
-      'Row removed from the preview. Nothing has been deleted from Supabase.',
-    )
+      "Row removed from the preview. Nothing has been deleted from Supabase.",
+    );
   }
 
   async function handleFile(file) {
-    if (!file) return
+    if (!file) return;
 
-    setBusy(true)
-    setError('')
-    setMessage('')
+    setBusy(true);
+    setError("");
+    setMessage("");
 
     try {
-      const sourceRows = await readWorkbook(file)
-      const preparedRows = prepareImportedRows(sourceRows)
+      const sourceRows = await readWorkbook(file);
+      const preparedRows = prepareImportedRows(sourceRows);
 
-      setRows(preparedRows)
-      setSelectedIndex(0)
-      setFilter('all')
-      setSearch('')
-      setFileName(file.name)
+      setRows(preparedRows);
+      setSelectedIndex(0);
+      setFilter("all");
+      setSearch("");
+      setFileName(file.name);
       setMessage(
         `${preparedRows.length} rows loaded. Review and correct them before importing.`,
-      )
+      );
     } catch (err) {
-      setError(err.message || 'Unable to read this workbook.')
+      setError(err.message || "Unable to read this workbook.");
     } finally {
-      setBusy(false)
+      setBusy(false);
 
       if (fileInputRef.current) {
-        fileInputRef.current.value = ''
+        fileInputRef.current.value = "";
       }
     }
   }
 
   function downloadCorrectedWorkbook() {
-    if (!rows.length) return
+    if (!rows.length) return;
 
     downloadWorkbook(
-      'church-desk-memberships-reviewed.xlsx',
+      "church-desk-memberships-reviewed.xlsx",
       MEMBERSHIP_HEADERS,
       rows,
-    )
+    );
 
-    setMessage('Corrected workbook exported.')
+    setMessage("Corrected workbook exported.");
   }
 
   function downloadTemplate() {
     downloadWorkbook(
-      'church-desk-membership-template.xlsx',
+      "church-desk-membership-template.xlsx",
       MEMBERSHIP_HEADERS,
       MEMBERSHIP_EXAMPLE_ROWS,
-    )
+    );
   }
 
   function resetPreview() {
     if (
       rows.length &&
       !window.confirm(
-        'Clear the current preview? Your edits will be discarded.',
+        "Clear the current preview? Your edits will be discarded.",
       )
     ) {
-      return
+      return;
     }
 
-    setRows([])
-    setSelectedIndex(0)
-    setFileName('')
-    setFilter('all')
-    setSearch('')
-    setError('')
-    setMessage('')
+    setRows([]);
+    setSelectedIndex(0);
+    setFileName("");
+    setFilter("all");
+    setSearch("");
+    setError("");
+    setMessage("");
   }
 
   async function handleImportClick() {
-    if (!rows.length || validation.errors.length || busy) return
+    if (!rows.length || validation.errors.length || busy) return;
 
-    setBusy(true)
-    setError('')
-    setMessage('Importing memberships in one database transaction…')
+    setBusy(true);
+    setError("");
+    setMessage("Importing memberships in one database transaction…");
 
     try {
-      const result = await importMembershipRows(rows)
-      const imported = Number(result?.imported_rows ?? rows.length)
-      const memberships = Number(result?.created_memberships ?? 0)
+      const result = await importMembershipRows(rows);
+      const imported = Number(result?.imported_rows ?? rows.length);
+      const memberships = Number(result?.created_memberships ?? 0);
 
       setMessage(
         `Import completed successfully: ${imported} rows processed and ${memberships} new memberships created. All changes were committed together.`,
-      )
+      );
 
-      setRows([])
-      setSelectedIndex(0)
-      setFileName('')
-      setFilter('all')
-      setSearch('')
+      setRows([]);
+      setSelectedIndex(0);
+      setFileName("");
+      setFilter("all");
+      setSearch("");
     } catch (err) {
       setError(
-        `${err?.message || 'The import failed.'} The transaction should roll back all import changes. Correct the issue and try again.`,
-      )
-      setMessage('')
+        `${err?.message || "The import failed."} The transaction should roll back all import changes. Correct the issue and try again.`,
+      );
+      setMessage("");
     } finally {
-      setBusy(false)
+      setBusy(false);
     }
   }
 
-  const errorCount = validation.errors.length
-  const warningCount = validation.warnings.length
+  const errorCount = validation.errors.length;
+  const warningCount = validation.warnings.length;
 
   return (
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center bg-[#111218]/60 p-2 backdrop-blur-sm sm:p-5"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget && !busy) {
-          onClose()
+          onClose();
         }
       }}
     >
@@ -454,7 +439,7 @@ export default function MembershipImportModal({ onClose }) {
             className="inline-flex items-center gap-2 rounded-xl bg-[#191a20] px-4 py-2.5 text-xs font-semibold text-white hover:bg-black disabled:opacity-50"
           >
             <Upload size={15} />
-            {busy ? 'Reading workbook…' : 'Upload Excel'}
+            {busy ? "Reading workbook…" : "Upload Excel"}
           </button>
 
           <input
@@ -462,9 +447,7 @@ export default function MembershipImportModal({ onClose }) {
             type="file"
             accept=".xlsx,.xls"
             className="hidden"
-            onChange={(event) =>
-              handleFile(event.target.files?.[0])
-            }
+            onChange={(event) => handleFile(event.target.files?.[0])}
           />
 
           <button
@@ -517,31 +500,21 @@ export default function MembershipImportModal({ onClose }) {
         <div className="grid grid-cols-2 gap-2 border-b border-[#e8e9ee] px-4 py-3 sm:grid-cols-4 sm:px-6">
           <SummaryCard label="Total rows" value={rows.length} />
           <SummaryCard label="Errors" value={errorCount} tone="error" />
-          <SummaryCard
-            label="Warnings"
-            value={warningCount}
-            tone="warning"
-          />
+          <SummaryCard label="Warnings" value={warningCount} tone="warning" />
           <SummaryCard
             label="Ready to review"
-            value={
-              rows.length > 0 && errorCount === 0 ? 'Yes' : 'Not yet'
-            }
-            tone={
-              rows.length > 0 && errorCount === 0
-                ? 'success'
-                : 'neutral'
-            }
+            value={rows.length > 0 && errorCount === 0 ? "Yes" : "Not yet"}
+            tone={rows.length > 0 && errorCount === 0 ? "success" : "neutral"}
           />
         </div>
 
         {(error || message) && (
           <div
-            role={error ? 'alert' : 'status'}
+            role={error ? "alert" : "status"}
             className={`mx-4 mt-3 rounded-xl border px-3 py-2.5 text-xs leading-5 sm:mx-6 ${
               error
-                ? 'border-red-200 bg-red-50 text-red-700'
-                : 'border-[#dfe4fa] bg-[#f0f3ff] text-[#4658a6]'
+                ? "border-red-200 bg-red-50 text-red-700"
+                : "border-[#dfe4fa] bg-[#f0f3ff] text-[#4658a6]"
             }`}
           >
             {error || message}
@@ -580,16 +553,13 @@ export default function MembershipImportModal({ onClose }) {
             <div className="min-h-0 flex-1 overflow-auto">
               {rows.length === 0 ? (
                 <div className="flex h-full min-h-[300px] flex-col items-center justify-center px-6 text-center">
-                  <FileSpreadsheet
-                    size={34}
-                    className="text-[#a1a4b0]"
-                  />
+                  <FileSpreadsheet size={34} className="text-[#a1a4b0]" />
                   <p className="mt-3 text-sm font-semibold text-[#444651]">
                     No workbook loaded
                   </p>
                   <p className="mt-1 max-w-sm text-xs leading-5 text-[#858792]">
-                    Upload the membership Excel workbook to begin. You can
-                    edit every field before anything is sent to the database.
+                    Upload the membership Excel workbook to begin. You can edit
+                    every field before anything is sent to the database.
                   </p>
                   <button
                     type="button"
@@ -628,37 +598,36 @@ export default function MembershipImportModal({ onClose }) {
 
                   <tbody>
                     {visibleRows.map(({ row, index }) => {
-                      const rowIssues = issuesByRow.get(index) ?? []
+                      const rowIssues = issuesByRow.get(index) ?? [];
                       const hasErrors = rowIssues.some(
-                        (issue) => issue.type === 'error',
-                      )
+                        (issue) => issue.type === "error",
+                      );
                       const hasWarnings = rowIssues.some(
-                        (issue) => issue.type === 'warning',
-                      )
-                      const selected = selectedIndex === index
+                        (issue) => issue.type === "warning",
+                      );
+                      const selected = selectedIndex === index;
 
                       return (
                         <tr
-                          key={`${row.__sourceRow ?? 'new'}-${index}`}
+                          key={`${row.__sourceRow ?? "new"}-${index}`}
                           className={`${
                             selected
-                              ? 'bg-[#edf1ff]'
+                              ? "bg-[#edf1ff]"
                               : hasErrors
-                                ? 'bg-red-50/60'
-                                : 'bg-white'
+                                ? "bg-red-50/60"
+                                : "bg-white"
                           } hover:bg-[#f5f6ff]`}
                           onClick={() => setSelectedIndex(index)}
                         >
                           <td className="border-b border-r border-[#ececf0] px-3 py-2 font-mono text-[#858792]">
-                            {row.__sourceRow ?? 'New'}
+                            {row.__sourceRow ?? "New"}
                           </td>
 
                           {QUICK_COLUMNS.map((field) => {
                             const fieldError = rowIssues.some(
                               (issue) =>
-                                issue.type === 'error' &&
-                                issue.field === field,
-                            )
+                                issue.type === "error" && issue.field === field,
+                            );
 
                             return (
                               <td
@@ -667,11 +636,9 @@ export default function MembershipImportModal({ onClose }) {
                               >
                                 {SELECT_OPTIONS[field] ? (
                                   <select
-                                    value={row[field] ?? ''}
+                                    value={row[field] ?? ""}
                                     aria-label={`${field}, row ${index + 1}`}
-                                    onClick={(event) =>
-                                      event.stopPropagation()
-                                    }
+                                    onClick={(event) => event.stopPropagation()}
                                     onChange={(event) =>
                                       updateCell(
                                         index,
@@ -681,8 +648,8 @@ export default function MembershipImportModal({ onClose }) {
                                     }
                                     className={`w-full min-w-[95px] rounded-md border bg-white px-2 py-2 outline-none focus:border-[#8d9ce8] ${
                                       fieldError
-                                        ? 'border-red-300'
-                                        : 'border-transparent'
+                                        ? "border-red-300"
+                                        : "border-transparent"
                                     }`}
                                   >
                                     <option value="">—</option>
@@ -694,16 +661,14 @@ export default function MembershipImportModal({ onClose }) {
                                   </select>
                                 ) : (
                                   <input
-                                    value={row[field] ?? ''}
+                                    value={row[field] ?? ""}
                                     type={
                                       DATE_HEADERS.includes(field)
-                                        ? 'date'
-                                        : 'text'
+                                        ? "date"
+                                        : "text"
                                     }
                                     aria-label={`${field}, row ${index + 1}`}
-                                    onClick={(event) =>
-                                      event.stopPropagation()
-                                    }
+                                    onClick={(event) => event.stopPropagation()}
                                     onChange={(event) =>
                                       updateCell(
                                         index,
@@ -713,13 +678,13 @@ export default function MembershipImportModal({ onClose }) {
                                     }
                                     className={`w-full min-w-[110px] rounded-md border bg-white px-2 py-2 outline-none focus:border-[#8d9ce8] ${
                                       fieldError
-                                        ? 'border-red-300'
-                                        : 'border-transparent'
+                                        ? "border-red-300"
+                                        : "border-transparent"
                                     }`}
                                   />
                                 )}
                               </td>
-                            )
+                            );
                           })}
 
                           <td className="border-b border-r border-[#ececf0] px-2 py-2">
@@ -728,7 +693,7 @@ export default function MembershipImportModal({ onClose }) {
                                 <AlertTriangle size={12} />
                                 {
                                   rowIssues.filter(
-                                    (issue) => issue.type === 'error',
+                                    (issue) => issue.type === "error",
                                   ).length
                                 }
                               </span>
@@ -736,9 +701,9 @@ export default function MembershipImportModal({ onClose }) {
                               <span className="rounded-full bg-amber-100 px-2 py-1 text-[10px] font-semibold text-amber-800">
                                 {
                                   rowIssues.filter(
-                                    (issue) => issue.type === 'warning',
+                                    (issue) => issue.type === "warning",
                                   ).length
-                                }{' '}
+                                }{" "}
                                 warning
                               </span>
                             ) : (
@@ -754,8 +719,8 @@ export default function MembershipImportModal({ onClose }) {
                               type="button"
                               aria-label={`Delete row ${index + 1}`}
                               onClick={(event) => {
-                                event.stopPropagation()
-                                deleteRow(index)
+                                event.stopPropagation();
+                                deleteRow(index);
                               }}
                               disabled={busy}
                               className="rounded-md p-2 text-[#888a94] hover:bg-red-50 hover:text-red-600 disabled:opacity-40"
@@ -764,7 +729,7 @@ export default function MembershipImportModal({ onClose }) {
                             </button>
                           </td>
                         </tr>
-                      )
+                      );
                     })}
                   </tbody>
                 </table>
@@ -779,8 +744,8 @@ export default function MembershipImportModal({ onClose }) {
 
             {rows.length > 0 && (
               <div className="border-t border-[#e8e9ee] bg-white px-4 py-2 text-[11px] text-[#777984]">
-                Showing {visibleRows.length} of {rows.length} rows. Select
-                any row and edit cells directly.
+                Showing {visibleRows.length} of {rows.length} rows. Select any
+                row and edit cells directly.
               </div>
             )}
           </div>
@@ -793,7 +758,7 @@ export default function MembershipImportModal({ onClose }) {
                     Record editor
                   </p>
                   <h3 className="mt-1 text-sm font-bold text-[#202127]">
-                    {selectedRow?.Name || 'Select a record'}
+                    {selectedRow?.Name || "Select a record"}
                   </h3>
                 </div>
 
@@ -850,9 +815,9 @@ export default function MembershipImportModal({ onClose }) {
                         <li
                           key={issueKey(issue)}
                           className={`flex gap-2 text-xs leading-5 ${
-                            issue.type === 'error'
-                              ? 'text-red-700'
-                              : 'text-amber-800'
+                            issue.type === "error"
+                              ? "text-red-700"
+                              : "text-amber-800"
                           }`}
                         >
                           <AlertTriangle
@@ -860,8 +825,7 @@ export default function MembershipImportModal({ onClose }) {
                             className="mt-0.5 shrink-0"
                           />
                           <span>
-                            <strong>{issue.field}:</strong>{' '}
-                            {issue.message}
+                            <strong>{issue.field}:</strong> {issue.message}
                           </span>
                         </li>
                       ))}
@@ -885,8 +849,8 @@ export default function MembershipImportModal({ onClose }) {
 
         <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-[#e8e9ee] bg-white px-4 py-3 sm:px-6">
           <p className="max-w-2xl text-[11px] leading-5 text-[#777984]">
-            Edits remain in this preview until you export or import. No
-            database records are changed by editing this screen.
+            Edits remain in this preview until you export or import. No database
+            records are changed by editing this screen.
           </p>
 
           <div className="flex gap-2">
@@ -905,36 +869,34 @@ export default function MembershipImportModal({ onClose }) {
               disabled={!rows.length || errorCount > 0 || busy}
               title={
                 errorCount > 0
-                  ? 'Resolve validation errors before importing.'
-                  : 'Import all reviewed rows in one database transaction.'
+                  ? "Resolve validation errors before importing."
+                  : "Import all reviewed rows in one database transaction."
               }
               className="rounded-xl bg-[#191a20] px-5 py-2.5 text-xs font-semibold text-white hover:bg-black disabled:cursor-not-allowed disabled:opacity-40"
             >
               {busy
-                ? 'Importing…'
-                : `Import ${rows.length ? `${rows.length} rows` : ''}`}
+                ? "Importing…"
+                : `Import ${rows.length ? `${rows.length} rows` : ""}`}
             </button>
           </div>
         </footer>
       </section>
     </div>
-  )
+  );
 }
 
-function SummaryCard({ label, value, tone = 'neutral' }) {
+function SummaryCard({ label, value, tone = "neutral" }) {
   const toneClass = {
-    neutral: 'text-[#202127]',
-    error: 'text-red-600',
-    warning: 'text-amber-700',
-    success: 'text-emerald-700',
-  }[tone]
+    neutral: "text-[#202127]",
+    error: "text-red-600",
+    warning: "text-amber-700",
+    success: "text-emerald-700",
+  }[tone];
 
   return (
     <div className="rounded-xl border border-[#e8e9ee] bg-white px-3 py-2.5">
       <p className="text-[10px] font-medium text-[#858792]">{label}</p>
-      <p className={`mt-1 text-lg font-bold ${toneClass}`}>
-        {value}
-      </p>
+      <p className={`mt-1 text-lg font-bold ${toneClass}`}>{value}</p>
     </div>
-  )
+  );
 }
