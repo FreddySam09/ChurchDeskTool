@@ -7,7 +7,6 @@ export {
   changeMembershipHead,
 } from './membership'
 
-
 export {
   getMembers,
   getMemberDirectory,
@@ -16,7 +15,6 @@ export {
   recordMemberRelationship,
   updateMember,
 } from './membership'
-
 
 export {
   getChurchGroups,
@@ -30,4 +28,8 @@ export {
 
 export {
   getMembershipHistory,
+} from './membership'
+
+export {
+  createBranchFromMember,
 } from './membership'

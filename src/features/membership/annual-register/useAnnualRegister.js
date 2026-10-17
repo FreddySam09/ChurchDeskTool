@@ -11,8 +11,10 @@ import {
   saveEntryOrder,
   setEntryHead,
   setEntryIncluded,
+  setEntryNumber,
   setRegisterStatus,
   splitBranchInDraft,
+  undoBranchSplitInDraft,
 } from './annualRegisterService'
 
 export default function useAnnualRegister() {
@@ -25,21 +27,6 @@ export default function useAnnualRegister() {
   const [loading, setLoading] = useState(true)
   const [working, setWorking] = useState(false)
   const [error, setError] = useState('')
-
-  const loadRegisters = useCallback(async () => {
-    const data = await listAnnualRegisters()
-    setRegisters(data)
-
-    setSelectedRegisterId((currentId) => {
-      if (currentId && data.some((item) => item.id === currentId)) {
-        return currentId
-      }
-
-      return data[0]?.id ?? ''
-    })
-
-    return data
-  }, [])
 
   const loadSelectedRegister = useCallback(async (registerId) => {
     if (!registerId) {
@@ -66,11 +53,11 @@ export default function useAnnualRegister() {
 
     try {
       const data = await listAnnualRegisters()
-
       setRegisters(data)
 
       const validSelectedId =
-        selectedRegisterId && data.some((item) => item.id === selectedRegisterId)
+        selectedRegisterId &&
+        data.some((item) => item.id === selectedRegisterId)
           ? selectedRegisterId
           : data[0]?.id ?? ''
 
@@ -84,7 +71,9 @@ export default function useAnnualRegister() {
         setHistory([])
       }
     } catch (loadError) {
-      setError(loadError?.message || 'Unable to load annual registers.')
+      setError(
+        loadError?.message || 'Unable to load annual registers.',
+      )
     } finally {
       setLoading(false)
     }
@@ -107,11 +96,12 @@ export default function useAnnualRegister() {
         setSelectedRegisterId(initialId)
 
         if (initialId) {
-          const [register, registerEntries, registerHistory] = await Promise.all([
-            getAnnualRegister(initialId),
-            listRegisterEntries(initialId),
-            listRegisterHistory(initialId),
-          ])
+          const [register, registerEntries, registerHistory] =
+            await Promise.all([
+              getAnnualRegister(initialId),
+              listRegisterEntries(initialId),
+              listRegisterHistory(initialId),
+            ])
 
           if (cancelled) return
 
@@ -121,7 +111,9 @@ export default function useAnnualRegister() {
         }
       } catch (loadError) {
         if (!cancelled) {
-          setError(loadError?.message || 'Unable to load annual registers.')
+          setError(
+            loadError?.message || 'Unable to load annual registers.',
+          )
         }
       } finally {
         if (!cancelled) setLoading(false)
@@ -144,7 +136,9 @@ export default function useAnnualRegister() {
       try {
         await loadSelectedRegister(registerId)
       } catch (loadError) {
-        setError(loadError?.message || 'Unable to open this register.')
+        setError(
+          loadError?.message || 'Unable to open this register.',
+        )
       } finally {
         setLoading(false)
       }
@@ -152,40 +146,40 @@ export default function useAnnualRegister() {
     [loadSelectedRegister],
   )
 
-  const runAction = useCallback(async (action) => {
-    setWorking(true)
-    setError('')
+  const runAction = useCallback(
+    async (action) => {
+      setWorking(true)
+      setError('')
 
-    try {
-      const result = await action()
+      try {
+        const result = await action()
+        const data = await listAnnualRegisters()
+        setRegisters(data)
 
-      // Reload from the database so the UI reflects persisted state.
-      const data = await listAnnualRegisters()
-      setRegisters(data)
+        if (selectedRegisterId) {
+          await loadSelectedRegister(selectedRegisterId)
+        }
 
-      if (selectedRegisterId) {
-        await loadSelectedRegister(selectedRegisterId)
+        return result
+      } catch (actionError) {
+        setError(actionError?.message || 'The operation failed.')
+        throw actionError
+      } finally {
+        setWorking(false)
       }
-
-      return result
-    } catch (actionError) {
-      setError(actionError?.message || 'The operation failed.')
-      throw actionError
-    } finally {
-      setWorking(false)
-    }
-  }, [loadSelectedRegister, selectedRegisterId])
+    },
+    [loadSelectedRegister, selectedRegisterId],
+  )
 
   const createDraft = useCallback(
-    async ({ name, year, populateSnapshot }) => {
-      return runAction(async () => {
+    async ({ name, year, populateSnapshot }) =>
+      runAction(async () => {
         const register = await createAnnualRegister({ name, year })
 
         if (populateSnapshot) {
           try {
             await createRegisterSnapshot(register.id)
           } catch (snapshotError) {
-            // Keep the draft available so the user can inspect/retry it.
             setSelectedRegisterId(register.id)
             throw new Error(
               `The draft was created, but copying current memberships failed: ${snapshotError.message}`,
@@ -194,13 +188,13 @@ export default function useAnnualRegister() {
         }
 
         setSelectedRegisterId(register.id)
+
         await recordRegisterHistory(register.id, 'REGISTER_READY', {
           snapshot_created: Boolean(populateSnapshot),
         })
 
         return register
-      })
-    },
+      }),
     [runAction],
   )
 
@@ -216,12 +210,14 @@ export default function useAnnualRegister() {
   )
 
   const toggleEntryIncluded = useCallback(
-    (entry, included) => runAction(() => setEntryIncluded(entry, included)),
+    (entry, included) =>
+      runAction(() => setEntryIncluded(entry, included)),
     [runAction],
   )
 
   const designateHead = useCallback(
-    (entry, memberId) => runAction(() => setEntryHead(entry, memberId)),
+    (entry, memberId) =>
+      runAction(() => setEntryHead(entry, memberId)),
     [runAction],
   )
 
@@ -236,8 +232,21 @@ export default function useAnnualRegister() {
     [runAction, selectedRegisterId],
   )
 
+  const updateEntryNumber = useCallback(
+    (entry, value) =>
+      runAction(() => setEntryNumber(entry, value)),
+    [runAction],
+  )
+
   const splitBranch = useCallback(
-    (entry, label) => runAction(() => splitBranchInDraft(entry, label)),
+    (entry, label) =>
+      runAction(() => splitBranchInDraft(entry, label)),
+    [runAction],
+  )
+
+  const undoSplitBranch = useCallback(
+    (entry) =>
+      runAction(() => undoBranchSplitInDraft(entry)),
     [runAction],
   )
 
@@ -258,6 +267,8 @@ export default function useAnnualRegister() {
     toggleEntryIncluded,
     designateHead,
     reorderEntries,
+    updateEntryNumber,
     splitBranch,
+    undoSplitBranch,
   }
 }

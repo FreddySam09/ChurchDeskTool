@@ -392,6 +392,131 @@ export async function setEntryHead(entry, memberId) {
   }
 }
 
+
+export async function setEntryNumber(entry, value) {
+  const proposed = String(value ?? '').trim()
+
+  if (!proposed) {
+    throw new Error('Enter a proposed membership number.')
+  }
+
+  if (!/^[A-Za-z0-9]+$/.test(proposed)) {
+    throw new Error(
+      'Membership numbers can contain only letters and numbers.',
+    )
+  }
+
+  const { data: register, error: registerError } = await supabase
+    .from('annual_registers')
+    .select('id, status')
+    .eq('id', entry.annual_register_id)
+    .single()
+
+  if (registerError) throw registerError
+
+  if (register.status === 'Finalised') {
+    throw new Error('Finalised registers are read-only.')
+  }
+
+  const { error } = await supabase
+    .from('annual_membership_entries')
+    .update({ membership_number: proposed })
+    .eq('id', entry.id)
+    .eq('annual_register_id', entry.annual_register_id)
+
+  if (error) throw error
+
+  // Keep attached branch suffixes with the edited parent number.
+  if (!entry.branch_id && entry.entry_type !== 'Branch') {
+    const { data: children, error: childrenError } = await supabase
+      .from('annual_membership_entries')
+      .select(`
+        id,
+        membership_number,
+        branch:membership_branches!annual_membership_entries_branch_id_fkey (
+          suffix
+        )
+      `)
+      .eq('annual_register_id', entry.annual_register_id)
+      .eq('parent_entry_id', entry.id)
+      .eq('entry_type', 'Branch')
+
+    if (childrenError) throw childrenError
+
+    for (const child of children ?? []) {
+      const suffix =
+        child.branch?.suffix ||
+        String(child.membership_number ?? '').replace(
+          String(entry.membership_number ?? ''),
+          '',
+        )
+
+      const { error: childError } = await supabase
+        .from('annual_membership_entries')
+        .update({ membership_number: `${proposed}${suffix}` })
+        .eq('id', child.id)
+
+      if (childError) throw childError
+    }
+  }
+
+  await recordRegisterHistory(
+    entry.annual_register_id,
+    'PROPOSED_NUMBER_CHANGED',
+    {
+      entry_id: entry.id,
+      previous_number: entry.membership_number ?? null,
+      proposed_number: proposed,
+    },
+  )
+}
+
+export async function undoBranchSplitInDraft(entry) {
+  if (entry.entry_type !== 'Independent Split' || !entry.branch_id) {
+    throw new Error('This entry is not a branch split.')
+  }
+
+  const { data: parent, error: parentError } = await supabase
+    .from('annual_membership_entries')
+    .select('id, membership_number')
+    .eq('annual_register_id', entry.annual_register_id)
+    .eq('membership_id', entry.membership_id)
+    .is('branch_id', null)
+    .eq('entry_type', 'Membership')
+    .maybeSingle()
+
+  if (parentError) throw parentError
+
+  if (!parent) {
+    throw new Error(
+      'The original parent membership could not be found in this draft.',
+    )
+  }
+
+  const { error } = await supabase
+    .from('annual_membership_entries')
+    .update({
+      entry_type: 'Branch',
+      parent_entry_id: parent.id,
+      membership_number: `${parent.membership_number ?? ''}${entry.suffix ?? ''}`,
+      removal_reason: null,
+    })
+    .eq('id', entry.id)
+    .eq('annual_register_id', entry.annual_register_id)
+
+  if (error) throw error
+
+  await recordRegisterHistory(
+    entry.annual_register_id,
+    'BRANCH_SPLIT_UNDONE',
+    {
+      entry_id: entry.id,
+      restored_parent_entry_id: parent.id,
+    },
+  )
+}
+
+
 export async function saveEntryOrder(registerId, entries) {
   const activeEntries = entries.filter((entry) => entry.is_included)
   const removedEntries = entries.filter((entry) => !entry.is_included)

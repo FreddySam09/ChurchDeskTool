@@ -9,12 +9,13 @@ import {
   RefreshCw,
   Search,
   Users,
+  UserRound,
 } from 'lucide-react'
 import { getMembershipDirectory } from '../../services/membershipService'
 import AddMembershipModal from './AddMembershipModal'
 import MembershipImportModal from './import/MembershipImportModal'
 
-const FILTERS = ['All', 'Active', 'Inactive', 'Transferred', 'Non-current']
+const FILTERS = ['All', 'Active', 'Inactive']
 
 const membershipNumberCollator = new Intl.Collator(undefined, {
   numeric: true,
@@ -73,6 +74,7 @@ function getDisplayNumber(membership) {
   return String(number)
 }
 
+
 function MembershipCard({ membership, onOpen }) {
   const displayNumber = getDisplayNumber(membership)
   const isBranch = membership.is_branch === true
@@ -80,6 +82,13 @@ function MembershipCard({ membership, onOpen }) {
   const area = [membership.area, membership.city]
     .filter(Boolean)
     .join(', ')
+
+  // Use a real membership image when available; otherwise show a placeholder.
+  const imageUrl =
+    membership.head_photo_url ||
+    membership.photo_url ||
+    membership.head_photo ||
+    null
 
   return (
     <article
@@ -93,60 +102,88 @@ function MembershipCard({ membership, onOpen }) {
           onOpen(membership)
         }
       }}
-      className="group flex min-h-[250px] cursor-pointer flex-col rounded-[28px] border border-[#e9e9eb] bg-white p-6 shadow-[0_1px_2px_rgba(15,15,20,0.04)] transition duration-200 hover:-translate-y-0.5 hover:border-[#d9def8] hover:shadow-[0_8px_25px_rgba(15,15,20,0.06)] sm:p-7"
+      className="group flex min-h-[270px] cursor-pointer flex-col rounded-[28px] border border-[#e9e9eb] bg-white p-6 shadow-[0_1px_2px_rgba(15,15,20,0.04)] transition duration-200 hover:-translate-y-0.5 hover:border-[#d9def8] hover:shadow-[0_8px_25px_rgba(15,15,20,0.06)] sm:p-7"
     >
-      <div className="flex items-start justify-between gap-3">
-        <span className="flex min-h-[56px] min-w-[56px] items-center justify-center rounded-[15px] bg-[#eeeeef] px-3 text-[18px] font-bold tracking-[-0.4px] text-[#131418]">
+      {/* Top row: membership display number */}
+      <div className="flex items-center justify-end">
+        <span className="inline-flex h-[36px] min-w-[48px] items-center justify-center rounded-[12px] bg-[#eeeeef] px-3 text-[16px] font-bold tracking-[-0.4px] text-[#131418]">
           {displayNumber}
         </span>
-
-        <StatusBadge status={membership.membership_status} />
       </div>
 
-      {isBranch && (
-        <div className="mt-4 flex items-center gap-1.5 text-[11px] font-semibold text-[#536bd6]">
-          <GitBranch size={13} />
-          Branch of {membership.membership_number || '—'}
-        </div>
-      )}
-
-      <div className={isBranch ? 'mt-2 min-w-0' : 'mt-5 min-w-0'}>
-        <h2 className="truncate text-[17px] font-bold tracking-[-0.3px] text-[#131418] sm:text-[18px]">
-          {membership.card_head_name ||
-            membership.head_name ||
-            membership.head?.name ||
-            'Head not assigned'}
-        </h2>
-
-        <p className="mt-1 truncate text-[13px] text-[#92939b]">
-          {area || 'Not Recorded'}
-          {displayNumber === '—' && ' · Awaiting membership number'}
-        </p>
-
-        {isBranch ? (
-          <p className="mt-1 font-mono text-[10px] text-[#92939b]">
-            Branch · {membership.suffix}
-          </p>
-        ) : (
-          <p className="mt-1 truncate font-mono text-[10px] text-[#92939b]">
-            Permanent ID: {membership.membership_id || 'Not available'}
-          </p>
-        )}
-      </div>
-
-      <div className="mt-auto flex items-center justify-between gap-3 border-t border-[#f0f0f1] pt-4">
-        <span className="text-[12px] text-[#777984]">
-          {membership.member_count ?? 0}{' '}
-          {(membership.member_count ?? 0) === 1 ? 'Member' : 'Members'}
-
-          {!isBranch && membership.branch_count > 0 && (
-            <>
-              {' · '}
-              {membership.branch_count}{' '}
-              {membership.branch_count === 1 ? 'branch' : 'branches'}
-            </>
+      {/* Main content: image placeholder and membership details */}
+      <div className="mt-1 flex min-w-0 items-center gap-4">
+        <div className="h-[112px] w-[112px] shrink-0 overflow-hidden rounded-[15px] bg-[#f0f0f1]">
+          {imageUrl ? (
+            <img
+              src={imageUrl}
+              alt={
+                membership.card_head_name ||
+                membership.head_name ||
+                'Membership'
+              }
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-[#b0b1b8]">
+              <Users size={38} strokeWidth={1.35} />
+            </div>
           )}
-        </span>
+        </div>
+
+        <div className="min-w-0 flex-1">
+          {isBranch && (
+            <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-[#536bd6]">
+              <GitBranch size={13} />
+              <span>
+                Branch of {membership.membership_number || '—'}
+              </span>
+            </div>
+          )}
+
+          <h2 className="line-clamp-2 text-[17px] font-bold tracking-[-0.3px] text-[#131418] sm:text-[18px]">
+            {membership.card_head_name ||
+              membership.head_name ||
+              membership.head?.name ||
+              'Head not assigned'}
+          </h2>
+
+          <p className="mt-1.5 flex items-start gap-1.5 text-[13px] leading-5 text-[#92939b]">
+            <span className="min-w-0 break-words">
+              {area || 'Not Recorded'}
+            </span>
+          </p>
+
+          {displayNumber === '—' && (
+            <p className="mt-1 text-[11px] text-[#92939b]">
+              Awaiting membership number
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Bottom row: member counts, status and profile link */}
+      <div className="mt-auto flex flex-wrap items-center justify-between gap-x-3 gap-y-3 border-t border-[#f0f0f1] pt-4">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
+          <span className="text-[12px] text-[#777984]">
+            {membership.member_count ?? 0}{' '}
+            {(membership.member_count ?? 0) === 1
+              ? 'Member'
+              : 'Members'}
+
+            {!isBranch && membership.branch_count > 0 && (
+              <>
+                {' · '}
+                {membership.branch_count}{' '}
+                {membership.branch_count === 1
+                  ? 'branch'
+                  : 'branches'}
+              </>
+            )}
+          </span>
+
+          <StatusBadge status={membership.membership_status} />
+        </div>
 
         <span className="inline-flex shrink-0 items-center gap-1 text-[12px] font-semibold text-[#131418] transition group-hover:text-[#3457d5]">
           View profile
@@ -156,6 +193,7 @@ function MembershipCard({ membership, onOpen }) {
     </article>
   )
 }
+
 
 export default function MembershipPage() {
   const navigate = useNavigate()
@@ -402,14 +440,6 @@ export default function MembershipPage() {
       </header>
 
       <div className="mb-8 flex flex-wrap items-center gap-3">
-        <ActionButton
-          onClick={() => navigate('/groups')}
-          title="Open fellowships and groups"
-        >
-          <Users size={17} />
-          Fellowships &amp; Groups
-        </ActionButton>
-
         <ActionButton onClick={() => setImportModalOpen(true)}>
           <ArrowDownToLine size={17} />
           Import

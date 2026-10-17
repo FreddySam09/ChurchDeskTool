@@ -24,6 +24,9 @@ export default function AnnualRegister() {
     toggleEntryIncluded,
     designateHead,
     splitBranch,
+    reorderEntries,
+    updateEntryNumber,
+    undoSplitBranch,
   } = useAnnualRegister()
 
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
@@ -97,6 +100,36 @@ export default function AnnualRegister() {
       // Error is shown in the page alert.
     }
   }
+
+  async function handleReorder(nextEntries) {
+  try {
+    await reorderEntries(nextEntries)
+  } catch {
+    // The hook displays the error in the page alert.
+  }
+}
+
+async function handleNumberChange(entry, value) {
+  try {
+    await updateEntryNumber(entry, value)
+  } catch {
+    // The hook displays the error in the page alert.
+  }
+}
+
+async function handleUndoSplit(entry) {
+  const confirmed = window.confirm(
+    `Restore branch ${entry.membership_number} under its original parent membership?`,
+  )
+
+  if (!confirmed) return
+
+  try {
+    await undoSplitBranch(entry)
+  } catch {
+    // The hook displays the error in the page alert.
+  }
+}
 
   return (
     <main className="min-h-screen bg-[#f4f4f5] p-4 text-[#131418] sm:p-6">
@@ -199,6 +232,9 @@ export default function AnnualRegister() {
                   onToggleIncluded={handleToggleIncluded}
                   onDesignateHead={handleDesignateHead}
                   onSplitBranch={handleSplitBranch}
+                  onUndoSplit={handleUndoSplit}
+                  onReorder={handleReorder}
+                  onNumberChange={handleNumberChange}
                 />
 
                 <RegisterHistory history={history} loading={loading} />

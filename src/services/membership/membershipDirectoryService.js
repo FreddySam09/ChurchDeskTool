@@ -363,3 +363,157 @@ export async function changeMembershipHead({
     }),
   )
 }
+
+/**
+ * Create a branch from an existing non-head member.
+ *
+ * The member's permanent person record is not duplicated.
+ * Their previous active main-membership assignment is closed,
+ * and a new active branch assignment is created.
+ */
+export async function createBranchFromExistingMember({
+  membershipRowId,
+  memberId,
+}) {
+  if (!membershipRowId || !memberId) {
+    throw new Error('Membership and member are both required.')
+  }
+
+  const today = new Date().toISOString().slice(0, 10)
+
+  const membership = unwrap(
+    await supabase
+      .from('memberships')
+      .select('id, membership_number, head_member_id, membership_status')
+      .eq('id', membershipRowId)
+      .single(),
+  )
+
+  if (membership.membership_status !== 'Active') {
+    throw new Error('A branch can only be created from an active membership.')
+  }
+
+  if (membership.head_member_id === memberId) {
+    throw new Error(
+      'The main membership head cannot be moved into a branch.',
+    )
+  }
+
+  const assignment = unwrap(
+    await supabase
+      .from('membership_structure_assignments')
+      .select('id, membership_id, member_id, branch_id, valid_from')
+      .eq('membership_id', membershipRowId)
+      .eq('member_id', memberId)
+      .is('valid_until', null)
+      .maybeSingle(),
+  )
+
+  if (!assignment) {
+    throw new Error(
+      'This person does not have an active assignment in this membership.',
+    )
+  }
+
+  if (assignment.branch_id) {
+    throw new Error(
+      'This person is already assigned to a branch. Open the branch to manage them.',
+    )
+  }
+
+  const existingBranches = unwrap(
+    await supabase
+      .from('membership_branches')
+      .select('suffix')
+      .eq('membership_id', membershipRowId)
+      .order('suffix'),
+  ) ?? []
+
+  const usedSuffixes = new Set(
+    existingBranches.map((branch) =>
+      String(branch.suffix || '').toUpperCase(),
+    ),
+  )
+
+  let suffix = ''
+  for (let code = 65; code <= 90; code += 1) {
+    const candidate = String.fromCharCode(code)
+    if (!usedSuffixes.has(candidate)) {
+      suffix = candidate
+      break
+    }
+  }
+
+  if (!suffix) {
+    throw new Error(
+      'All branch suffixes A–Z are in use for this membership.',
+    )
+  }
+
+  // Create the branch first so its ID can be referenced by the assignment.
+  const branch = unwrap(
+    await supabase
+      .from('membership_branches')
+      .insert({
+        membership_id: membershipRowId,
+        suffix,
+        branch_status: 'Active',
+      })
+      .select('*')
+      .single(),
+  )
+
+  let previousAssignmentClosed = false
+
+  try {
+    // Close the existing assignment without deleting its history.
+    const closedAssignment = unwrap(
+      await supabase
+        .from('membership_structure_assignments')
+        .update({ valid_until: today })
+        .eq('id', assignment.id)
+        .is('valid_until', null)
+        .select('id')
+        .single(),
+    )
+
+    previousAssignmentClosed = Boolean(closedAssignment?.id)
+
+    // Reassign the same person record to the newly created branch.
+    unwrap(
+      await supabase
+        .from('membership_structure_assignments')
+        .insert({
+          membership_id: membershipRowId,
+          member_id: memberId,
+          branch_id: branch.id,
+          relationship_to_head: 'Head of Branch',
+          valid_from: today,
+          valid_until: null,
+        })
+        .select('*')
+        .single(),
+    )
+
+    return {
+      branch,
+      membershipNumber: `${membership.membership_number || ''}${suffix}`,
+      memberId,
+    }
+  } catch (error) {
+    // Best-effort rollback if creating the new assignment fails.
+    if (previousAssignmentClosed) {
+      await supabase
+        .from('membership_structure_assignments')
+        .update({ valid_until: null })
+        .eq('id', assignment.id)
+    }
+
+    await supabase
+      .from('membership_branches')
+      .delete()
+      .eq('id', branch.id)
+
+    throw error
+  }
+}

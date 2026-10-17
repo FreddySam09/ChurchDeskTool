@@ -1,11 +1,101 @@
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
-  filterEntries,
+  Check,
+  ChevronDown,
+  ChevronUp,
+  GripVertical,
+  RotateCcw,
+  Search,
+  Split,
+  X,
+} from 'lucide-react'
+import {
   getIncludedEntries,
   getRemovedEntries,
   getEntryLabel,
 } from './annualRegisterUtils'
+
+function isBranchEntry(entry) {
+  return Boolean(entry.branch_id) && entry.entry_type === 'Branch'
+}
+
+function isSplitEntry(entry) {
+  return entry.entry_type === 'Independent Split'
+}
+
+function makeGroups(entries) {
+  const byId = new Map(entries.map((entry) => [entry.id, entry]))
+  const groups = []
+  const groupByRoot = new Map()
+  const assigned = new Set()
+
+  for (const entry of entries) {
+    if (assigned.has(entry.id)) continue
+
+    if (
+      entry.parent_entry_id &&
+      byId.has(entry.parent_entry_id) &&
+      isBranchEntry(entry)
+    ) {
+      const parent = byId.get(entry.parent_entry_id)
+      let group = groupByRoot.get(parent.id)
+
+      if (!group) {
+        group = { key: parent.id, entries: [parent] }
+        groupByRoot.set(parent.id, group)
+        groups.push(group)
+        assigned.add(parent.id)
+      }
+
+      if (!group.entries.some((item) => item.id === entry.id)) {
+        group.entries.push(entry)
+      }
+
+      assigned.add(entry.id)
+      continue
+    }
+
+    if (
+      isBranchEntry(entry) &&
+      entry.parent_entry_id &&
+      assigned.has(entry.parent_entry_id)
+    ) {
+      const group = groupByRoot.get(entry.parent_entry_id)
+
+      if (group && !group.entries.some((item) => item.id === entry.id)) {
+        group.entries.push(entry)
+      }
+
+      assigned.add(entry.id)
+      continue
+    }
+
+    const group = { key: entry.id, entries: [entry] }
+    groupByRoot.set(entry.id, group)
+    groups.push(group)
+    assigned.add(entry.id)
+  }
+
+  for (const group of groups) {
+    group.entries.sort((a, b) => {
+      if (a.id === group.key) return -1
+      if (b.id === group.key) return 1
+
+      return String(a.suffix || '').localeCompare(
+        String(b.suffix || ''),
+        undefined,
+        { numeric: true },
+      )
+    })
+  }
+
+  return groups
+}
+
+function flattenGroups(groups) {
+  return groups.flatMap((group) => group.entries)
+}
 
 export default function RegisterEntries({
   entries = [],
@@ -15,295 +105,541 @@ export default function RegisterEntries({
   onToggleIncluded,
   onDesignateHead,
   onSplitBranch,
+  onUndoSplit,
+  onReorder,
+  onNumberChange,
 }) {
   const [search, setSearch] = useState('')
   const [showRemoved, setShowRemoved] = useState(false)
-
-  const filteredEntries = useMemo(
-    () => filterEntries(entries, search, showRemoved),
-    [entries, search, showRemoved],
-  )
+  const [draggedKey, setDraggedKey] = useState(null)
+  const [numberEdits, setNumberEdits] = useState({})
 
   const includedCount = getIncludedEntries(entries).length
   const removedCount = getRemovedEntries(entries).length
 
+  useEffect(() => {
+    setNumberEdits(
+      Object.fromEntries(
+        entries.map((entry) => [
+          entry.id,
+          entry.membership_number ?? '',
+        ]),
+      ),
+    )
+  }, [entries])
+
+  const groups = useMemo(() => makeGroups(entries), [entries])
+
+  const filteredGroups = useMemo(() => {
+    const query = search.trim().toLowerCase()
+
+    return groups
+      .map((group) => ({
+        ...group,
+        entries: group.entries.filter((entry) => {
+          if (!showRemoved && !entry.is_included) return false
+          if (!query) return true
+
+          const haystack = [
+            entry.membership_number,
+            entry.membership?.membership_id,
+            entry.head_name,
+            entry.source_head_name,
+            entry.membership?.head?.person_id,
+            entry.suffix,
+            ...(entry.assignments ?? []).map(
+              (assignment) => assignment.member?.name,
+            ),
+            ...(entry.assignments ?? []).map(
+              (assignment) => assignment.member?.person_id,
+            ),
+          ]
+            .filter(Boolean)
+            .join(' ')
+            .toLowerCase()
+
+          return haystack.includes(query)
+        }),
+      }))
+      .filter((group) => group.entries.length > 0)
+  }, [groups, search, showRemoved])
+
+  function moveGroup(groupKey, direction) {
+    const currentIndex = groups.findIndex(
+      (group) => group.key === groupKey,
+    )
+    const targetIndex = currentIndex + direction
+
+    if (
+      currentIndex < 0 ||
+      targetIndex < 0 ||
+      targetIndex >= groups.length
+    ) {
+      return
+    }
+
+    const next = [...groups]
+    const [moved] = next.splice(currentIndex, 1)
+    next.splice(targetIndex, 0, moved)
+
+    onReorder?.(flattenGroups(next))
+  }
+
+  function dropOnGroup(targetKey) {
+    if (!draggedKey || draggedKey === targetKey) return
+
+    const next = [...groups]
+    const from = next.findIndex(
+      (group) => group.key === draggedKey,
+    )
+    const to = next.findIndex(
+      (group) => group.key === targetKey,
+    )
+
+    if (from < 0 || to < 0) return
+
+    const [moved] = next.splice(from, 1)
+    next.splice(to, 0, moved)
+
+    setDraggedKey(null)
+    onReorder?.(flattenGroups(next))
+  }
+
+  async function saveNumber(entry) {
+    const value = String(numberEdits[entry.id] ?? '').trim()
+
+    if (!value || value === String(entry.membership_number ?? '')) {
+      return
+    }
+
+    await onNumberChange?.(entry, value)
+  }
+
   return (
-    <section className="rounded-2xl border border-[#e9e9eb] bg-white">
-      <div className="border-b border-[#e9e9eb] p-4 sm:p-5">
-        <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
+    <section className="overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white shadow-[0_1px_2px_rgba(15,15,20,0.04)]">
+      <div className="border-b border-[#e5e7eb] px-4 py-4 sm:px-5">
+        <div className="flex flex-col justify-between gap-3 lg:flex-row lg:items-center">
           <div>
-            <h2 className="text-base font-semibold text-[#131418]">
-              Register entries
+            <h2 className="text-base font-semibold text-[#17181d]">
+              Register editor
             </h2>
-            <p className="mt-1 text-sm text-[#777984]">
-              Review memberships, branches, and assigned people.
+            <p className="mt-1 text-xs leading-5 text-[#777984]">
+              Edit proposed numbers and arrange membership groups.
+              Branches move with their parent.
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <Count label="Included" value={includedCount} />
-            <Count label="Removed" value={removedCount} />
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <span className="rounded-full border border-[#dcece2] bg-[#eff8f2] px-3 py-1.5 font-medium text-[#28734b]">
+              Included {includedCount}
+            </span>
+            <span className="rounded-full border border-[#f2dede] bg-[#fff4f3] px-3 py-1.5 font-medium text-[#b0443e]">
+              Removed {removedCount}
+            </span>
           </div>
         </div>
 
         <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-          <input
-            type="search"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search membership number, name, or ID…"
-            className="min-w-0 flex-1 rounded-xl border border-[#e5e5e7] bg-white px-4 py-3 text-sm text-[#131418] outline-none placeholder:text-[#a0a1a8] focus:border-[#7b88c9] focus:ring-2 focus:ring-[#7b88c9]/10"
-          />
+          <label className="relative min-w-0 flex-1">
+            <Search
+              size={16}
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#92939b]"
+            />
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search number, membership ID, head, or person…"
+              className="h-10 w-full rounded-lg border border-[#e5e7eb] bg-white pl-9 pr-3 text-sm outline-none transition focus:border-[#6b7fe8] focus:ring-2 focus:ring-[#6b7fe8]/10"
+            />
+          </label>
 
-          <label className="flex shrink-0 items-center gap-2 rounded-xl border border-[#e9e9eb] px-3 py-2 text-sm text-[#53555e]">
+          <label className="flex h-10 shrink-0 items-center gap-2 rounded-lg border border-[#e5e7eb] px-3 text-xs font-medium text-[#555761]">
             <input
               type="checkbox"
               checked={showRemoved}
               onChange={(event) => setShowRemoved(event.target.checked)}
               className="accent-[#25262c]"
             />
-            Show removed
+            Show removed entries
           </label>
         </div>
       </div>
 
-      <div className="space-y-3 p-3 sm:p-4">
-        {loading ? (
-          <EmptyState>Loading register entries…</EmptyState>
-        ) : filteredEntries.length === 0 ? (
-          <EmptyState>
-            {entries.length === 0
-              ? 'This register has no entries yet. Create a membership snapshot to populate it.'
-              : 'No entries match your search and filters.'}
-          </EmptyState>
-        ) : (
-          filteredEntries.map((entry) => (
-            <EntryCard
-              key={entry.id}
-              entry={entry}
-              entries={entries}
-              readOnly={readOnly}
-              working={working}
-              onToggleIncluded={onToggleIncluded}
-              onDesignateHead={onDesignateHead}
-              onSplitBranch={onSplitBranch}
-            />
-          ))
+      {loading ? (
+        <div className="p-12 text-center text-sm text-[#777984]">
+          Loading register entries…
+        </div>
+      ) : filteredGroups.length === 0 ? (
+        <div className="p-12 text-center">
+          <p className="text-sm font-medium text-[#383a42]">
+            {entries.length
+              ? 'No entries match your search.'
+              : 'This draft has no entries yet.'}
+          </p>
+          <p className="mt-1 text-xs text-[#92939b]">
+            Create a draft with a current-membership snapshot to populate
+            the register.
+          </p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[980px] border-collapse text-left">
+            <thead>
+              <tr className="border-b border-[#e9e9eb] bg-[#f8f8f9] text-[10px] font-semibold uppercase tracking-[0.1em] text-[#858792]">
+                <th className="w-24 px-3 py-3">Order</th>
+                <th className="w-32 px-3 py-3">Proposed no.</th>
+                <th className="px-3 py-3">Membership / household</th>
+                <th className="w-40 px-3 py-3">Register action</th>
+                <th className="w-56 px-3 py-3 text-right">Edit</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {filteredGroups.map((group) => {
+                const root =
+                  group.entries.find((entry) => !isBranchEntry(entry)) ??
+                  group.entries[0]
+
+                const groupIndex = groups.findIndex(
+                  (item) => item.key === group.key,
+                )
+
+                return group.entries.map((entry, entryIndex) => {
+                  const isBranch = isBranchEntry(entry)
+                  const split = isSplitEntry(entry)
+                  const isRemoved = !entry.is_included
+                  const head = entry.head_name || 'Head needs review'
+
+                  return (
+                    <tr
+                      key={entry.id}
+                      draggable={
+                        !readOnly && !working && entryIndex === 0
+                      }
+                      onDragStart={() => setDraggedKey(group.key)}
+                      onDragEnd={() => setDraggedKey(null)}
+                      onDragOver={(event) => {
+                        if (draggedKey && draggedKey !== group.key) {
+                          event.preventDefault()
+                        }
+                      }}
+                      onDrop={(event) => {
+                        event.preventDefault()
+                        dropOnGroup(group.key)
+                      }}
+                      className={`border-b border-[#f0f0f2] last:border-b-0 transition ${
+                        isRemoved
+                          ? 'bg-[#fafafa] text-[#92939b]'
+                          : draggedKey === group.key
+                            ? 'bg-[#f4f6ff]'
+                            : 'bg-white hover:bg-[#fcfcfd]'
+                      } ${isBranch ? 'bg-[#fbfaff]' : ''}`}
+                    >
+                      <td className="px-3 py-3 align-top">
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className="cursor-grab text-[#a1a2aa]"
+                            title="Drag to reorder"
+                          >
+                            <GripVertical size={16} />
+                          </span>
+
+                          {!readOnly && (
+                            <div className="flex flex-col">
+                              <button
+                                type="button"
+                                aria-label="Move group up"
+                                disabled={working || groupIndex <= 0}
+                                onClick={() => moveGroup(group.key, -1)}
+                                className="rounded p-0.5 text-[#777984] hover:bg-[#ededf0] disabled:opacity-25"
+                              >
+                                <ChevronUp size={14} />
+                              </button>
+                              <button
+                                type="button"
+                                aria-label="Move group down"
+                                disabled={
+                                  working ||
+                                  groupIndex < 0 ||
+                                  groupIndex >= groups.length - 1
+                                }
+                                onClick={() => moveGroup(group.key, 1)}
+                                className="rounded p-0.5 text-[#777984] hover:bg-[#ededf0] disabled:opacity-25"
+                              >
+                                <ChevronDown size={14} />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+
+                      <td className="px-3 py-3 align-top">
+                        {readOnly ? (
+                          <span
+                            className={`inline-flex min-w-[54px] justify-center rounded-md border px-2 py-1.5 text-xs font-bold tabular-nums ${
+                              isBranch
+                                ? 'border-violet-200 bg-violet-50 text-violet-700'
+                                : 'border-[#e5e7eb] bg-[#f8f8f9] text-[#25262c]'
+                            }`}
+                          >
+                            {entry.membership_number || '—'}
+                          </span>
+                        ) : (
+                          <input
+                            aria-label={`Proposed number for ${head}`}
+                            value={numberEdits[entry.id] ?? ''}
+                            onChange={(event) =>
+                              setNumberEdits((current) => ({
+                                ...current,
+                                [entry.id]: event.target.value,
+                              }))
+                            }
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter') {
+                                event.currentTarget.blur()
+                              }
+                            }}
+                            onBlur={() => saveNumber(entry)}
+                            disabled={working || isRemoved}
+                            className={`w-[82px] rounded-md border px-2 py-1.5 text-xs font-semibold tabular-nums outline-none focus:border-[#6b7fe8] focus:ring-2 focus:ring-[#6b7fe8]/10 disabled:bg-[#f5f5f6] ${
+                              isBranch
+                                ? 'border-violet-200 bg-violet-50 text-violet-700'
+                                : 'border-[#e5e7eb] bg-white text-[#25262c]'
+                            }`}
+                          />
+                        )}
+                      </td>
+
+                      <td className="px-3 py-3 align-top">
+                        <div className={`flex items-start gap-2 ${isBranch ? 'pl-5' : ''}`}>
+                          {isBranch && (
+                            <span className="mt-0.5 text-violet-500">↳</span>
+                          )}
+
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span
+                                className={`text-sm font-semibold ${
+                                  isRemoved
+                                    ? 'text-[#777984] line-through'
+                                    : 'text-[#25262c]'
+                                }`}
+                              >
+                                {head}
+                              </span>
+
+                              <span
+                                className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${
+                                  isBranch
+                                    ? 'border-violet-200 bg-violet-50 text-violet-700'
+                                    : split
+                                      ? 'border-sky-200 bg-sky-50 text-sky-700'
+                                      : 'border-[#e5e7eb] bg-[#f8f8f9] text-[#777984]'
+                                }`}
+                              >
+                                {getEntryLabel(entry)}
+                              </span>
+
+                              {isRemoved && (
+                                <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-700">
+                                  Removed
+                                </span>
+                              )}
+                            </div>
+
+                            <p className="mt-1 text-[11px] text-[#858792]">
+                              {entry.membership?.membership_id ||
+                                'Membership ID unavailable'}
+                              {entry.suffix ? ` · Branch ${entry.suffix}` : ''}
+                            </p>
+
+                            {isBranch && (
+                              <p className="mt-1 text-[11px] text-violet-700">
+                                Branch of{' '}
+                                {root?.membership_number ||
+                                  entry.membership_number?.replace(
+                                    entry.suffix,
+                                    '',
+                                  ) ||
+                                  'parent membership'}
+                              </p>
+                            )}
+
+                            {split && (
+                              <p className="mt-1 text-[11px] text-sky-700">
+                                Proposed as an independent membership after approval
+                              </p>
+                            )}
+
+                            <div className="mt-2 flex flex-wrap gap-1.5">
+                              {(entry.assignments ?? []).map((assignment) => (
+                                <span
+                                  key={assignment.id}
+                                  title={assignment.relationship_to_head || ''}
+                                  className={`rounded-md border px-2 py-1 text-[10px] ${
+                                    assignment.is_head
+                                      ? 'border-[#dcece2] bg-[#eff8f2] font-semibold text-[#28734b]'
+                                      : 'border-[#ececef] bg-white text-[#777984]'
+                                  }`}
+                                >
+                                  {assignment.member?.name || 'Unknown person'}
+                                  {assignment.is_head ? ' · Head' : ''}
+                                </span>
+                              ))}
+                            </div>
+
+                            {!entry.head_is_valid && entry.is_included && (
+                              <p className="mt-2 text-[11px] text-amber-700">
+                                Head designation needs review.
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+
+                      <td className="px-3 py-3 align-top">
+                        <span
+                          className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-semibold ${
+                            isRemoved
+                              ? 'bg-rose-50 text-rose-700'
+                              : split
+                                ? 'bg-sky-50 text-sky-700'
+                                : 'bg-[#f1f1f3] text-[#555761]'
+                          }`}
+                        >
+                          {isRemoved ? 'Removed' : split ? 'Split' : 'Continue'}
+                        </span>
+
+                        {entry.removal_reason && isRemoved && (
+                          <p className="mt-1 max-w-[130px] text-[10px] leading-4 text-[#92939b]">
+                            {entry.removal_reason}
+                          </p>
+                        )}
+                      </td>
+
+                      <td className="px-3 py-3 align-top">
+                        {!readOnly ? (
+                          <div className="flex flex-wrap justify-end gap-1.5">
+                            <button
+                              type="button"
+                              disabled={working}
+                              onClick={() =>
+                                onToggleIncluded?.(entry, !entry.is_included)
+                              }
+                              className={`inline-flex items-center gap-1 rounded-md border px-2.5 py-1.5 text-[11px] font-medium disabled:opacity-40 ${
+                                isRemoved
+                                  ? 'border-[#dcece2] text-[#28734b] hover:bg-[#eff8f2]'
+                                  : 'border-[#f0d5d2] text-[#b0443e] hover:bg-[#fff4f3]'
+                              }`}
+                            >
+                              {isRemoved ? (
+                                <>
+                                  <RotateCcw size={12} /> Restore
+                                </>
+                              ) : (
+                                <>
+                                  <X size={12} /> Remove
+                                </>
+                              )}
+                            </button>
+
+                            {isBranch && !isRemoved && (
+                              <button
+                                type="button"
+                                disabled={working}
+                                onClick={() => onSplitBranch?.(entry)}
+                                className="inline-flex items-center gap-1 rounded-md border border-sky-200 px-2.5 py-1.5 text-[11px] font-medium text-sky-700 hover:bg-sky-50 disabled:opacity-40"
+                              >
+                                <Split size={12} /> Split
+                              </button>
+                            )}
+
+                            {split && (
+                              <button
+                                type="button"
+                                disabled={working}
+                                onClick={() => onUndoSplit?.(entry)}
+                                className="inline-flex items-center gap-1 rounded-md border border-[#e5e7eb] px-2.5 py-1.5 text-[11px] font-medium text-[#555761] hover:bg-[#f8f8f9] disabled:opacity-40"
+                              >
+                                <RotateCcw size={12} /> Undo split
+                              </button>
+                            )}
+
+                            {entry.assignments?.length > 0 && (
+                              <HeadSelector
+                                entry={entry}
+                                working={working}
+                                onDesignateHead={onDesignateHead}
+                              />
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-[#92939b]">
+                            Read-only
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <div className="flex flex-col gap-2 border-t border-[#e9e9eb] bg-[#fafafa] px-4 py-3 text-[11px] text-[#858792] sm:flex-row sm:items-center sm:justify-between">
+        <span>
+          Drag a group's handle or use the arrows to reorder. Branches stay
+          with their parent.
+        </span>
+        {working && (
+          <span className="font-medium text-[#555761]">Saving changes…</span>
         )}
       </div>
     </section>
   )
 }
 
-function EntryCard({
-  entry,
-  entries,
-  readOnly,
-  working,
-  onToggleIncluded,
-  onDesignateHead,
-  onSplitBranch,
-}) {
-  const assignments = entry.assignments ?? []
-  const headAssignment = assignments.find((assignment) => assignment.is_head)
-  const included = entry.is_included
-  const isBranch = Boolean(entry.branch_id) && entry.entry_type === 'Branch'
-
-  const parentEntry = entries.find(
-    (candidate) => candidate.id === entry.parent_entry_id,
+function HeadSelector({ entry, working, onDesignateHead }) {
+  const [open, setOpen] = useState(false)
+  const currentHead = entry.assignments?.find(
+    (assignment) => assignment.is_head,
   )
 
   return (
-    <article
-      className={`rounded-xl border p-4 ${
-        !included
-          ? 'border-[#eeeeef] bg-[#fafafa] opacity-70'
-          : entry.head_is_valid
-            ? 'border-[#e9e9eb] bg-white'
-            : 'border-amber-200 bg-amber-50/50'
-      }`}
-    >
-      <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
-        <div className="flex min-w-0 gap-3">
-          <div
-            className={`flex h-12 min-w-12 items-center justify-center rounded-xl border px-2 text-sm font-bold tabular-nums ${
-              isBranch
-                ? 'border-violet-200 bg-violet-50 text-violet-700'
-                : 'border-[#e9e9eb] bg-[#f7f7f8] text-[#131418]'
-            }`}
-          >
-            {entry.membership_number || '—'}
-          </div>
+    <div className="relative">
+      <button
+        type="button"
+        disabled={working}
+        onClick={() => setOpen((value) => !value)}
+        className="rounded-md border border-[#e5e7eb] px-2.5 py-1.5 text-[11px] font-medium text-[#555761] hover:bg-[#f8f8f9] disabled:opacity-40"
+      >
+        Head: {currentHead?.member?.name?.split(' ')[0] || 'Set'}
+      </button>
 
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h3 className="break-words text-sm font-semibold text-[#131418]">
-                {entry.head_name || 'Head needs review'}
-              </h3>
-
-              <span className="rounded-full border border-[#e9e9eb] bg-[#f7f7f8] px-2 py-0.5 text-[11px] text-[#53555e]">
-                {getEntryLabel(entry)}
-              </span>
-
-              {!included && (
-                <span className="rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[11px] text-rose-700">
-                  Removed
-                </span>
-              )}
-            </div>
-
-            <p className="mt-1 text-xs text-[#777984]">
-              {entry.membership?.membership_id || 'Membership ID unavailable'}
-              {entry.suffix ? ` · Branch ${entry.suffix}` : ''}
-            </p>
-
-            {isBranch && (
-              <p className="mt-1 text-xs text-violet-700">
-                Branch of membership{' '}
-                {parentEntry?.membership_number ||
-                  entry.membership_number?.replace(entry.suffix, '') ||
-                  '—'}
-              </p>
-            )}
-
-            {entry.entry_type === 'Independent Split' && (
-              <p className="mt-1 text-xs text-sky-700">
-                Marked as an independent split in this draft
-              </p>
-            )}
-
-            {!entry.head_is_valid && included && (
-              <p className="mt-2 text-xs text-amber-700">
-                A register head has not been designated.
-              </p>
-            )}
-          </div>
-        </div>
-
-        {!readOnly && (
-          <div className="flex flex-wrap gap-2">
+      {open && (
+        <div className="absolute right-0 top-full z-20 mt-1 max-h-56 w-56 overflow-y-auto rounded-lg border border-[#e5e7eb] bg-white p-1 shadow-xl">
+          {entry.assignments.map((assignment) => (
             <button
+              key={assignment.id}
               type="button"
-              disabled={working}
-              onClick={() => onToggleIncluded(entry, !included)}
-              className={`rounded-lg border px-3 py-2 text-xs font-medium transition disabled:opacity-50 ${
-                included
-                  ? 'border-rose-200 text-rose-700 hover:bg-rose-50'
-                  : 'border-emerald-200 text-emerald-700 hover:bg-emerald-50'
-              }`}
+              onClick={async () => {
+                await onDesignateHead?.(entry, assignment.member_id)
+                setOpen(false)
+              }}
+              className="flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-2 text-left text-xs hover:bg-[#f5f6f8]"
             >
-              {included ? 'Remove from register' : 'Restore entry'}
+              <span className="truncate">
+                {assignment.member?.name || 'Unknown person'}
+              </span>
+              {assignment.is_head ? (
+                <Check size={13} className="shrink-0 text-[#28734b]" />
+              ) : null}
             </button>
-
-            {isBranch && included && (
-              <button
-                type="button"
-                disabled={working}
-                onClick={() => onSplitBranch(entry)}
-                className="rounded-lg border border-sky-200 px-3 py-2 text-xs font-medium text-sky-700 transition hover:bg-sky-50 disabled:opacity-50"
-              >
-                Split in draft
-              </button>
-            )}
-          </div>
-        )}
-      </div>
-
-      <div className="mt-4 border-t border-[#eeeeef] pt-4">
-        <div className="flex flex-col gap-4 sm:flex-row sm:justify-between">
-          <div className="min-w-0 flex-1">
-            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-[#92939b]">
-              People in this entry ({assignments.length})
-            </p>
-
-            {assignments.length === 0 ? (
-              <p className="text-sm text-[#92939b]">
-                No people are assigned to this entry.
-              </p>
-            ) : (
-              <ul className="space-y-2">
-                {assignments.map((assignment) => (
-                  <li
-                    key={assignment.id}
-                    className="flex flex-wrap items-center justify-between gap-2 text-sm"
-                  >
-                    <div className="min-w-0">
-                      <span className="text-[#25262c]">
-                        {assignment.member?.name || 'Unknown person'}
-                      </span>
-
-                      {assignment.member?.person_id && (
-                        <span className="ml-2 text-xs text-[#92939b]">
-                          {assignment.member.person_id}
-                        </span>
-                      )}
-
-                      {assignment.relationship_to_head && (
-                        <span className="ml-2 text-xs text-[#92939b]">
-                          · {assignment.relationship_to_head}
-                        </span>
-                      )}
-                    </div>
-
-                    {assignment.is_head && (
-                      <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] text-emerald-700">
-                        Register head
-                      </span>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          {!readOnly && included && assignments.length > 0 && (
-            <div className="w-full sm:max-w-xs">
-              <label
-                htmlFor={`head-${entry.id}`}
-                className="mb-2 block text-xs font-medium text-[#777984]"
-              >
-                Designate register head
-              </label>
-
-              <select
-                id={`head-${entry.id}`}
-                value={headAssignment?.member_id ?? ''}
-                disabled={working}
-                onChange={(event) =>
-                  onDesignateHead(entry, event.target.value)
-                }
-                className="w-full rounded-lg border border-[#e5e5e7] bg-white px-3 py-2 text-sm text-[#25262c] outline-none focus:border-[#7b88c9] focus:ring-2 focus:ring-[#7b88c9]/10 disabled:opacity-50"
-              >
-                <option value="">Select a head…</option>
-                {assignments.map((assignment) => (
-                  <option
-                    key={assignment.member_id}
-                    value={assignment.member_id}
-                  >
-                    {assignment.member?.name || 'Unknown person'}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+          ))}
         </div>
-      </div>
-    </article>
-  )
-}
-
-function Count({ label, value }) {
-  return (
-    <span className="rounded-lg border border-[#e9e9eb] bg-[#f7f7f8] px-3 py-2 text-xs text-[#53555e]">
-      {label}: {value}
-    </span>
-  )
-}
-
-function EmptyState({ children }) {
-  return (
-    <div className="rounded-xl border border-dashed border-[#e9e9eb] p-8 text-center text-sm leading-6 text-[#777984]">
-      {children}
+      )}
     </div>
   )
 }

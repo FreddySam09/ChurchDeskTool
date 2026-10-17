@@ -24,8 +24,6 @@ const STATUS_OPTIONS = [
   'Active',
   'Inactive',
   'Deceased',
-  'Transferred',
-  'Left Church',
   'Removed',
 ]
 
