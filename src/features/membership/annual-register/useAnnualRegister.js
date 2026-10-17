@@ -16,6 +16,11 @@ import {
   undoBranchSplitInDraft,
 } from "./annualRegisterService";
 
+import {
+  deleteAnnualRegisterDraft,
+  resyncAnnualRegisterDraft,
+} from "./annualRegisterService";
+
 export default function useAnnualRegister() {
   const [registers, setRegisters] = useState([]);
   const [selectedRegisterId, setSelectedRegisterId] = useState("");
@@ -234,6 +239,54 @@ export default function useAnnualRegister() {
     [runAction],
   );
 
+  
+const deleteDraft = useCallback(async () => {
+  if (!selectedRegisterId) {
+    throw new Error("Select a draft to delete.");
+  }
+
+  const deletingId = selectedRegisterId;
+
+  setWorking(true);
+  setError("");
+
+  try {
+    await deleteAnnualRegisterDraft(deletingId);
+
+    const updatedRegisters = await listAnnualRegisters();
+    setRegisters(updatedRegisters);
+
+    const nextRegister = updatedRegisters[0] ?? null;
+    const nextRegisterId = nextRegister?.id ?? "";
+
+    setSelectedRegisterId(nextRegisterId);
+
+    if (nextRegisterId) {
+      await loadSelectedRegister(nextRegisterId);
+    } else {
+      setSelectedRegister(null);
+      setEntries([]);
+      setHistory([]);
+    }
+  } catch (actionError) {
+    setError(actionError?.message || "Unable to delete the draft.");
+    throw actionError;
+  } finally {
+    setWorking(false);
+  }
+}, [selectedRegisterId, loadSelectedRegister]);
+
+
+const resyncDraft = useCallback(async () => {
+  if (!selectedRegisterId) {
+    throw new Error("Select a draft register first.");
+  }
+
+  return runAction(() => resyncAnnualRegisterDraft(selectedRegisterId));
+}, [runAction, selectedRegisterId]);
+
+
+
   return {
     registers,
     selectedRegisterId,
@@ -254,5 +307,7 @@ export default function useAnnualRegister() {
     updateEntryNumber,
     splitBranch,
     undoSplitBranch,
+    deleteDraft,
+    resyncDraft,
   };
 }

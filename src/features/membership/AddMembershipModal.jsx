@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X, UserRound, MapPin, Phone, Hash } from "lucide-react";
-import { createMembershipWithHead } from "../../services/membershipService";
+import { createMembershipWithHead, getNextMembershipNumber, } from "../../services/membershipService";
 
 const initialForm = {
   membership_number: "",
@@ -116,6 +116,42 @@ export default function AddMembershipModal({ onClose, onCreated }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [created, setCreated] = useState(null);
+  const [numberLoading, setNumberLoading] = useState(true);
+
+useEffect(() => {
+  let cancelled = false;
+
+  async function loadNextNumber() {
+    setNumberLoading(true);
+
+    try {
+      const nextNumber = await getNextMembershipNumber();
+
+      if (!cancelled) {
+        setForm((current) => ({
+          ...current,
+          membership_number: current.membership_number || nextNumber,
+        }));
+      }
+    } catch (err) {
+      if (!cancelled) {
+        setError(
+          err.message || "Could not determine the next membership number."
+        );
+      }
+    } finally {
+      if (!cancelled) {
+        setNumberLoading(false);
+      }
+    }
+  }
+
+  loadNextNumber();
+
+  return () => {
+    cancelled = true;
+  };
+}, []);
 
   function handleChange(event) {
     const { name, value } = event.target;
@@ -266,15 +302,27 @@ export default function AddMembershipModal({ onClose, onCreated }) {
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4 p-4 sm:p-6">
             <Section icon={Hash} title="Annual register">
-              <Field
-                label="Membership number"
-                name="membership_number"
-                form={form}
-                onChange={handleChange}
-                required
-                placeholder="e.g. 17, 17A or 238B"
-                hint="This number will be added to the active annual register."
-              />
+              <label className={labelClass}>
+  Membership number
+  <span className="ml-1 text-red-500">*</span>
+
+  <input
+    name="membership_number"
+    type="text"
+    value={form.membership_number}
+    onChange={handleChange}
+    required
+    autoComplete="off"
+    placeholder={numberLoading ? "Calculating next number..." : "e.g. 1"}
+    className={inputClass}
+  />
+
+  <span className="mt-1 block text-[10px] font-normal leading-4 text-[#92939b]">
+    {numberLoading
+      ? "Finding the next available number..."
+      : `Suggested next number: ${form.membership_number || "—"}. You can edit it if required.`}
+  </span>
+</label>
               <Field
                 label="Year joined"
                 name="year_joined"

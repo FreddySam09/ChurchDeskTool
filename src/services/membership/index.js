@@ -5,6 +5,7 @@ export {
   createMembershipWithHead,
   updateMembership,
   changeMembershipHead,
+  getNextMembershipNumber,
 } from './membershipDirectoryService'
 
 export {

@@ -517,3 +517,50 @@ export async function createBranchFromExistingMember({
     throw error
   }
 }
+
+export async function getNextMembershipNumber() {
+  // The latest finalised register takes priority.
+  const { data: registers, error: registerError } = await supabase
+    .from("annual_registers")
+    .select("id, register_year, finalised_at")
+    .eq("status", "Finalised")
+    .order("register_year", { ascending: false })
+    .order("finalised_at", { ascending: false, nullsFirst: false })
+    .limit(1);
+
+  if (registerError) throw registerError;
+
+  const currentRegister = registers?.[0];
+
+  if (currentRegister) {
+    const { data: entries, error: entriesError } = await supabase
+      .from("annual_membership_entries")
+      .select("membership_number")
+      .eq("annual_register_id", currentRegister.id)
+      .eq("is_included", true)
+      .is("branch_id", null)
+      .eq("entry_type", "Membership");
+
+    if (entriesError) throw entriesError;
+
+    const numbers = (entries ?? [])
+      .map((entry) => Number(entry.membership_number))
+      .filter((number) => Number.isSafeInteger(number) && number > 0);
+
+    return String(Math.max(0, ...numbers) + 1);
+  }
+
+  // Before the first register is finalised, inspect actual membership
+  // numbers instead of counting records.
+  const { data: memberships, error: membershipError } = await supabase
+    .from("memberships")
+    .select("membership_number");
+
+  if (membershipError) throw membershipError;
+
+  const numbers = (memberships ?? [])
+    .map((membership) => Number(membership.membership_number))
+    .filter((number) => Number.isSafeInteger(number) && number > 0);
+
+  return String(Math.max(0, ...numbers) + 1);
+}

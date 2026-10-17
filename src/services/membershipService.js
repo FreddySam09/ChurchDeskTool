@@ -4,6 +4,7 @@ export {
   createMembershipWithHead,
   updateMembership,
   changeMembershipHead,
+  getNextMembershipNumber,
 } from "./membership";
 
 export {
@@ -28,3 +29,5 @@ export {
 export { getMembershipHistory } from "./membership";
 
 export { createBranchFromMember } from "./membership";
+
+export { convertBranchToIndependent } from "./membership/convertBranchToIndependent";

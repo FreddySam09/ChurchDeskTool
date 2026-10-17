@@ -604,3 +604,299 @@ export async function splitBranchInDraft(entry, label = "") {
     },
   );
 }
+
+
+
+export async function deleteAnnualRegisterDraft(registerId) {
+  if (!registerId) {
+    throw new Error("No register was selected.");
+  }
+
+  const { data: register, error: registerError } = await supabase
+    .from("annual_registers")
+    .select("id, name, status")
+    .eq("id", registerId)
+    .single();
+
+  if (registerError) throw registerError;
+
+  if (register.status !== "Draft") {
+    throw new Error("Only draft registers can be deleted.");
+  }
+
+  // Remove history first because it references annual_registers.
+  const { error: historyError } = await supabase
+    .from("annual_register_history")
+    .delete()
+    .eq("annual_register_id", registerId);
+
+  if (historyError) throw historyError;
+
+  // Get draft entry IDs so their dependent assignments can be removed.
+  const { data: entries, error: entriesError } = await supabase
+    .from("annual_membership_entries")
+    .select("id")
+    .eq("annual_register_id", registerId);
+
+  if (entriesError) throw entriesError;
+
+  const entryIds = (entries ?? []).map((entry) => entry.id);
+
+  if (entryIds.length > 0) {
+    const { error: assignmentsError } = await supabase
+      .from("annual_member_assignments")
+      .delete()
+      .in("annual_membership_entry_id", entryIds);
+
+    if (assignmentsError) throw assignmentsError;
+  }
+
+  const { error: deleteEntriesError } = await supabase
+    .from("annual_membership_entries")
+    .delete()
+    .eq("annual_register_id", registerId);
+
+  if (deleteEntriesError) throw deleteEntriesError;
+
+  // Delete only after all dependent rows have been removed.
+  const { error: deleteRegisterError } = await supabase
+    .from("annual_registers")
+    .delete()
+    .eq("id", registerId)
+    .eq("status", "Draft");
+
+  if (deleteRegisterError) throw deleteRegisterError;
+}
+
+
+export async function resyncAnnualRegisterDraft(registerId) {
+  const { data: register, error: registerError } = await supabase
+    .from("annual_registers")
+    .select("id, name, register_year, status")
+    .eq("id", registerId)
+    .single();
+
+  if (registerError) throw registerError;
+
+  if (register.status !== "Draft") {
+    throw new Error("Only draft registers can be resynced.");
+  }
+
+  const today = TODAY();
+
+  const [
+    entriesResult,
+    membershipsResult,
+    branchesResult,
+    assignmentsResult,
+  ] = await Promise.all([
+    supabase
+      .from("annual_membership_entries")
+      .select("id, membership_id, branch_id, entry_type, membership_number, is_included")
+      .eq("annual_register_id", registerId),
+
+    supabase
+      .from("memberships")
+      .select("id, membership_number, head_member_id")
+      .order("created_at", { ascending: true }),
+
+    supabase
+      .from("membership_branches")
+      .select("id, membership_id, suffix, branch_status")
+      .eq("branch_status", "Active"),
+
+    supabase
+      .from("membership_structure_assignments")
+      .select("membership_id, member_id, branch_id, relationship_to_head")
+      .lte("valid_from", today)
+      .or(`valid_until.is.null,valid_until.gte.${today}`),
+  ]);
+
+  if (entriesResult.error) throw entriesResult.error;
+  if (membershipsResult.error) throw membershipsResult.error;
+  if (branchesResult.error) throw branchesResult.error;
+  if (assignmentsResult.error) throw assignmentsResult.error;
+
+  const existingEntries = entriesResult.data ?? [];
+  const memberships = membershipsResult.data ?? [];
+  const branches = branchesResult.data ?? [];
+  const sourceAssignments = assignmentsResult.data ?? [];
+
+  const entryByKey = new Map();
+  const existingAssignmentKeys = new Set();
+
+  for (const entry of existingEntries) {
+    const key = entry.branch_id
+      ? `branch:${entry.branch_id}`
+      : `membership:${entry.membership_id}`;
+
+    entryByKey.set(key, entry);
+  }
+
+  const existingEntryIds = existingEntries.map((entry) => entry.id);
+
+  if (existingEntryIds.length) {
+    const { data: currentAssignments, error: currentAssignmentsError } =
+      await supabase
+        .from("annual_member_assignments")
+        .select("annual_membership_entry_id, member_id")
+        .in("annual_membership_entry_id", existingEntryIds);
+
+    if (currentAssignmentsError) throw currentAssignmentsError;
+
+    for (const assignment of currentAssignments ?? []) {
+      existingAssignmentKeys.add(
+        `${assignment.annual_membership_entry_id}:${assignment.member_id}`,
+      );
+    }
+  }
+
+  let nextNumber =
+    existingEntries.reduce((max, entry) => {
+      if (entry.branch_id) return max;
+
+      const match = String(entry.membership_number ?? "").match(/^(\d+)/);
+      return match ? Math.max(max, Number(match[1])) : max;
+    }, 0) + 1;
+
+  let addedMemberships = 0;
+  let addedBranches = 0;
+  let addedAssignments = 0;
+
+  async function insertEntry({
+    membershipId,
+    branchId = null,
+    entryType,
+    number,
+    parentEntryId = null,
+  }) {
+    const { data, error } = await supabase
+      .from("annual_membership_entries")
+      .insert({
+        annual_register_id: registerId,
+        membership_id: membershipId,
+        branch_id: branchId,
+        entry_type: entryType,
+        parent_entry_id: parentEntryId,
+        membership_number: number,
+        sort_order: existingEntries.length + 1,
+        is_included: true,
+      })
+      .select("*")
+      .single();
+
+    if (error) throw error;
+
+    existingEntries.push(data);
+
+    const key = branchId
+      ? `branch:${branchId}`
+      : `membership:${membershipId}`;
+
+    entryByKey.set(key, data);
+    return data;
+  }
+
+  // Add memberships created after this draft was originally populated.
+  for (const membership of memberships) {
+    const membershipKey = `membership:${membership.id}`;
+    let parentEntry = entryByKey.get(membershipKey);
+
+    if (!parentEntry) {
+      parentEntry = await insertEntry({
+        membershipId: membership.id,
+        entryType: "Membership",
+        number: String(nextNumber),
+      });
+
+      nextNumber += 1;
+      addedMemberships += 1;
+    }
+
+    // Add newly created active branches without duplicating existing ones.
+    const childBranches = branches
+      .filter((branch) => branch.membership_id === membership.id)
+      .sort((a, b) => a.suffix.localeCompare(b.suffix));
+
+    for (const branch of childBranches) {
+      const branchKey = `branch:${branch.id}`;
+
+      if (entryByKey.has(branchKey)) continue;
+
+      await insertEntry({
+        membershipId: membership.id,
+        branchId: branch.id,
+        entryType: "Branch",
+        number: `${parentEntry.membership_number ?? ""}${branch.suffix}`,
+        parentEntryId: parentEntry.id,
+      });
+
+      addedBranches += 1;
+    }
+  }
+
+  // Add people assigned to entries after the original draft was created.
+  // Existing assignments and head choices are left untouched.
+  for (const entry of existingEntries) {
+    const membership = memberships.find(
+      (item) => item.id === entry.membership_id,
+    );
+
+    if (!membership) continue;
+
+    const desiredAssignments = sourceAssignments.filter((assignment) => {
+      if (assignment.membership_id !== entry.membership_id) return false;
+
+      return entry.branch_id
+        ? assignment.branch_id === entry.branch_id
+        : assignment.branch_id == null;
+    });
+
+    // Preserve the existing membership head as a head assignment when needed.
+    if (!entry.branch_id && membership.head_member_id) {
+      desiredAssignments.unshift({
+        membership_id: membership.id,
+        member_id: membership.head_member_id,
+        branch_id: null,
+        relationship_to_head: "Head",
+      });
+    }
+
+    for (const assignment of desiredAssignments) {
+      const key = `${entry.id}:${assignment.member_id}`;
+
+      if (existingAssignmentKeys.has(key)) continue;
+
+      const isHead =
+        !entry.branch_id &&
+        assignment.member_id === membership.head_member_id;
+
+      const { error } = await supabase
+        .from("annual_member_assignments")
+        .insert({
+          annual_membership_entry_id: entry.id,
+          member_id: assignment.member_id,
+          is_head: isHead,
+          relationship_to_head: isHead
+            ? "Head"
+            : assignment.relationship_to_head,
+        });
+
+      if (error) throw error;
+
+      existingAssignmentKeys.add(key);
+      addedAssignments += 1;
+    }
+  }
+
+  const result = {
+    addedMemberships,
+    addedBranches,
+    addedAssignments,
+  };
+
+  await recordRegisterHistory(registerId, "DRAFT_RESYNCED", result);
+
+  return result;
+}
+

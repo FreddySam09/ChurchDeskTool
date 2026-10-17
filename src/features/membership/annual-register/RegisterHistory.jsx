@@ -5,6 +5,9 @@ const EVENT_LABELS = {
   STATUS_CHANGED: "Register status changed",
   ENTRIES_REORDERED: "Entries reordered",
   BRANCH_SPLIT_IN_DRAFT: "Branch marked for independent split",
+  DRAFT_RESYNCED: "Draft resynced",
+  PROPOSED_NUMBER_CHANGED: "Membership number changed",
+  BRANCH_SPLIT_UNDONE: "Branch restored",
 };
 
 export default function RegisterHistory({ history = [], loading = false }) {

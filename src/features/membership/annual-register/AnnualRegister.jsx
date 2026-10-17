@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import RegisterSidebar from "./RegisterSidebar";
 import RegisterHeader from "./RegisterHeader";
@@ -26,13 +27,17 @@ export default function AnnualRegister() {
     reorderEntries,
     updateEntryNumber,
     undoSplitBranch,
+    deleteDraft,
+    resyncDraft,
   } = useAnnualRegister();
 
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [draftName, setDraftName] = useState(
     `Annual Membership Register ${new Date().getFullYear()}`,
   );
-  const [draftYear, setDraftYear] = useState(String(new Date().getFullYear()));
+  const [draftYear, setDraftYear] = useState(
+    String(new Date().getFullYear()),
+  );
   const [populateSnapshot, setPopulateSnapshot] = useState(true);
 
   const readOnly = selectedRegister?.status === "Finalised";
@@ -53,10 +58,13 @@ export default function AnnualRegister() {
       }
 
       setCreateDialogOpen(false);
-      setDraftName(`Annual Membership Register ${new Date().getFullYear()}`);
+      setDraftName(
+        `Annual Membership Register ${new Date().getFullYear()}`,
+      );
       setDraftYear(String(new Date().getFullYear()));
+      setPopulateSnapshot(true);
     } catch {
-      // The hook exposes the actionable error message.
+      // The hook displays the actionable error.
     }
   }
 
@@ -102,7 +110,7 @@ export default function AnnualRegister() {
     try {
       await reorderEntries(nextEntries);
     } catch {
-      // The hook displays the error in the page alert.
+      // Error is shown in the page alert.
     }
   }
 
@@ -110,7 +118,7 @@ export default function AnnualRegister() {
     try {
       await updateEntryNumber(entry, value);
     } catch {
-      // The hook displays the error in the page alert.
+      // Error is shown in the page alert.
     }
   }
 
@@ -124,24 +132,66 @@ export default function AnnualRegister() {
     try {
       await undoSplitBranch(entry);
     } catch {
-      // The hook displays the error in the page alert.
+      // Error is shown in the page alert.
+    }
+  }
+
+  async function handleResyncDraft() {
+    setError("");
+
+    try {
+      const result = await resyncDraft();
+
+      window.alert(
+        `Draft resynced successfully.\n\n` +
+          `New memberships: ${result.addedMemberships}\n` +
+          `New branches: ${result.addedBranches}\n` +
+          `New member assignments: ${result.addedAssignments}`,
+      );
+
+      await refresh();
+    } catch {
+      // Error is shown in the page alert.
+    }
+  }
+
+  async function handleDeleteDraft() {
+    if (!selectedRegister || selectedRegister.status !== "Draft") return;
+
+    const confirmed = window.confirm(
+      `Delete draft "${selectedRegister.name}"?\n\n` +
+        "Its draft entries, assignments and activity history will be deleted. " +
+        "Live memberships and permanent IDs will not be deleted.",
+    );
+
+    if (!confirmed) return;
+
+    setError("");
+
+    try {
+      await deleteDraft();
+    } catch {
+      // Error is shown in the page alert.
     }
   }
 
   return (
-    <main className="min-h-screen bg-[#f4f4f5] p-4 text-[#131418] sm:p-6">
-      <div className="mx-auto max-w-[1600px]">
+    <main className="min-h-screen bg-[#f4f4f5] p-4 text-[#131418] sm:p-6 lg:p-8">
+      <div className="mx-auto w-full max-w-[1900px]">
+        {/* Page heading */}
         <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
           <div>
             <p className="text-xs font-medium uppercase tracking-[0.2em] text-[#92939b]">
               Church Desk
             </p>
+
             <h1 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">
               Annual Membership Register
             </h1>
+
             <p className="mt-2 max-w-2xl text-sm leading-6 text-[#777984]">
-              Prepare yearly membership records, review branch structures, and
-              check assigned household heads.
+              Prepare yearly membership records, review branch structures,
+              manage numbering, and check assigned household heads.
             </p>
           </div>
 
@@ -156,12 +206,14 @@ export default function AnnualRegister() {
           </button>
         </div>
 
+        {/* Error alert */}
         {error && (
           <div
             role="alert"
             className="mb-5 flex flex-col justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 sm:flex-row sm:items-center"
           >
             <p className="text-sm leading-6 text-rose-700">{error}</p>
+
             <button
               type="button"
               onClick={() => setError("")}
@@ -172,7 +224,8 @@ export default function AnnualRegister() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[320px_minmax(0,1fr)]">
+        {/* Top area: register navigation and selected register summary */}
+        <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[300px_minmax(0,1fr)]">
           <RegisterSidebar
             registers={registers}
             selectedRegisterId={selectedRegisterId}
@@ -189,7 +242,11 @@ export default function AnnualRegister() {
               </div>
             ) : !selectedRegister ? (
               <section className="flex min-h-[244px] flex-col items-center justify-center rounded-2xl border border-dashed border-[#e9e9eb] bg-white px-6 py-10 text-center sm:px-10">
-                <h2 className="text-lg font-semibold text-[#131418]">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#f4f4f5] text-xl text-[#53555e]">
+                  +
+                </div>
+
+                <h2 className="mt-4 text-lg font-semibold text-[#131418]">
                   Start an annual register
                 </h2>
 
@@ -215,33 +272,80 @@ export default function AnnualRegister() {
                   onStatusChange={handleStatusChange}
                 />
 
-                {selectedRegister.status === "Finalised" && (
+                {readOnly && (
                   <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-800">
-                    This register is read-only. Finalisation does not currently
-                    have a live-membership update workflow in this page.
+                    This register is read-only. Draft editing, resyncing, and
+                    draft deletion are unavailable for finalised registers.
                   </div>
                 )}
 
-                <RegisterEntries
-                  entries={entries}
-                  loading={loading}
-                  working={working}
-                  readOnly={readOnly}
-                  onToggleIncluded={handleToggleIncluded}
-                  onDesignateHead={handleDesignateHead}
-                  onSplitBranch={handleSplitBranch}
-                  onUndoSplit={handleUndoSplit}
-                  onReorder={handleReorder}
-                  onNumberChange={handleNumberChange}
-                />
+                {/* Draft maintenance actions */}
+                {!readOnly && (
+                  <section className="rounded-2xl border border-[#e9e9eb] bg-white p-4 sm:p-5">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                      <div className="min-w-0">
+                        <h2 className="text-sm font-semibold text-[#131418]">
+                          Draft maintenance
+                        </h2>
 
-                <RegisterHistory history={history} loading={loading} />
+                        <p className="mt-1 text-sm leading-5 text-[#777984]">
+                          Add memberships and people created since this draft
+                          was first populated, without intentionally resetting
+                          existing draft edits.
+                        </p>
+                      </div>
+
+                      <div className="flex shrink-0 flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={handleResyncDraft}
+                          disabled={working}
+                          className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#e5e5e7] bg-white px-4 py-2.5 text-sm font-semibold text-[#25262c] transition hover:bg-[#f7f7f8] disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <span aria-hidden="true">↻</span>
+                          {working ? "Working…" : "Resync draft"}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={handleDeleteDraft}
+                          disabled={working}
+                          className="inline-flex items-center justify-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          Delete draft
+                        </button>
+                      </div>
+                    </div>
+                  </section>
+                )}
               </>
             )}
           </div>
         </div>
+
+        {/* Full-width register editor */}
+        {selectedRegister && (
+          <div className="mt-5 min-w-0 space-y-5">
+            <RegisterEntries
+              entries={entries}
+              loading={loading}
+              working={working}
+              readOnly={readOnly}
+              onToggleIncluded={handleToggleIncluded}
+              onDesignateHead={handleDesignateHead}
+              onSplitBranch={handleSplitBranch}
+              onUndoSplit={handleUndoSplit}
+              onReorder={handleReorder}
+              onNumberChange={handleNumberChange}
+            />
+
+            {/* Full-width activity history */}
+            <RegisterHistory history={history} loading={loading} />
+          </div>
+        )}
       </div>
 
+      {/* Create register dialog */}
       {createDialogOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/40 p-4 backdrop-blur-sm"
@@ -255,7 +359,7 @@ export default function AnnualRegister() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="create-register-title"
-            className="w-full max-w-lg rounded-2xl border border-[#e9e9eb] bg-white p-5 shadow-2xl sm:p-6"
+            className="my-auto w-full max-w-lg rounded-2xl border border-[#e9e9eb] bg-white p-5 shadow-2xl sm:p-6"
           >
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -265,6 +369,7 @@ export default function AnnualRegister() {
                 >
                   Create annual register
                 </h2>
+
                 <p className="mt-2 text-sm leading-6 text-[#777984]">
                   Create a draft for the selected year.
                 </p>
@@ -275,7 +380,7 @@ export default function AnnualRegister() {
                 aria-label="Close dialog"
                 disabled={working}
                 onClick={() => setCreateDialogOpen(false)}
-                className="rounded-lg px-2 py-1 text-[#777984] hover:bg-[#f7f7f8] hover:text-[#131418] disabled:opacity-50"
+                className="rounded-lg px-2 py-1 text-[#777984] transition hover:bg-[#f7f7f8] hover:text-[#131418] disabled:opacity-50"
               >
                 ×
               </button>
@@ -289,6 +394,7 @@ export default function AnnualRegister() {
                 >
                   Register name
                 </label>
+
                 <input
                   id="register-name"
                   required
@@ -306,6 +412,7 @@ export default function AnnualRegister() {
                 >
                   Register year
                 </label>
+
                 <input
                   id="register-year"
                   type="number"
@@ -327,10 +434,12 @@ export default function AnnualRegister() {
                   }
                   className="mt-1 accent-[#25262c]"
                 />
+
                 <span>
                   <span className="block text-sm font-medium text-[#25262c]">
                     Copy current memberships
                   </span>
+
                   <span className="mt-1 block text-xs leading-5 text-[#777984]">
                     Populate the draft with current memberships, active
                     branches, and their assigned people.
@@ -343,7 +452,7 @@ export default function AnnualRegister() {
                   type="button"
                   disabled={working}
                   onClick={() => setCreateDialogOpen(false)}
-                  className="rounded-xl border border-[#e9e9eb] px-4 py-2.5 text-sm font-medium text-[#53555e] hover:bg-[#f7f7f8] disabled:opacity-50"
+                  className="rounded-xl border border-[#e9e9eb] px-4 py-2.5 text-sm font-medium text-[#53555e] transition hover:bg-[#f7f7f8] disabled:opacity-50"
                 >
                   Cancel
                 </button>
