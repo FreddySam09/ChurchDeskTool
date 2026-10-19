@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   createAnnualRegister,
   createRegisterSnapshot,
+  finaliseAnnualRegister,
   getAnnualRegister,
   listAnnualRegisters,
   listRegisterEntries,
@@ -14,12 +15,11 @@ import {
   setRegisterStatus,
   splitBranchInDraft,
   undoBranchSplitInDraft,
-} from "./annualRegisterService";
-
-import {
   deleteAnnualRegisterDraft,
   resyncAnnualRegisterDraft,
 } from "./annualRegisterService";
+
+import { getRegisterSummary } from "./annualRegisterUtils";
 
 export default function useAnnualRegister() {
   const [registers, setRegisters] = useState([]);
@@ -196,6 +196,21 @@ export default function useAnnualRegister() {
     [runAction],
   );
 
+  const summary = getRegisterSummary(entries);
+
+  if (
+    status === "Under Review" &&
+    summary.entriesNeedingReview > 0
+  ) {
+    const message =
+      `Cannot submit this register: ${summary.entriesNeedingReview} ` +
+      "included entries need review. Fix duplicate or missing numbers, " +
+      "invalid numbers, and head designations first.";
+
+    setError(message);
+    throw new Error(message);
+  }
+
   const changeStatus = useCallback(
     (status) => {
       if (!selectedRegisterId) return Promise.resolve();
@@ -204,6 +219,18 @@ export default function useAnnualRegister() {
     },
     [runAction, selectedRegisterId],
   );
+
+  const finaliseSelectedRegister = useCallback(async () => {
+    if (!selectedRegisterId) {
+      throw new Error("Select a register to finalise.");
+    }
+
+    if (selectedRegister?.status !== "Under Review") {
+      throw new Error("Only an Under Review register can be finalised.");
+    }
+
+    return runAction(() => finaliseAnnualRegister(selectedRegisterId));
+  }, [runAction, selectedRegisterId, selectedRegister?.status]);
 
   const toggleEntryIncluded = useCallback(
     (entry, included) => runAction(() => setEntryIncluded(entry, included)),
@@ -240,41 +267,44 @@ export default function useAnnualRegister() {
   );
 
   
-const deleteDraft = useCallback(async () => {
-  if (!selectedRegisterId) {
-    throw new Error("Select a draft to delete.");
-  }
-
-  const deletingId = selectedRegisterId;
-
-  setWorking(true);
-  setError("");
-
-  try {
-    await deleteAnnualRegisterDraft(deletingId);
-
-    const updatedRegisters = await listAnnualRegisters();
-    setRegisters(updatedRegisters);
-
-    const nextRegister = updatedRegisters[0] ?? null;
-    const nextRegisterId = nextRegister?.id ?? "";
-
-    setSelectedRegisterId(nextRegisterId);
-
-    if (nextRegisterId) {
-      await loadSelectedRegister(nextRegisterId);
-    } else {
-      setSelectedRegister(null);
-      setEntries([]);
-      setHistory([]);
+const deleteDraft = useCallback(
+  async (registerId = selectedRegisterId) => {
+    if (!registerId) {
+      throw new Error("Select a draft to delete.");
     }
-  } catch (actionError) {
-    setError(actionError?.message || "Unable to delete the draft.");
-    throw actionError;
-  } finally {
-    setWorking(false);
-  }
-}, [selectedRegisterId, loadSelectedRegister]);
+
+    setWorking(true);
+    setError("");
+
+    try {
+      await deleteAnnualRegisterDraft(registerId);
+
+      const updatedRegisters = await listAnnualRegisters();
+      setRegisters(updatedRegisters);
+
+      const nextRegisterId =
+        updatedRegisters.find((item) => item.id === selectedRegisterId)?.id ??
+        updatedRegisters[0]?.id ??
+        "";
+
+      setSelectedRegisterId(nextRegisterId);
+
+      if (nextRegisterId) {
+        await loadSelectedRegister(nextRegisterId);
+      } else {
+        setSelectedRegister(null);
+        setEntries([]);
+        setHistory([]);
+      }
+    } catch (actionError) {
+      setError(actionError?.message || "Unable to delete the draft.");
+      throw actionError;
+    } finally {
+      setWorking(false);
+    }
+  },
+  [selectedRegisterId, loadSelectedRegister],
+);
 
 
 const resyncDraft = useCallback(async () => {
@@ -301,6 +331,7 @@ const resyncDraft = useCallback(async () => {
     refresh,
     createDraft,
     changeStatus,
+    finaliseSelectedRegister,
     toggleEntryIncluded,
     designateHead,
     reorderEntries,

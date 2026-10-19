@@ -55,11 +55,11 @@ export async function recordRegisterHistory(
   if (error) throw error;
 }
 
+
 export async function listRegisterEntries(registerId) {
   const { data: entries, error } = await supabase
     .from("annual_membership_entries")
-    .select(
-      `
+    .select(`
       *,
       membership:memberships!annual_membership_entries_membership_id_fkey (
         id,
@@ -74,11 +74,11 @@ export async function listRegisterEntries(registerId) {
       ),
       branch:membership_branches!annual_membership_entries_branch_id_fkey (
         id,
+        membership_id,
         suffix,
         branch_status
       )
-    `,
-    )
+    `)
     .eq("annual_register_id", registerId)
     .order("sort_order", { ascending: true });
 
@@ -91,8 +91,7 @@ export async function listRegisterEntries(registerId) {
 
   const { data: assignments, error: assignmentError } = await supabase
     .from("annual_member_assignments")
-    .select(
-      `
+    .select(`
       id,
       annual_membership_entry_id,
       member_id,
@@ -104,8 +103,7 @@ export async function listRegisterEntries(registerId) {
         name,
         status
       )
-    `,
-    )
+    `)
     .in("annual_membership_entry_id", entryIds);
 
   if (assignmentError) throw assignmentError;
@@ -115,18 +113,40 @@ export async function listRegisterEntries(registerId) {
   for (const assignment of assignments ?? []) {
     const key = assignment.annual_membership_entry_id;
     const list = assignmentsByEntry.get(key) ?? [];
-
     list.push(assignment);
     assignmentsByEntry.set(key, list);
   }
 
   return rows.map((entry) => {
     const entryAssignments = assignmentsByEntry.get(entry.id) ?? [];
-    const designatedHead = entryAssignments.find((item) => item.is_head);
+
+    // A branch has one person. That person is its head by definition.
+    // When it is split, it becomes an independent entry with that same person.
+    const automaticBranchHead =
+      entry.branch_id || entry.entry_type === "Independent Split"
+        ? entryAssignments.length === 1
+          ? entryAssignments[0]
+          : null
+        : null;
+
+    const designatedHead =
+      entryAssignments.find((item) => item.is_head) ??
+      automaticBranchHead;
+
+    const normalizedAssignments = entryAssignments.map((assignment) => ({
+      ...assignment,
+      is_head: designatedHead
+        ? assignment.id === designatedHead.id
+        : assignment.is_head,
+      relationship_to_head:
+        designatedHead && assignment.id === designatedHead.id
+          ? "Head"
+          : assignment.relationship_to_head,
+    }));
 
     return {
       ...entry,
-      assignments: entryAssignments,
+      assignments: normalizedAssignments,
       head_name:
         designatedHead?.member?.name ??
         (!entry.branch_id ? entry.membership?.head?.name : null) ??
@@ -137,6 +157,7 @@ export async function listRegisterEntries(registerId) {
     };
   });
 }
+
 
 export async function createAnnualRegister({ name, year }) {
   const cleanedName = name.trim();
@@ -355,19 +376,134 @@ export async function createRegisterSnapshot(registerId) {
   }
 }
 
-export async function setEntryIncluded(entry, included) {
-  const { error } = await supabase
-    .from("annual_membership_entries")
-    .update({
-      is_included: included,
-      removed_at: included ? null : new Date().toISOString(),
-      removed_by: null,
-      removal_reason: included ? null : "Removed from register draft",
-    })
-    .eq("id", entry.id);
 
-  if (error) throw error;
+
+export async function setEntryIncluded(entry, included) {
+  if (!entry?.id || !entry?.annual_register_id) {
+    throw new Error("The register entry is missing its ID.");
+  }
+
+  const registerId = entry.annual_register_id;
+
+  const { data: register, error: registerError } = await supabase
+    .from("annual_registers")
+    .select("id, status")
+    .eq("id", registerId)
+    .single();
+
+  if (registerError) throw registerError;
+
+  if (register.status === "Finalised") {
+    throw new Error("Finalised registers are read-only.");
+  }
+
+  const { data: currentEntry, error: entryError } = await supabase
+    .from("annual_membership_entries")
+    .select("*")
+    .eq("id", entry.id)
+    .eq("annual_register_id", registerId)
+    .single();
+
+  if (entryError) throw entryError;
+
+  if (currentEntry.is_included === included) return;
+
+  const isParent =
+    !currentEntry.branch_id &&
+    currentEntry.entry_type !== "Branch" &&
+    currentEntry.entry_type !== "Independent Split";
+
+  if (!included) {
+    // When removing a parent, convert its attached branches into
+    // independent entries in this draft. Preserve their parent links
+    // so the original structure can be restored later.
+    if (isParent) {
+      const { error: branchesError } = await supabase
+        .from("annual_membership_entries")
+        .update({
+          entry_type: "Independent Split",
+        })
+        .eq("annual_register_id", registerId)
+        .eq("parent_entry_id", currentEntry.id)
+        .eq("entry_type", "Branch")
+        .eq("is_included", true);
+
+      if (branchesError) throw branchesError;
+    }
+
+    // Do not set membership_number to null.
+    // The database requires this field even for excluded entries.
+    const { error } = await supabase
+      .from("annual_membership_entries")
+      .update({
+        is_included: false,
+        removed_at: new Date().toISOString(),
+        removed_by: null,
+        removal_reason: "Removed from register draft",
+      })
+      .eq("id", currentEntry.id)
+      .eq("annual_register_id", registerId);
+
+    if (error) throw error;
+  } else {
+    const { error } = await supabase
+      .from("annual_membership_entries")
+      .update({
+        is_included: true,
+        removed_at: null,
+        removed_by: null,
+        removal_reason: null,
+      })
+      .eq("id", currentEntry.id)
+      .eq("annual_register_id", registerId);
+
+    if (error) throw error;
+
+    // Restore branches attached to this parent that were automatically
+    // converted to independent entries. Intentionally split branches
+    // have a null parent_entry_id and remain independent.
+    if (isParent) {
+      const { error: restoreBranchesError } = await supabase
+        .from("annual_membership_entries")
+        .update({
+          entry_type: "Branch",
+        })
+        .eq("annual_register_id", registerId)
+        .eq("parent_entry_id", currentEntry.id)
+        .eq("entry_type", "Independent Split")
+        .eq("is_included", true)
+        .not("branch_id", "is", null);
+
+      if (restoreBranchesError) throw restoreBranchesError;
+    }
+  }
+
+  // Re-read the draft so renumbering uses the latest saved structure.
+  const { data: entries, error: entriesError } = await supabase
+    .from("annual_membership_entries")
+    .select("*")
+    .eq("annual_register_id", registerId)
+    .order("sort_order", { ascending: true });
+
+  if (entriesError) throw entriesError;
+
+  await saveEntryOrder(registerId, entries ?? []);
+
+  await recordRegisterHistory(
+    registerId,
+    included ? "ENTRY_RESTORED" : "ENTRY_REMOVED",
+    {
+      entry_id: currentEntry.id,
+      membership_id: currentEntry.membership_id,
+      included,
+      parent_id: isParent
+        ? currentEntry.id
+        : currentEntry.parent_entry_id,
+    },
+  );
 }
+
+
 
 export async function setEntryHead(entry, memberId) {
   if (!memberId) throw new Error("Choose a person to designate as head.");
@@ -509,31 +645,96 @@ export async function undoBranchSplitInDraft(entry) {
   });
 }
 
+
+
+
 export async function saveEntryOrder(registerId, entries) {
   const activeEntries = entries.filter((entry) => entry.is_included);
   const removedEntries = entries.filter((entry) => !entry.is_included);
 
+  // Fetch the actual suffixes because raw annual-register entries
+  // do not necessarily contain a `suffix` property.
+  const branchIds = [
+    ...new Set(
+      entries
+        .map((entry) => entry.branch_id)
+        .filter(Boolean),
+    ),
+  ];
+
+  const suffixByBranchId = new Map();
+
+  if (branchIds.length > 0) {
+    const { data: branches, error: branchError } = await supabase
+      .from("membership_branches")
+      .select("id, suffix")
+      .in("id", branchIds);
+
+    if (branchError) throw branchError;
+
+    for (const branch of branches ?? []) {
+      suffixByBranchId.set(branch.id, branch.suffix ?? "");
+    }
+  }
+
+  // Assign numbers to included main memberships and independent splits.
   const mainNumbers = new Map();
   let number = 0;
 
   for (const entry of activeEntries) {
-    if (!entry.branch_id && entry.entry_type !== "Branch") {
+    const isIndependent = entry.entry_type === "Independent Split";
+    const isMainMembership =
+      !entry.branch_id && entry.entry_type !== "Branch";
+
+    if (isIndependent || isMainMembership) {
       number += 1;
       mainNumbers.set(entry.id, String(number));
     }
   }
 
   const updates = entries.map((entry, index) => {
-    let membershipNumber = entry.membership_number;
+    // Never clear the number of a removed entry.
+    if (!entry.is_included) {
+      return {
+        id: entry.id,
+        sort_order: index + 1,
+        membership_number: String(entry.membership_number ?? ""),
+      };
+    }
+
+    let membershipNumber = "";
 
     if (mainNumbers.has(entry.id)) {
       membershipNumber = mainNumbers.get(entry.id);
-    } else if (entry.branch_id && entry.parent_entry_id) {
+    } else if (
+      entry.entry_type === "Branch" &&
+      entry.branch_id &&
+      entry.parent_entry_id
+    ) {
       const parentNumber = mainNumbers.get(entry.parent_entry_id);
+      const suffix =
+        suffixByBranchId.get(entry.branch_id) ??
+        entry.suffix ??
+        "";
 
-      if (parentNumber) {
-        membershipNumber = `${parentNumber}${entry.suffix ?? ""}`;
+      if (!parentNumber) {
+        throw new Error(
+          `Cannot number branch "${entry.membership_id ?? entry.id}": ` +
+          "its parent has no active register number. Restore the parent " +
+          "or split the branch into an independent membership.",
+        );
       }
+
+      membershipNumber = `${parentNumber}${suffix}`;
+    } else {
+      // Preserve an existing number if this entry isn't renumbered here.
+      membershipNumber = String(entry.membership_number ?? "");
+    }
+
+    if (!membershipNumber.trim()) {
+      throw new Error(
+        `No proposed membership number could be assigned to entry ${entry.id}.`,
+      );
     }
 
     return {
@@ -543,7 +744,30 @@ export async function saveEntryOrder(registerId, entries) {
     };
   });
 
-  // Writes affect draft entries only, never public.memberships.
+  // Validate numbers among included entries only.
+  // Removed entries may retain their historical numbers.
+  const numberOwners = new Map();
+
+  for (const entry of updates) {
+    const source = entries.find((item) => item.id === entry.id);
+
+    if (!source?.is_included) continue;
+
+    const normalizedNumber = entry.membership_number
+      .trim()
+      .toUpperCase();
+
+    if (numberOwners.has(normalizedNumber)) {
+      throw new Error(
+        `Duplicate proposed membership number "${entry.membership_number}". ` +
+        "Each included membership must have a unique number.",
+      );
+    }
+
+    numberOwners.set(normalizedNumber, entry.id);
+  }
+
+  // Persist only after all proposed numbers have passed validation.
   for (const update of updates) {
     const { error } = await supabase
       .from("annual_membership_entries")
@@ -562,6 +786,8 @@ export async function saveEntryOrder(registerId, entries) {
     removed_count: removedEntries.length,
   });
 }
+
+
 
 export async function setRegisterStatus(registerId, status) {
   if (!["Draft", "Under Review"].includes(status)) {
@@ -624,48 +850,11 @@ export async function deleteAnnualRegisterDraft(registerId) {
     throw new Error("Only draft registers can be deleted.");
   }
 
-  // Remove history first because it references annual_registers.
-  const { error: historyError } = await supabase
-    .from("annual_register_history")
-    .delete()
-    .eq("annual_register_id", registerId);
+  const { error } = await supabase.rpc("delete_annual_register_draft", {
+    p_register_id: registerId,
+  });
 
-  if (historyError) throw historyError;
-
-  // Get draft entry IDs so their dependent assignments can be removed.
-  const { data: entries, error: entriesError } = await supabase
-    .from("annual_membership_entries")
-    .select("id")
-    .eq("annual_register_id", registerId);
-
-  if (entriesError) throw entriesError;
-
-  const entryIds = (entries ?? []).map((entry) => entry.id);
-
-  if (entryIds.length > 0) {
-    const { error: assignmentsError } = await supabase
-      .from("annual_member_assignments")
-      .delete()
-      .in("annual_membership_entry_id", entryIds);
-
-    if (assignmentsError) throw assignmentsError;
-  }
-
-  const { error: deleteEntriesError } = await supabase
-    .from("annual_membership_entries")
-    .delete()
-    .eq("annual_register_id", registerId);
-
-  if (deleteEntriesError) throw deleteEntriesError;
-
-  // Delete only after all dependent rows have been removed.
-  const { error: deleteRegisterError } = await supabase
-    .from("annual_registers")
-    .delete()
-    .eq("id", registerId)
-    .eq("status", "Draft");
-
-  if (deleteRegisterError) throw deleteRegisterError;
+  if (error) throw error;
 }
 
 
@@ -900,3 +1089,19 @@ export async function resyncAnnualRegisterDraft(registerId) {
   return result;
 }
 
+export async function finaliseAnnualRegister(registerId) {
+  if (!registerId) {
+    throw new Error("Select the register you want to finalise.");
+  }
+
+  const { data, error } = await supabase.rpc(
+    "finalise_annual_register",
+    {
+      p_annual_register_id: registerId,
+    },
+  );
+
+  if (error) throw error;
+
+  return data;
+}

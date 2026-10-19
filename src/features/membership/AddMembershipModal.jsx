@@ -2,6 +2,14 @@ import { useState, useEffect } from "react";
 import { X, UserRound, MapPin, Phone, Hash } from "lucide-react";
 import { createMembershipWithHead, getNextMembershipNumber, } from "../../services/membershipService";
 
+import {
+  getMembershipHeadPhotoUrl,
+  uploadMembershipHeadPhoto,
+  deleteMembershipHeadPhoto,
+  validateMembershipHeadPhoto,
+} from "../../services/membership/membershipPhotoService";
+
+
 const initialForm = {
   membership_number: "",
   name: "",
@@ -117,6 +125,10 @@ export default function AddMembershipModal({ onClose, onCreated }) {
   const [error, setError] = useState("");
   const [created, setCreated] = useState(null);
   const [numberLoading, setNumberLoading] = useState(true);
+  
+  const [headPhotoFile, setHeadPhotoFile] = useState(null);
+  const [headPhotoPreview, setHeadPhotoPreview] = useState(null);
+
 
 useEffect(() => {
   let cancelled = false;
@@ -195,14 +207,91 @@ useEffect(() => {
         },
       });
 
+      
+      let savedPhotoPath = null;
+
+      if (headPhotoFile) {
+        const membershipRecordId =
+          result?.id ??
+          result?.membership?.id ??
+          result?.membership_record?.id ??
+          result?.membership_id;
+
+        if (!membershipRecordId) {
+          throw new Error(
+            "Membership was created, but its record ID was not returned. The photo could not be uploaded."
+          );
+        }
+
+        savedPhotoPath = await uploadMembershipHeadPhoto(
+          headPhotoFile,
+          membershipRecordId
+        );
+
+        try {
+          // Persist the Storage path using the existing membership update RPC.
+          const { updateMembership } = await import(
+            "../../services/membershipService"
+          );
+
+          await updateMembership(membershipRecordId, {
+            head_photo_path: savedPhotoPath,
+          });
+        } catch (photoSaveError) {
+          // Avoid leaving an orphaned upload if saving its path fails.
+          await deleteMembershipHeadPhoto(savedPhotoPath).catch(() => {});
+          throw photoSaveError;
+        }
+      }
+
       setCreated(result);
       await onCreated?.();
+
     } catch (err) {
       setError(err.message || "Could not create this membership.");
     } finally {
       setSaving(false);
     }
   }
+
+  
+  function handleHeadPhotoChange(event) {
+    const file = event.target.files?.[0];
+
+    if (!file) return;
+
+    try {
+      validateMembershipHeadPhoto(file);
+
+      setHeadPhotoFile(file);
+
+      setHeadPhotoPreview((currentPreview) => {
+        if (currentPreview?.startsWith("blob:")) {
+          URL.revokeObjectURL(currentPreview);
+        }
+
+        return URL.createObjectURL(file);
+      });
+
+      setError("");
+    } catch (err) {
+      event.target.value = "";
+      setError(err.message || "Could not select this image.");
+    }
+  }
+
+  function clearHeadPhoto() {
+    setHeadPhotoFile(null);
+
+    setHeadPhotoPreview((currentPreview) => {
+      if (currentPreview?.startsWith("blob:")) {
+        URL.revokeObjectURL(currentPreview);
+      }
+
+      return null;
+    });
+  }
+
 
   return (
     <div
@@ -493,6 +582,57 @@ useEffect(() => {
                 type="email"
               />
             </Section>
+
+            
+            <section className="rounded-xl border border-[#ececed] bg-white p-4 sm:p-5">
+              <div className="mb-3">
+                <h3 className="text-[13px] font-bold text-[#131418]">
+                  Head of Membership Photo
+                </h3>
+                <p className="mt-1 text-[11px] text-[#92939b]">
+                  JPG, PNG or WebP. Maximum file size: 1 MB.
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                <div className="flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[#ececed] bg-[#f5f5f6]">
+                  {headPhotoPreview ? (
+                    <img
+                      src={headPhotoPreview}
+                      alt="Head of membership preview"
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <UserRound size={36} className="text-[#a0a1a8]" />
+                  )}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="cursor-pointer rounded-lg border border-[#e5e5e7] px-4 py-2.5 text-[12px] font-semibold text-[#30313a] hover:bg-[#f7f7f8]">
+                    Choose photo
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      onChange={handleHeadPhotoChange}
+                      className="hidden"
+                      disabled={saving}
+                    />
+                  </label>
+
+                  {headPhotoFile && (
+                    <button
+                      type="button"
+                      onClick={clearHeadPhoto}
+                      disabled={saving}
+                      className="rounded-lg px-3 py-2.5 text-[12px] font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
+                    >
+                      Remove photo
+                    </button>
+                  )}
+                </div>
+              </div>
+            </section>
+
 
             {error && (
               <div

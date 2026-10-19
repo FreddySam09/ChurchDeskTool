@@ -14,6 +14,8 @@ import {
   getRemovedEntries,
   getEntryLabel,
 } from "./annualRegisterUtils";
+import { RefreshCw } from "lucide-react";
+import { getEntryReviewIssues } from "./annualRegisterUtils";
 
 function isBranchEntry(entry) {
   return Boolean(entry.branch_id) && entry.entry_type === "Branch";
@@ -101,6 +103,7 @@ export default function RegisterEntries({
   loading = false,
   working = false,
   readOnly = false,
+  onResync,
   onToggleIncluded,
   onDesignateHead,
   onSplitBranch,
@@ -109,7 +112,7 @@ export default function RegisterEntries({
   onNumberChange,
 }) {
   const [search, setSearch] = useState("");
-  const [showRemoved, setShowRemoved] = useState(false);
+  const [showRemoved, setShowRemoved] = useState(true);
   const [draggedKey, setDraggedKey] = useState(null);
   const [numberEdits, setNumberEdits] = useState({});
 
@@ -201,6 +204,21 @@ export default function RegisterEntries({
     await onNumberChange?.(entry, value);
   }
 
+  const entriesWithCurrentNumbers = useMemo(
+    () =>
+      entries.map((entry) => ({
+        ...entry,
+        membership_number:
+          numberEdits[entry.id] ?? entry.membership_number ?? "",
+      })),
+    [entries, numberEdits],
+  );
+
+  const reviewIssuesByEntryId = useMemo(
+    () => getEntryReviewIssues(entriesWithCurrentNumbers),
+    [entriesWithCurrentNumbers],
+  );
+
   return (
     <section className="overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white shadow-[0_1px_2px_rgba(15,15,20,0.04)]">
       <div className="border-b border-[#e5e7eb] px-4 py-4 sm:px-5">
@@ -216,6 +234,17 @@ export default function RegisterEntries({
           </div>
 
           <div className="flex flex-wrap items-center gap-2 text-xs">
+            {!readOnly && (
+              <button
+                type="button"
+                onClick={onResync}
+                disabled={working}
+                className="inline-flex items-center gap-1.5 rounded-full border border-[#e5e5e7] bg-white px-3 py-1.5 text-xs font-medium text-[#53555e] transition hover:bg-[#f7f7f8] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <RefreshCw size={13} />
+                {working ? "Resyncing…" : "Resync"}
+              </button>
+            )}
             <span className="rounded-full border border-[#dcece2] bg-[#eff8f2] px-3 py-1.5 font-medium text-[#28734b]">
               Included {includedCount}
             </span>
@@ -392,6 +421,23 @@ export default function RegisterEntries({
                             }`}
                           />
                         )}
+
+                        {!isRemoved &&
+                          (reviewIssuesByEntryId.get(entry.id) ?? []).length >
+                            0 && (
+                            <div className="mt-1 space-y-1" role="alert">
+                              {reviewIssuesByEntryId
+                                .get(entry.id)
+                                .map((issue) => (
+                                  <p
+                                    key={issue}
+                                    className="max-w-[150px] text-xs font-medium text-red-600"
+                                  >
+                                    {issue}
+                                  </p>
+                                ))}
+                            </div>
+                          )}
                       </td>
 
                       <td className="px-3 py-3 align-top">

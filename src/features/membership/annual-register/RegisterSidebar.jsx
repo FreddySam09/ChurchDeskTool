@@ -1,3 +1,4 @@
+import { Trash2 } from "lucide-react";
 const STATUS_STYLES = {
   Draft: "border-[#dedfe3] bg-[#f1f1f3] text-[#53555e]",
   "Under Review": "border-amber-200 bg-amber-50 text-amber-800",
@@ -22,11 +23,12 @@ export default function RegisterSidebar({
   selectedRegisterId,
   onSelect,
   onCreate,
+  onDelete,
   loading = false,
   working = false,
 }) {
   return (
-    <aside className="flex min-h-0 flex-col rounded-2xl border border-[#e9e9eb] bg-white">
+    <aside className="flex h-[360px] min-h-0 flex-col overflow-hidden rounded-2xl border border-[#e9e9eb] bg-white">
       <div className="border-b border-[#e9e9eb] p-4">
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -68,43 +70,65 @@ export default function RegisterSidebar({
           <ul className="space-y-1">
             {registers.map((register) => {
               const isSelected = register.id === selectedRegisterId;
+              const canDelete = register.status === "Draft";
 
               return (
-                <li key={register.id}>
-                  <button
-                    type="button"
-                    onClick={() => onSelect(register.id)}
-                    aria-current={isSelected ? "page" : undefined}
-                    className={`w-full rounded-xl border p-3 text-left transition ${
-                      isSelected
-                        ? "border-[#d9dadd] bg-[#f2f3f5]"
-                        : "border-transparent hover:border-[#e9e9eb] hover:bg-[#f8f8f9]"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
+                <li
+                  key={register.id}
+                  className={`rounded-xl border p-3 transition ${
+                    isSelected
+                      ? "border-[#d9dadd] bg-[#f2f3f5]"
+                      : "border-transparent hover:border-[#e9e9eb] hover:bg-[#f8f8f9]"
+                  }`}
+                >
+                  <div className="flex items-start gap-2">
+                    <button
+                      type="button"
+                      onClick={() => onSelect(register.id)}
+                      aria-current={isSelected ? "page" : undefined}
+                      className="min-w-0 flex-1 text-left"
+                    >
+                      <div className="flex items-start justify-between gap-2">
                         <p className="truncate text-sm font-medium text-[#131418]">
                           {register.name}
                         </p>
-                        <p className="mt-1 text-xs text-[#777984]">
-                          Register year: {register.register_year}
-                        </p>
+
+                        <span className="shrink-0 text-xs font-semibold tabular-nums text-[#777984]">
+                          {register.register_year}
+                        </span>
                       </div>
 
-                      <span className="text-xs font-semibold tabular-nums text-[#777984]">
-                        {register.register_year}
-                      </span>
-                    </div>
+                      <p className="mt-1 text-xs text-[#777984]">
+                        Register year: {register.register_year}
+                      </p>
 
-                    <div className="mt-3 flex items-center justify-between gap-2">
-                      <StatusBadge status={register.status} />
-                      <span className="text-[11px] text-[#92939b]">
-                        {register.created_at
-                          ? new Date(register.created_at).toLocaleDateString()
-                          : ""}
-                      </span>
-                    </div>
-                  </button>
+                      <div className="mt-3 flex items-center justify-between gap-2">
+                        <StatusBadge status={register.status} />
+
+                        <span className="text-[11px] text-[#92939b]">
+                          {register.created_at
+                            ? new Date(register.created_at).toLocaleDateString()
+                            : ""}
+                        </span>
+                      </div>
+                    </button>
+
+                    {canDelete && (
+                      <button
+                        type="button"
+                        title={`Delete draft ${register.name}`}
+                        aria-label={`Delete draft ${register.name}`}
+                        disabled={working}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onDelete(register);
+                        }}
+                        className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[#92939b] transition hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                  </div>
                 </li>
               );
             })}

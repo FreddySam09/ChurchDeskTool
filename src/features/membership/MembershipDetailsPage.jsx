@@ -28,6 +28,9 @@ import {
 import AddMemberModal from "./AddMemberModal";
 import EditMembershipModal from "./EditMembershipModal";
 import CreateBranchFromMemberModal from "./CreateBranchFromMemberModal";
+import {
+  getMembershipHeadPhotoUrl,
+} from "../../services/membership/membershipPhotoService";
 
 function formatDate(value) {
   if (!value) return "Not recorded";
@@ -492,8 +495,16 @@ export default function MembershipDetailsPage() {
       <header className="mb-7 flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-3">
-            <div className="flex h-21 w-21 shrink-0 items-center justify-center rounded-full bg-[#eeeeef] text-[#53555e] -mb-2">
-              <UserRound size={19} />
+            <div className="mb-2 flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#ececed] bg-[#eeeeef] text-[#53555e]">
+              {getMembershipHeadPhotoUrl(membership.head_photo_path) ? (
+                <img
+                  src={getMembershipHeadPhotoUrl(membership.head_photo_path)}
+                  alt={`Head of membership: ${head?.name || "Unknown"}`}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <UserRound size={28} />
+              )}
             </div>
 
             <div className="flex flex-col gap-0">
@@ -614,13 +625,6 @@ export default function MembershipDetailsPage() {
               />
 
               <DetailField label="Household email" value={membership.email} />
-
-              {!isBranchView && (
-                <DetailField
-                  label="Head photo storage path"
-                  value={membership.head_photo_path}
-                />
-              )}
             </div>
 
             {isBranchView && (

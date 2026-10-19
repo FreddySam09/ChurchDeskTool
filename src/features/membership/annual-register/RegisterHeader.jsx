@@ -5,6 +5,7 @@ export default function RegisterHeader({
   entries = [],
   working = false,
   onStatusChange,
+  onFinalise,
 }) {
   if (!register) return null;
 
@@ -12,7 +13,7 @@ export default function RegisterHeader({
   const isFinalised = register.status === "Finalised";
 
   return (
-    <section className="rounded-2xl border border-[#e9e9eb] bg-white p-5">
+    <section className="h-[360px] overflow-y-auto rounded-2xl border border-[#e9e9eb] bg-white p-5">
       <div className="flex flex-col justify-between gap-5 xl:flex-row xl:items-start">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
@@ -35,30 +36,43 @@ export default function RegisterHeader({
           </p>
 
           {register.notes && (
-            <p className="mt-3 text-sm text-[#53555e]">{register.notes}</p>
+            <p className="mt-3 text-sm text-[#53555e]">
+              {register.notes}
+            </p>
           )}
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          {!isFinalised && register.status === "Draft" && (
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {register.status === "Draft" && (
             <button
               type="button"
               disabled={working}
               onClick={() => onStatusChange("Under Review")}
-              className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-800 transition hover:bg-amber-100 disabled:opacity-50"
+              className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-800 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Submit for review
             </button>
           )}
 
-          {!isFinalised && register.status === "Under Review" && (
+          {register.status === "Under Review" && (
             <button
               type="button"
               disabled={working}
               onClick={() => onStatusChange("Draft")}
-              className="rounded-lg border border-[#e5e5e7] bg-white px-4 py-2 text-sm font-medium text-[#25262c] transition hover:bg-[#f7f7f8] disabled:opacity-50"
+              className="rounded-lg border border-[#e5e5e7] bg-white px-4 py-2 text-sm font-medium text-[#25262c] transition hover:bg-[#f7f7f8] disabled:cursor-not-allowed disabled:opacity-50"
             >
               Return to draft
+            </button>
+          )}
+
+          {register.status === "Under Review" && (
+            <button
+              type="button"
+              disabled={working || summary.entriesNeedingReview > 0}
+              onClick={onFinalise}
+              className="rounded-lg bg-[#1a1b20] px-4 py-2 text-sm font-semibold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {working ? "Finalising..." : "Finalise register"}
             </button>
           )}
         </div>
@@ -69,17 +83,21 @@ export default function RegisterHeader({
         <SummaryCard label="People assigned" value={summary.people} />
         <SummaryCard label="Removed entries" value={summary.removed} />
         <SummaryCard
-          label="Heads needing review"
-          value={summary.needsHeadReview}
-          warning={summary.needsHeadReview > 0}
+          label="Entries needing review"
+          value={summary.entriesNeedingReview}
+          warning={summary.entriesNeedingReview > 0}
         />
       </div>
 
-      {summary.needsHeadReview > 0 && (
-        <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-800">
-          {summary.needsHeadReview} included entr
-          {summary.needsHeadReview === 1 ? "y needs" : "ies need"} a designated
-          head. Review these before finalisation.
+      {summary.entriesNeedingReview > 0 && (
+        <div
+          role="alert"
+          className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-800"
+        >
+          {summary.entriesNeedingReview} included{" "}
+          {summary.entriesNeedingReview === 1 ? "entry needs" : "entries need"}{" "}
+          review. Check duplicate or missing membership numbers, invalid numbers,
+          and head designations before submitting or finalising this register.
         </div>
       )}
 

@@ -29,6 +29,7 @@ export default function AnnualRegister() {
     undoSplitBranch,
     deleteDraft,
     resyncDraft,
+    finaliseSelectedRegister,
   } = useAnnualRegister();
 
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -155,13 +156,13 @@ export default function AnnualRegister() {
     }
   }
 
-  async function handleDeleteDraft() {
-    if (!selectedRegister || selectedRegister.status !== "Draft") return;
+  async function handleDeleteRegisterDraft(register) {
+    if (!register || register.status !== "Draft") return;
 
     const confirmed = window.confirm(
-      `Delete draft "${selectedRegister.name}"?\n\n` +
-        "Its draft entries, assignments and activity history will be deleted. " +
-        "Live memberships and permanent IDs will not be deleted.",
+      `Delete draft "${register.name}"?\n\n` +
+        "Only this draft and its draft-specific records will be deleted. " +
+        "Live memberships, people, permanent IDs, and relationships will remain unchanged.",
     );
 
     if (!confirmed) return;
@@ -169,11 +170,34 @@ export default function AnnualRegister() {
     setError("");
 
     try {
-      await deleteDraft();
-    } catch {
-      // Error is shown in the page alert.
+      await deleteDraft(register.id);
+    } catch (error) {
+      console.error("Failed to delete annual register draft:", error);
+      // useAnnualRegister sets the error displayed on the page.
     }
   }
+
+  async function handleFinaliseRegister() {
+  if (!selectedRegister || selectedRegister.status !== "Under Review") {
+    setError("Select an Under Review register first.");
+    return;
+  }
+
+  const confirmed = window.confirm(
+    `Finalise "${selectedRegister.name}" (${selectedRegister.register_year})?\n\n` +
+      "This operation permanently locks this register and applies its membership decisions. " +
+      "It cannot be undone from the application.",
+  );
+
+  if (!confirmed) return;
+
+  try {
+    await finaliseSelectedRegister();
+    await refresh();
+  } catch {
+    // The hook already stores and displays the database error.
+  }
+}
 
   return (
     <main className="min-h-screen bg-[#f4f4f5] p-4 text-[#131418] sm:p-6 lg:p-8">
@@ -231,6 +255,7 @@ export default function AnnualRegister() {
             selectedRegisterId={selectedRegisterId}
             onSelect={selectRegister}
             onCreate={() => setCreateDialogOpen(true)}
+            onDelete={handleDeleteRegisterDraft}
             loading={loading}
             working={working}
           />
@@ -270,6 +295,7 @@ export default function AnnualRegister() {
                   entries={entries}
                   working={working}
                   onStatusChange={handleStatusChange}
+                  onFinalise={handleFinaliseRegister}
                 />
 
                 {readOnly && (
@@ -279,45 +305,6 @@ export default function AnnualRegister() {
                   </div>
                 )}
 
-                {/* Draft maintenance actions */}
-                {!readOnly && (
-                  <section className="rounded-2xl border border-[#e9e9eb] bg-white p-4 sm:p-5">
-                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                      <div className="min-w-0">
-                        <h2 className="text-sm font-semibold text-[#131418]">
-                          Draft maintenance
-                        </h2>
-
-                        <p className="mt-1 text-sm leading-5 text-[#777984]">
-                          Add memberships and people created since this draft
-                          was first populated, without intentionally resetting
-                          existing draft edits.
-                        </p>
-                      </div>
-
-                      <div className="flex shrink-0 flex-wrap gap-2">
-                        <button
-                          type="button"
-                          onClick={handleResyncDraft}
-                          disabled={working}
-                          className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#e5e5e7] bg-white px-4 py-2.5 text-sm font-semibold text-[#25262c] transition hover:bg-[#f7f7f8] disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          <span aria-hidden="true">↻</span>
-                          {working ? "Working…" : "Resync draft"}
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={handleDeleteDraft}
-                          disabled={working}
-                          className="inline-flex items-center justify-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          Delete draft
-                        </button>
-                      </div>
-                    </div>
-                  </section>
-                )}
               </>
             )}
           </div>
@@ -331,6 +318,7 @@ export default function AnnualRegister() {
               loading={loading}
               working={working}
               readOnly={readOnly}
+              onResync={handleResyncDraft}
               onToggleIncluded={handleToggleIncluded}
               onDesignateHead={handleDesignateHead}
               onSplitBranch={handleSplitBranch}

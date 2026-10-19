@@ -14,6 +14,9 @@ import {
 import { getMembershipDirectory } from "../../services/membershipService";
 import AddMembershipModal from "./AddMembershipModal";
 import MembershipImportModal from "./import/MembershipImportModal";
+import {
+  getMembershipHeadPhotoUrl,
+} from "../../services/membership/membershipPhotoService";
 
 const FILTERS = ["All", "Active", "Inactive"];
 
@@ -80,6 +83,7 @@ function MembershipCard({ membership, onOpen }) {
 
   // Use a real membership image when available; otherwise show a placeholder.
   const imageUrl =
+    getMembershipHeadPhotoUrl(membership.head_photo_path) ||
     membership.head_photo_url ||
     membership.photo_url ||
     membership.head_photo ||
@@ -97,7 +101,7 @@ function MembershipCard({ membership, onOpen }) {
           onOpen(membership);
         }
       }}
-      className="group flex min-h-[270px] cursor-pointer flex-col rounded-[28px] border border-[#e9e9eb] bg-white p-6 shadow-[0_1px_2px_rgba(15,15,20,0.04)] transition duration-200 hover:-translate-y-0.5 hover:border-[#d9def8] hover:shadow-[0_8px_25px_rgba(15,15,20,0.06)] sm:p-7"
+      className="group flex min-h-[250px] cursor-pointer flex-col rounded-[28px] border border-[#e9e9eb] bg-white p-5 shadow-[0_1px_2px_rgba(15,15,20,0.04)] transition duration-200 hover:-translate-y-0.5 hover:border-[#d9def8] hover:shadow-[0_8px_25px_rgba(15,15,20,0.06)] sm:p-6"
     >
       {/* Top row: membership display number */}
       <div className="flex items-center justify-end">
@@ -107,7 +111,7 @@ function MembershipCard({ membership, onOpen }) {
       </div>
 
       {/* Main content: image placeholder and membership details */}
-      <div className="mt-1 flex min-w-0 items-center gap-4">
+      <div className="-mt-4 flex min-w-0 items-center gap-4">
         <div className="h-[112px] w-[112px] shrink-0 overflow-hidden rounded-[15px] bg-[#f0f0f1]">
           {imageUrl ? (
             <img

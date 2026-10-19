@@ -1,6 +1,12 @@
 import { useEffect, useState } from "react";
 import { X, MapPin, Phone, Hash, UserRound } from "lucide-react";
 import { updateMembership } from "../../services/membershipService";
+import {
+  getMembershipHeadPhotoUrl,
+  uploadMembershipHeadPhoto,
+  deleteMembershipHeadPhoto,
+  validateMembershipHeadPhoto,
+} from "../../services/membership/membershipPhotoService";
 
 const inputClass =
   "mt-1.5 w-full rounded-[10px] border border-[#e5e5e7] bg-white px-3 py-2.5 text-[13px] text-[#131418] outline-none transition placeholder:text-[#a0a1a8] focus:border-[#4f70e8] focus:ring-2 focus:ring-[#4f70e8]/10";
@@ -55,6 +61,11 @@ export default function EditMembershipModal({ membership, onClose, onSaved }) {
   const [form, setForm] = useState({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [headPhotoFile, setHeadPhotoFile] = useState(null);
+  const [removeHeadPhoto, setRemoveHeadPhoto] = useState(false);
+  const [headPhotoPreview, setHeadPhotoPreview] = useState(
+    getMembershipHeadPhotoUrl(membership?.head_photo_path)
+  );
 
   useEffect(() => {
     setForm({
@@ -107,6 +118,17 @@ export default function EditMembershipModal({ membership, onClose, onSaved }) {
     setSaving(true);
 
     try {
+      let newPhotoPath = form.head_photo_path || null;
+
+      if (headPhotoFile) {
+        newPhotoPath = await uploadMembershipHeadPhoto(
+          headPhotoFile,
+          membership.membership_id || membership.id
+        );
+      } else if (removeHeadPhoto) {
+        newPhotoPath = null;
+      }
+
       await updateMembership(membership.id, {
         membership_number: number || null,
         membership_status: form.membership_status,
@@ -120,8 +142,20 @@ export default function EditMembershipModal({ membership, onClose, onSaved }) {
         alternate_phone_number: form.alternate_phone_number.trim() || null,
         email: form.email.trim() || null,
         year_joined: year,
-        head_photo_path: form.head_photo_path.trim() || null,
+        head_photo_path: newPhotoPath,
       });
+
+      const oldPhotoPath = membership.head_photo_path;
+
+      if (
+        oldPhotoPath &&
+        oldPhotoPath !== newPhotoPath &&
+        (headPhotoFile || removeHeadPhoto)
+      ) {
+        await deleteMembershipHeadPhoto(oldPhotoPath).catch((err) => {
+          console.error("Could not delete the old membership photo:", err);
+        });
+      }
 
       await onSaved?.();
       onClose();
@@ -130,6 +164,45 @@ export default function EditMembershipModal({ membership, onClose, onSaved }) {
     } finally {
       setSaving(false);
     }
+  }
+
+    function handleHeadPhotoChange(event) {
+    const file = event.target.files?.[0];
+
+    if (!file) return;
+
+    try {
+      validateMembershipHeadPhoto(file);
+
+      setHeadPhotoFile(file);
+      setRemoveHeadPhoto(false);
+
+      setHeadPhotoPreview((currentPreview) => {
+        if (currentPreview?.startsWith("blob:")) {
+          URL.revokeObjectURL(currentPreview);
+        }
+
+        return URL.createObjectURL(file);
+      });
+
+      setError("");
+    } catch (err) {
+      event.target.value = "";
+      setError(err.message || "Could not select this image.");
+    }
+  }
+
+  function clearHeadPhoto() {
+    setHeadPhotoFile(null);
+    setRemoveHeadPhoto(true);
+
+    setHeadPhotoPreview((currentPreview) => {
+      if (currentPreview?.startsWith("blob:")) {
+        URL.revokeObjectURL(currentPreview);
+      }
+
+      return null;
+    });
   }
 
   return (
@@ -202,13 +275,56 @@ export default function EditMembershipModal({ membership, onClose, onSaved }) {
               required
             />
 
-            <Field
-              label="Head photo storage path"
-              name="head_photo_path"
-              value={form.head_photo_path ?? ""}
-              onChange={handleChange}
-              placeholder="Storage path (optional)"
-            />
+            
+            <section className="rounded-xl border border-[#ececed] bg-white p-4 sm:p-5">
+              <div className="mb-3">
+                <h3 className="text-[13px] font-bold text-[#131418]">
+                  Head of Membership Photo
+                </h3>
+                <p className="mt-1 text-[11px] text-[#92939b]">
+                  JPG, PNG or WebP. Maximum file size: 1 MB.
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                <div className="flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[#ececed] bg-[#f5f5f6]">
+                  {headPhotoPreview ? (
+                    <img
+                      src={headPhotoPreview}
+                      alt="Head of membership"
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <UserRound size={36} className="text-[#a0a1a8]" />
+                  )}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="cursor-pointer rounded-lg border border-[#e5e5e7] px-4 py-2.5 text-[12px] font-semibold text-[#30313a] hover:bg-[#f7f7f8]">
+                    Choose photo
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      onChange={handleHeadPhotoChange}
+                      className="hidden"
+                      disabled={saving}
+                    />
+                  </label>
+
+                  {headPhotoPreview && (
+                    <button
+                      type="button"
+                      onClick={clearHeadPhoto}
+                      disabled={saving}
+                      className="rounded-lg px-3 py-2.5 text-[12px] font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
+                    >
+                      Remove photo
+                    </button>
+                  )}
+                </div>
+              </div>
+            </section>
+
           </Section>
 
           <Section icon={MapPin} title="Address">
