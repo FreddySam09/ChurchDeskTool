@@ -11,11 +11,12 @@ import {
 } from './serviceUtils'
 
 export async function getMembershipDirectory() {
-  const [
+    const [
     membershipResult,
     memberResult,
     assignmentResult,
     branchResult,
+    registerResult,
   ] = await Promise.all([
     supabase
       .from('memberships')
@@ -42,6 +43,14 @@ export async function getMembershipDirectory() {
       .select('id, membership_id, suffix, branch_status')
       .eq('branch_status', 'Active')
       .order('suffix'),
+
+    supabase
+      .from('annual_registers')
+      .select('id, name, register_year, status, finalised_at')
+      .eq('status', 'Finalised')
+      .order('register_year', { ascending: false })
+      .order('finalised_at', { ascending: false, nullsFirst: false })
+      .limit(1),
   ])
 
   const memberships = unwrap(membershipResult) ?? []
@@ -84,7 +93,7 @@ export async function getMembershipDirectory() {
     branchesByMembership.set(branch.membership_id, membershipBranches)
   }
 
-  return memberships.map((membership) => {
+  const directory = memberships.map((membership) => {
     const head = memberById.get(membership.head_member_id)
 
     const membershipAssignments =
@@ -131,7 +140,7 @@ export async function getMembershipDirectory() {
       }
     })
 
-    return {
+        return {
       ...membership,
       head,
       head_name: head?.name ?? 'Head not assigned',
@@ -143,6 +152,13 @@ export async function getMembershipDirectory() {
       branches: membershipBranches,
     }
   })
+
+  const activeRegister = unwrap(registerResult)?.[0] ?? null
+
+  return {
+    memberships: directory,
+    activeRegister,
+  }
 }
 
 export async function getMembershipDetails(

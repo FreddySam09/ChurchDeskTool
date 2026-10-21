@@ -298,13 +298,6 @@ export default function AnnualRegister() {
                   onFinalise={handleFinaliseRegister}
                 />
 
-                {readOnly && (
-                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-800">
-                    This register is read-only. Draft editing, resyncing, and
-                    draft deletion are unavailable for finalised registers.
-                  </div>
-                )}
-
               </>
             )}
           </div>

@@ -223,9 +223,10 @@ export async function createRegisterSnapshot(registerId) {
 
   const [membershipResult, branchResult, assignmentResult] = await Promise.all([
     supabase
-      .from("memberships")
-      .select("id, membership_id, membership_number, head_member_id")
-      .order("created_at", { ascending: true }),
+    .from("memberships")
+    .select("id, membership_id, membership_number, head_member_id, membership_status")
+    .eq("membership_status", "Active")
+    .order("created_at", { ascending: true }),
 
     supabase
       .from("membership_branches")
@@ -526,6 +527,7 @@ export async function setEntryHead(entry, memberId) {
   }
 }
 
+
 export async function setEntryNumber(entry, value) {
   const proposed = String(value ?? "").trim();
 
@@ -534,7 +536,9 @@ export async function setEntryNumber(entry, value) {
   }
 
   if (!/^[A-Za-z0-9]+$/.test(proposed)) {
-    throw new Error("Membership numbers can contain only letters and numbers.");
+    throw new Error(
+      "Membership numbers can contain only letters and numbers.",
+    );
   }
 
   const { data: register, error: registerError } = await supabase
@@ -557,19 +561,17 @@ export async function setEntryNumber(entry, value) {
 
   if (error) throw error;
 
-  // Keep attached branch suffixes with the edited parent number.
+  // When changing a main membership number, update its attached branches.
   if (!entry.branch_id && entry.entry_type !== "Branch") {
     const { data: children, error: childrenError } = await supabase
       .from("annual_membership_entries")
-      .select(
-        `
+      .select(`
         id,
         membership_number,
         branch:membership_branches!annual_membership_entries_branch_id_fkey (
           suffix
         )
-      `,
-      )
+      `)
       .eq("annual_register_id", entry.annual_register_id)
       .eq("parent_entry_id", entry.id)
       .eq("entry_type", "Branch");
@@ -587,11 +589,60 @@ export async function setEntryNumber(entry, value) {
       const { error: childError } = await supabase
         .from("annual_membership_entries")
         .update({ membership_number: `${proposed}${suffix}` })
-        .eq("id", child.id);
+        .eq("id", child.id)
+        .eq("annual_register_id", entry.annual_register_id);
 
       if (childError) throw childError;
     }
   }
+
+  // Reload the latest entries after saving the proposed number.
+  const { data: entries, error: entriesError } = await supabase
+    .from("annual_membership_entries")
+    .select("*")
+    .eq("annual_register_id", entry.annual_register_id)
+    .order("sort_order", { ascending: true });
+
+  if (entriesError) throw entriesError;
+
+  const allEntries = entries ?? [];
+
+  // Sort included entries naturally by their proposed numbers.
+  // A parent stays before its attached branches: 2, 2A, 2B, 3.
+  const includedEntries = allEntries
+    .filter((item) => item.is_included)
+    .sort((a, b) => {
+      const numberA = String(a.membership_number ?? "");
+      const numberB = String(b.membership_number ?? "");
+
+      const numberComparison = numberA.localeCompare(
+        numberB,
+        undefined,
+        {
+          numeric: true,
+          sensitivity: "base",
+        },
+      );
+
+      if (numberComparison !== 0) return numberComparison;
+
+      // If numbers tie, put the main membership before its branch.
+      if (!a.branch_id && b.branch_id) return -1;
+      if (a.branch_id && !b.branch_id) return 1;
+
+      return (a.sort_order ?? 0) - (b.sort_order ?? 0);
+    });
+
+  // Keep removed entries at the end, preserving their existing order.
+  const removedEntries = allEntries
+    .filter((item) => !item.is_included)
+    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+
+  // Persist the new order and recalculate the proposed numbers.
+  await saveEntryOrder(entry.annual_register_id, [
+    ...includedEntries,
+    ...removedEntries,
+  ]);
 
   await recordRegisterHistory(
     entry.annual_register_id,
@@ -603,6 +654,7 @@ export async function setEntryNumber(entry, value) {
     },
   );
 }
+
 
 export async function undoBranchSplitInDraft(entry) {
   if (entry.entry_type !== "Independent Split" || !entry.branch_id) {
@@ -885,9 +937,10 @@ export async function resyncAnnualRegisterDraft(registerId) {
       .eq("annual_register_id", registerId),
 
     supabase
-      .from("memberships")
-      .select("id, membership_number, head_member_id")
-      .order("created_at", { ascending: true }),
+    .from("memberships")
+    .select("id, membership_number, head_member_id, membership_status")
+    .eq("membership_status", "Active")
+    .order("created_at", { ascending: true }),
 
     supabase
       .from("membership_branches")

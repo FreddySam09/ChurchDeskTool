@@ -24,6 +24,7 @@ import {
   getMembershipDetails,
   recordMemberRelationship,
 } from "../../services/membershipService";
+import MembershipHistory from "./MembershipHistory";
 
 import AddMemberModal from "./AddMemberModal";
 import EditMembershipModal from "./EditMembershipModal";
@@ -701,6 +702,10 @@ export default function MembershipDetailsPage() {
         </div>
       </div>
 
+
+      {!isBranchView && (
+        <MembershipHistory membershipRowId={membershipRowId} />
+      )}
       {addMemberOpen && !isBranchView && (
         <AddMemberModal
           membership={membership}

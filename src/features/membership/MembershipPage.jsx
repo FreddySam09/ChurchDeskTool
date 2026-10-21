@@ -191,7 +191,7 @@ export default function MembershipPage() {
   const { searchValue, setSearchValue } = useOutletContext();
 
   const [directory, setDirectory] = useState([]);
-  const [registerYear, setRegisterYear] = useState(null);
+  const [activeRegister, setActiveRegister] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
@@ -207,10 +207,10 @@ export default function MembershipPage() {
 
       if (Array.isArray(result)) {
         setDirectory(result);
-        setRegisterYear(null);
+        setActiveRegister(null);
       } else {
         setDirectory(result?.memberships ?? []);
-        setRegisterYear(result?.annualRegisterYear ?? null);
+        setActiveRegister(result?.activeRegister ?? null);
       }
     } catch (err) {
       setError(err.message || "Unable to load memberships.");
@@ -422,7 +422,7 @@ export default function MembershipPage() {
 
         <p className="mt-2 text-[14px] text-[#6b6d76] sm:text-[16px]">
           Manage church memberships and members · Current register:{" "}
-          {registerYear ?? "Not finalised"}
+          {activeRegister?.name ?? "No finalised register"}
         </p>
       </header>
 
