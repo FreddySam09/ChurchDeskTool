@@ -125,10 +125,6 @@ export default function Sidebar({ open = false, onClose }) {
                   >
                     Annual Membership Register
                   </NavLink>
-
-                  <div className="cursor-default rounded-r-lg border-l-2 border-transparent px-3 py-[9px] text-[13px] text-white/40">
-                    Membership History
-                  </div>
                 </div>
               </div>
             </div>

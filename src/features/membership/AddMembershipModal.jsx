@@ -114,7 +114,7 @@ function Section({ icon: Icon, title, children }) {
         <h3 className="text-[13px] font-bold text-[#131418]">{title}</h3>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">{children}</div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">{children}</div>
     </section>
   );
 }
@@ -295,7 +295,7 @@ useEffect(() => {
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto bg-black/45 p-3 backdrop-blur-[2px] sm:p-6"
+      className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto bg-black/45 p-1.5 backdrop-blur-[2px] sm:p-3 lg:p-4"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget && !saving) {
           onClose();
@@ -306,7 +306,7 @@ useEffect(() => {
         role="dialog"
         aria-modal="true"
         aria-labelledby="add-membership-title"
-        className="my-auto w-full max-w-[760px] overflow-hidden rounded-2xl border border-[#ececed] bg-[#f9f9fa] shadow-[0_28px_80px_rgba(0,0,0,0.2)]"
+        className="my-auto w-full max-w-[790px] overflow-hidden rounded-2xl border border-[#ececed] bg-[#f9f9fa] shadow-[0_28px_80px_rgba(0,0,0,0.2)]"
       >
         <header className="flex items-start justify-between border-b border-[#ececed] bg-white px-5 py-5 sm:px-7">
           <div>
@@ -409,7 +409,7 @@ useEffect(() => {
   <span className="mt-1 block text-[10px] font-normal leading-4 text-[#92939b]">
     {numberLoading
       ? "Finding the next available number..."
-      : `Suggested next number: ${form.membership_number || "—"}. You can edit it if required.`}
+      : `Suggested next number: ${form.membership_number || "â€”"}. You can edit it if required.`}
   </span>
 </label>
               <Field
@@ -664,7 +664,7 @@ useEffect(() => {
                   disabled={saving}
                   className="rounded-[10px] bg-[#1a1b20] px-5 py-2.5 text-[12px] font-semibold text-white hover:bg-black disabled:opacity-60"
                 >
-                  {saving ? "Saving…" : "Create membership"}
+                  {saving ? "Savingâ€¦" : "Create membership"}
                 </button>
               </div>
             </footer>
@@ -674,3 +674,4 @@ useEffect(() => {
     </div>
   );
 }
+

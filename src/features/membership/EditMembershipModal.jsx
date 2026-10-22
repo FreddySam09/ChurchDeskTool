@@ -48,7 +48,7 @@ function Section({ icon: Icon, title, children }) {
         </span>
         <h3 className="text-[13px] font-bold text-[#131418]">{title}</h3>
       </div>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">{children}</div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">{children}</div>
     </section>
   );
 }
@@ -212,7 +212,7 @@ export default function EditMembershipModal({ membership, onClose, onSaved }) {
         if (event.target === event.currentTarget && !saving) onClose();
       }}
     >
-      <section className="my-auto max-h-[94vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-[#ececed] bg-[#fafafa] shadow-2xl">
+      <section className="my-auto max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)] w-full max-w-3xl overflow-y-auto rounded-2xl border border-[#ececed] bg-[#fafafa] shadow-2xl">
         <header className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-[#ececed] bg-white px-5 py-4 sm:px-6">
           <div>
             <h2 className="text-[18px] font-bold tracking-[-0.3px] text-[#131418]">
@@ -433,3 +433,4 @@ export default function EditMembershipModal({ membership, onClose, onSaved }) {
     </div>
   );
 }
+

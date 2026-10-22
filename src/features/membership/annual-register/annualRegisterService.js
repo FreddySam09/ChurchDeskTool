@@ -133,16 +133,27 @@ export async function listRegisterEntries(registerId) {
       entryAssignments.find((item) => item.is_head) ??
       automaticBranchHead;
 
-    const normalizedAssignments = entryAssignments.map((assignment) => ({
-      ...assignment,
-      is_head: designatedHead
-        ? assignment.id === designatedHead.id
-        : assignment.is_head,
-      relationship_to_head:
-        designatedHead && assignment.id === designatedHead.id
-          ? "Head"
-          : assignment.relationship_to_head,
-    }));
+    const normalizedAssignments = entryAssignments.map((assignment) => {
+  const isDesignatedHead =
+    designatedHead && assignment.id === designatedHead.id;
+
+  const isBranchLikeEntry =
+    entry.branch_id != null ||
+    entry.entry_type === "Branch" ||
+    entry.entry_type === "Independent Split";
+
+  return {
+    ...assignment,
+    is_head: isDesignatedHead
+      ? true
+      : assignment.is_head,
+    relationship_to_head: isDesignatedHead
+      ? isBranchLikeEntry
+        ? "Branch Head"
+        : "Head"
+      : assignment.relationship_to_head,
+  };
+});
 
     return {
       ...entry,
@@ -319,7 +330,9 @@ export async function createRegisterSnapshot(registerId) {
 
     for (const item of insertedEntries) {
       const sourceAssignments = assignments.filter((assignment) => {
-        if (assignment.membership_id !== item.membership_id) return false;
+        if (assignment.membership_id !== item.membership_id) {
+          return false;
+        }
 
         return item.branch_id
           ? assignment.branch_id === item.branch_id
@@ -339,18 +352,31 @@ export async function createRegisterSnapshot(registerId) {
         });
       }
 
+      const branchHeadId =
+        item.branch_id && sourceAssignments.length === 1
+          ? sourceAssignments[0].member_id
+          : null;
+
       for (const assignment of sourceAssignments) {
         if (assignedIds.has(assignment.member_id)) continue;
         assignedIds.add(assignment.member_id);
 
+        const isHead =
+          assignment.member_id === branchHeadId;
+
         assignmentRows.push({
-          annual_membership_entry_id: item.entry_id,
-          member_id: assignment.member_id,
-          is_head: false,
-          relationship_to_head: assignment.relationship_to_head,
-        });
+  annual_membership_entry_id: item.entry_id,
+  member_id: assignment.member_id,
+  is_head: isHead,
+  relationship_to_head: isHead
+    ? item.branch_id
+      ? "Branch Head"
+      : "Head"
+    : assignment.relationship_to_head,
+});
       }
     }
+
 
     if (assignmentRows.length) {
       const { error } = await supabase
@@ -463,20 +489,53 @@ export async function setEntryIncluded(entry, included) {
     // Restore branches attached to this parent that were automatically
     // converted to independent entries. Intentionally split branches
     // have a null parent_entry_id and remain independent.
+    
+    // Restore branches that were automatically converted to independent
+    // splits when this parent was removed. Keep excluded branches excluded.
     if (isParent) {
-      const { error: restoreBranchesError } = await supabase
-        .from("annual_membership_entries")
-        .update({
-          entry_type: "Branch",
-        })
-        .eq("annual_register_id", registerId)
-        .eq("parent_entry_id", currentEntry.id)
-        .eq("entry_type", "Independent Split")
-        .eq("is_included", true)
-        .not("branch_id", "is", null);
+      const { data: convertedBranches, error: branchesError } =
+        await supabase
+          .from("annual_membership_entries")
+          .select("id")
+          .eq("annual_register_id", registerId)
+          .eq("parent_entry_id", currentEntry.id)
+          .eq("entry_type", "Independent Split")
+          .not("branch_id", "is", null);
 
-      if (restoreBranchesError) throw restoreBranchesError;
+      if (branchesError) throw branchesError;
+
+      for (const branch of convertedBranches ?? []) {
+        const { error: restoreError } = await supabase
+          .from("annual_membership_entries")
+          .update({ entry_type: "Branch" })
+          .eq("id", branch.id)
+          .eq("annual_register_id", registerId);
+
+        if (restoreError) throw restoreError;
+
+        // A branch containing exactly one person has that person as its head.
+        const { data: assignments, error: assignmentError } =
+          await supabase
+            .from("annual_member_assignments")
+            .select("id, member_id")
+            .eq("annual_membership_entry_id", branch.id);
+
+        if (assignmentError) throw assignmentError;
+
+        if (assignments?.length === 1) {
+          const { error: headError } = await supabase
+            .from("annual_member_assignments")
+            .update({
+  is_head: true,
+  relationship_to_head: "Branch Head",
+})
+            .eq("id", assignments[0].id);
+
+          if (headError) throw headError;
+        }
+      }
     }
+
   }
 
   // Re-read the draft so renumbering uses the latest saved structure.
@@ -820,6 +879,23 @@ export async function saveEntryOrder(registerId, entries) {
   }
 
   // Persist only after all proposed numbers have passed validation.
+  
+  // Pass 1: temporarily give every entry a unique number.
+  // This prevents collisions while numbers are being reassigned.
+  for (const update of updates) {
+    const temporaryNumber =
+      `TMP${update.id.replace(/-/g, "").toUpperCase()}`;
+
+    const { error } = await supabase
+      .from("annual_membership_entries")
+      .update({ membership_number: temporaryNumber })
+      .eq("id", update.id)
+      .eq("annual_register_id", registerId);
+
+    if (error) throw error;
+  }
+
+  // Pass 2: persist the validated final numbers and order.
   for (const update of updates) {
     const { error } = await supabase
       .from("annual_membership_entries")
@@ -837,6 +913,7 @@ export async function saveEntryOrder(registerId, entries) {
     included_count: activeEntries.length,
     removed_count: removedEntries.length,
   });
+
 }
 
 
@@ -1116,13 +1193,15 @@ export async function resyncAnnualRegisterDraft(registerId) {
       const { error } = await supabase
         .from("annual_member_assignments")
         .insert({
-          annual_membership_entry_id: entry.id,
-          member_id: assignment.member_id,
-          is_head: isHead,
-          relationship_to_head: isHead
-            ? "Head"
-            : assignment.relationship_to_head,
-        });
+  annual_membership_entry_id: entry.id,
+  member_id: assignment.member_id,
+  is_head: isHead,
+  relationship_to_head: isHead
+    ? entry.branch_id
+      ? "Branch Head"
+      : "Head"
+    : assignment.relationship_to_head,
+});
 
       if (error) throw error;
 

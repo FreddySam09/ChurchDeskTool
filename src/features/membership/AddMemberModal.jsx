@@ -1,3 +1,4 @@
+
 import { useEffect, useMemo, useState } from "react";
 import { X, UserRound, Users, Heart } from "lucide-react";
 import { addMemberToMembershipWithGroups } from "../../services/membershipService";
@@ -36,7 +37,6 @@ function Field({
     <label className={labelClass}>
       {label}
       {required && <span className="ml-1 text-red-500">*</span>}
-
       <input
         name={name}
         type={type}
@@ -64,7 +64,6 @@ function SelectField({
     <label className={labelClass}>
       {label}
       {required && <span className="ml-1 text-red-500">*</span>}
-
       <select
         name={name}
         value={form[name] ?? ""}
@@ -85,15 +84,13 @@ function SelectField({
 
 function Section({ icon: Icon, title, subtitle, children }) {
   return (
-    <section className="rounded-xl border border-[#ececed] bg-white p-4 sm:p-5">
+    <section className="min-w-0 rounded-xl border border-[#ececed] bg-white p-4 sm:p-5">
       <div className="mb-4 flex items-start gap-2.5">
         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#e9edfd] text-[#3457d5]">
           <Icon size={16} />
         </span>
-
         <div>
           <h3 className="text-[13px] font-bold text-[#131418]">{title}</h3>
-
           {subtitle && (
             <p className="mt-1 text-[11.5px] leading-5 text-[#777984]">
               {subtitle}
@@ -102,7 +99,9 @@ function Section({ icon: Icon, title, subtitle, children }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">{children}</div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {children}
+      </div>
     </section>
   );
 }
@@ -153,16 +152,14 @@ export default function AddMemberModal({
   );
 
   const isSpouse = form.relationship_to_head === "Spouse";
-  const needsWeddingDate = isSpouse || form.marital_status === "Married";
+  const needsWeddingDate =
+    isSpouse || form.marital_status === "Married";
 
   function handleChange(event) {
     const { name, value } = event.target;
 
     setForm((current) => {
-      const next = {
-        ...current,
-        [name]: value,
-      };
+      const next = { ...current, [name]: value };
 
       if (name === "relationship_to_head" && value === "Spouse") {
         next.marital_status = "Married";
@@ -173,7 +170,6 @@ export default function AddMemberModal({
       }
 
       if (name === "relationship_to_head" && value !== "Spouse") {
-        // Do not silently keep a date copied from the head's marriage.
         if (current.relationship_to_head === "Spouse" && headWeddingDate) {
           next.date_of_marriage = "";
         }
@@ -230,7 +226,9 @@ export default function AddMemberModal({
     }
 
     const suffix =
-      assignmentType === "branch" ? branchSuffix.trim().toUpperCase() : null;
+      assignmentType === "branch"
+        ? branchSuffix.trim().toUpperCase()
+        : null;
 
     if (assignmentType === "branch" && !suffix) {
       setError("Select a branch letter.");
@@ -265,7 +263,8 @@ export default function AddMemberModal({
           marital_status: isSpouse ? "Married" : form.marital_status,
           baptism_status: form.baptism_status,
           date_of_baptism: form.date_of_baptism || null,
-          occupation_or_studying: form.occupation_or_studying.trim() || null,
+          occupation_or_studying:
+            form.occupation_or_studying.trim() || null,
           phone_number: form.phone_number.trim() || null,
           email: form.email.trim() || null,
         },
@@ -282,7 +281,7 @@ export default function AddMemberModal({
 
   return (
     <div
-      className="fixed inset-0 z-[110] flex items-center justify-center overflow-y-auto bg-black/45 p-3 backdrop-blur-[2px] sm:p-6"
+      className="fixed inset-0 z-[110] flex items-center justify-center overflow-y-auto bg-black/45 p-1.5 backdrop-blur-[2px] sm:p-3 lg:p-4"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget && !saving) {
           onClose();
@@ -293,7 +292,7 @@ export default function AddMemberModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="add-member-title"
-        className="my-auto max-h-[94vh] w-full max-w-[790px] overflow-y-auto rounded-2xl border border-[#ececed] bg-[#fafafa] shadow-[0_28px_80px_rgba(0,0,0,0.2)]"
+        className="my-auto max-h-[calc(100dvh-1rem)] w-full max-w-[1100px] overflow-y-auto rounded-2xl border border-[#ececed] bg-[#fafafa] shadow-[0_28px_80px_rgba(0,0,0,0.2)] sm:max-h-[calc(100dvh-2rem)]"
       >
         <header className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-[#ececed] bg-white px-5 py-4 sm:px-7">
           <div>
@@ -303,11 +302,9 @@ export default function AddMemberModal({
             >
               Add member
             </h2>
-
             <p className="mt-1 text-[12px] text-[#777984]">
               Add a person to this membership.
             </p>
-
             <p className="mt-2 text-[11px] text-[#92939b]">
               Membership number:{" "}
               <span className="font-semibold text-[#53555e]">
@@ -316,7 +313,9 @@ export default function AddMemberModal({
               {membership?.membership_id && (
                 <>
                   {" · "}Permanent ID:{" "}
-                  <span className="font-mono">{membership.membership_id}</span>
+                  <span className="font-mono">
+                    {membership.membership_id}
+                  </span>
                 </>
               )}
             </p>
@@ -333,7 +332,10 @@ export default function AddMemberModal({
           </button>
         </header>
 
-        <form onSubmit={handleSubmit} className="space-y-4 p-4 sm:p-7">
+        <form
+          onSubmit={handleSubmit}
+          className="grid grid-cols-1 items-start gap-4 p-3 sm:p-5 xl:grid-cols-2"
+        >
           <Section
             icon={UserRound}
             title="Personal information"
@@ -485,94 +487,95 @@ export default function AddMemberModal({
             )}
           </Section>
 
-          <Section
-            icon={Users}
-            title="Household assignment"
-            subtitle="Choose the main household or assign the person to a lettered branch."
-          >
-            <button
-              type="button"
-              onClick={() => {
-                setAssignmentType("main");
-                setBranchSuffix("");
-              }}
-              className={`rounded-xl border p-3.5 text-left transition ${
-                assignmentType === "main"
-                  ? "border-[#6681ff] bg-[#f1f3ff] ring-1 ring-[#6681ff]"
-                  : "border-[#e9e9eb] bg-white hover:bg-[#f8f8f9]"
-              }`}
+          <div className="min-w-0 space-y-4">
+            <Section
+              icon={Users}
+              title="Household assignment"
+              subtitle="Choose the main household or assign the person to a lettered branch."
             >
-              <span className="block text-[12px] font-bold text-[#131418]">
-                Main household
-              </span>
-              <span className="mt-1 block text-[11px] text-[#777984]">
-                No branch suffix
-              </span>
-            </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setAssignmentType("main");
+                  setBranchSuffix("");
+                }}
+                className={`rounded-xl border p-3.5 text-left transition ${
+                  assignmentType === "main"
+                    ? "border-[#6681ff] bg-[#f1f3ff] ring-1 ring-[#6681ff]"
+                    : "border-[#e9e9eb] bg-white hover:bg-[#f8f8f9]"
+                }`}
+              >
+                <span className="block text-[12px] font-bold text-[#131418]">
+                  Main household
+                </span>
+                <span className="mt-1 block text-[11px] text-[#777984]">
+                  No branch suffix
+                </span>
+              </button>
 
-            <button
-              type="button"
-              onClick={() => setAssignmentType("branch")}
-              className={`rounded-xl border p-3.5 text-left transition ${
-                assignmentType === "branch"
-                  ? "border-[#6681ff] bg-[#f1f3ff] ring-1 ring-[#6681ff]"
-                  : "border-[#e9e9eb] bg-white hover:bg-[#f8f8f9]"
-              }`}
-            >
-              <span className="block text-[12px] font-bold text-[#131418]">
-                Lettered branch
-              </span>
-              <span className="mt-1 block text-[11px] text-[#777984]">
-                Example: Branch A
-              </span>
-            </button>
+              <button
+                type="button"
+                onClick={() => setAssignmentType("branch")}
+                className={`rounded-xl border p-3.5 text-left transition ${
+                  assignmentType === "branch"
+                    ? "border-[#6681ff] bg-[#f1f3ff] ring-1 ring-[#6681ff]"
+                    : "border-[#e9e9eb] bg-white hover:bg-[#f8f8f9]"
+                }`}
+              >
+                <span className="block text-[12px] font-bold text-[#131418]">
+                  Lettered branch
+                </span>
+                <span className="mt-1 block text-[11px] text-[#777984]">
+                  Example: Branch A
+                </span>
+              </button>
 
-            {assignmentType === "branch" && (
-              <div className="sm:col-span-2">
-                <label className={labelClass}>
-                  Branch letter
-                  <select
-                    value={branchSuffix}
-                    onChange={(event) => setBranchSuffix(event.target.value)}
-                    required
-                    className={inputClass}
-                  >
-                    <option value="">Select an available letter</option>
+              {assignmentType === "branch" && (
+                <div className="sm:col-span-2">
+                  <label className={labelClass}>
+                    Branch letter
+                    <select
+                      value={branchSuffix}
+                      onChange={(event) => setBranchSuffix(event.target.value)}
+                      required
+                      className={inputClass}
+                    >
+                      <option value="">Select an available letter</option>
+                      {"ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").map((letter) => (
+                        <option
+                          key={letter}
+                          value={letter}
+                          disabled={existingSuffixes.includes(letter)}
+                        >
+                          {letter}
+                          {existingSuffixes.includes(letter)
+                            ? " (already used)"
+                            : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              )}
+            </Section>
 
-                    {"ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").map((letter) => (
-                      <option
-                        key={letter}
-                        value={letter}
-                        disabled={existingSuffixes.includes(letter)}
-                      >
-                        {letter}
-                        {existingSuffixes.includes(letter)
-                          ? " (already used)"
-                          : ""}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-            )}
-          </Section>
-
-          <GroupMultiSelect
-            selectedIds={selectedGroupIds}
-            onChange={setSelectedGroupIds}
-            disabled={saving}
-          />
+            <GroupMultiSelect
+              selectedIds={selectedGroupIds}
+              onChange={setSelectedGroupIds}
+              disabled={saving}
+            />
+          </div>
 
           {error && (
             <p
               role="alert"
-              className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[12px] leading-5 text-red-700"
+              className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[12px] leading-5 text-red-700 xl:col-span-2"
             >
               {error}
             </p>
           )}
 
-          <footer className="flex flex-col-reverse gap-2 border-t border-[#ececed] pt-4 sm:flex-row sm:justify-end">
+          <footer className="flex flex-col-reverse gap-2 border-t border-[#ececed] pt-4 sm:flex-row sm:justify-end xl:col-span-2">
             <button
               type="button"
               onClick={onClose}

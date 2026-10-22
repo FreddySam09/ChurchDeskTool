@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { getMemberDirectory } from "../../services/membershipService";
 
-const STATUS_OPTIONS = ["Active", "Inactive", "Deceased", "Removed"];
+const STATUS_OPTIONS = ["Active", "Inactive"];
 
 const inputClass =
   "min-h-[42px] w-full rounded-[10px] border border-[#e5e5e7] bg-white px-3 py-2 text-[12px] text-[#25262c] outline-none focus:border-[#9b9da5]";
@@ -149,14 +149,24 @@ export default function MemberList() {
 
         return searchable.includes(query);
       })
-      .sort(
-        (a, b) =>
-          String(a.display_membership_number).localeCompare(
-            String(b.display_membership_number),
-            undefined,
-            { numeric: true },
-          ) || String(a.name).localeCompare(String(b.name)),
-      );
+      .sort((a, b) => {
+  // Active members first; all other statuses appear afterwards.
+  const aInactive = a.status !== "Active";
+  const bInactive = b.status !== "Active";
+
+  if (aInactive !== bInactive) {
+    return aInactive ? 1 : -1;
+  }
+
+  // Preserve membership-number ordering within each status group.
+  return (
+    String(a.display_membership_number ?? "").localeCompare(
+      String(b.display_membership_number ?? ""),
+      undefined,
+      { numeric: true },
+    ) || String(a.name ?? "").localeCompare(String(b.name ?? ""))
+  );
+});
   }, [
     members,
     search,
