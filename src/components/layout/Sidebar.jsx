@@ -1,17 +1,28 @@
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
+  CalendarDays,
   ChevronRight,
   CircleHelp,
   Settings2,
   Users,
-  UsersRound,
   X,
 } from 'lucide-react'
-import { NavLink } from 'react-router-dom'
+import { NavLink, useLocation } from 'react-router-dom'
 
 export default function Sidebar({ open = false, onClose }) {
+  const location = useLocation()
+
   const [membershipExpanded, setMembershipExpanded] = useState(true)
+  const [eventsExpanded, setEventsExpanded] = useState(
+    () => location.pathname.startsWith('/events'),
+  )
+
+  useEffect(() => {
+    if (location.pathname.startsWith('/events')) {
+      setEventsExpanded(true)
+    }
+  }, [location.pathname])
 
   const linkClass = ({ isActive }) =>
     `flex items-center gap-2.5 rounded-r-lg border-l-2 px-3 py-[9px] text-[13px] transition ${
@@ -50,7 +61,7 @@ export default function Sidebar({ open = false, onClose }) {
               Church Desk
             </p>
             <p className="mt-1 truncate text-[11.5px] tracking-[0.2px] text-white/55">
-              ECI St. Stephen's Church
+              ECI St. Stephen&apos;s Church
             </p>
           </div>
 
@@ -69,15 +80,20 @@ export default function Sidebar({ open = false, onClose }) {
             Workspace
           </p>
 
+          {/* Existing Membership navigation */}
           <div className="mb-1">
             <button
               type="button"
-              onClick={() => setMembershipExpanded((value) => !value)}
+              onClick={() =>
+                setMembershipExpanded((value) => !value)
+              }
               aria-expanded={membershipExpanded}
               className="flex w-full items-center gap-3 rounded-[10px] bg-white/[0.10] px-3 py-[11px] text-left text-[14px] font-medium text-white transition hover:bg-white/[0.13]"
             >
               <Users size={19} strokeWidth={1.8} />
+
               <span className="flex-1">Membership</span>
+
               <ChevronRight
                 size={15}
                 className={`text-white/60 transition-transform ${
@@ -88,7 +104,9 @@ export default function Sidebar({ open = false, onClose }) {
 
             <div
               className={`grid transition-[grid-template-rows] duration-200 ${
-                membershipExpanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
+                membershipExpanded
+                  ? 'grid-rows-[1fr]'
+                  : 'grid-rows-[0fr]'
               }`}
             >
               <div className="overflow-hidden">
@@ -115,7 +133,7 @@ export default function Sidebar({ open = false, onClose }) {
                     onClick={onClose}
                     className={linkClass}
                   >
-                    Fellowships & Groups
+                    Fellowships &amp; Groups
                   </NavLink>
 
                   <NavLink
@@ -129,8 +147,72 @@ export default function Sidebar({ open = false, onClose }) {
               </div>
             </div>
           </div>
+
+          {/* New Events navigation */}
+          <div className="mb-1">
+            <button
+              type="button"
+              onClick={() =>
+                setEventsExpanded((value) => !value)
+              }
+              aria-expanded={eventsExpanded}
+              className="flex w-full items-center gap-3 rounded-[10px] px-3 py-[11px] text-left text-[14px] font-medium text-white/90 transition hover:bg-white/[0.07]"
+            >
+              <CalendarDays
+                size={19}
+                strokeWidth={1.8}
+                className="text-white/70"
+              />
+
+              <span className="flex-1">Events</span>
+
+              <ChevronRight
+                size={15}
+                className={`text-white/60 transition-transform ${
+                  eventsExpanded ? 'rotate-90' : ''
+                }`}
+              />
+            </button>
+
+            <div
+              className={`grid transition-[grid-template-rows] duration-200 ${
+                eventsExpanded
+                  ? 'grid-rows-[1fr]'
+                  : 'grid-rows-[0fr]'
+              }`}
+            >
+              <div className="overflow-hidden">
+                <div className="ml-[22px] mt-1 space-y-0.5 border-l border-white/[0.10] pl-2">
+                  <NavLink
+                    to="/events/church-calendar"
+                    onClick={onClose}
+                    className={linkClass}
+                  >
+                    Church Calendar
+                  </NavLink>
+
+                  <NavLink
+                    to="/events/christmas-carols"
+                    onClick={onClose}
+                    className={linkClass}
+                  >
+                    Christmas Carols
+                  </NavLink>
+
+                  <NavLink
+                    to="/events/special-events"
+                    onClick={onClose}
+                    className={linkClass}
+                  >
+                    Special Events
+                  </NavLink>
+                </div>
+              </div>
+            </div>
+          </div>
         </nav>
 
+        {/* Existing footer preserved */}
         <div className="border-t border-white/[0.08] p-4">
           <div className="mb-3 rounded-xl border border-white/[0.08] bg-white/[0.04] p-3.5">
             <p className="text-xs font-medium text-white/80">
