@@ -8,6 +8,9 @@ import MemberList from "../features/membership/MemberList";
 import MemberDetails from "../features/membership/MemberDetails";
 import GroupsPage from "../features/groups/GroupsPage";
 import EventsPage from "../features/events/EventsPage";
+import ChristmasCarolsPage from "../features/events/ChristmasCarolsPage";
+import CarolDayVisitsPage from "../features/events/CarolDayVisitsPage";
+
 
 import AppLayout from "../components/layout/AppLayout";
 import ProtectedRoute from "./ProtectedRoute";
@@ -28,8 +31,15 @@ function AppRoutes() {
           <Route path="/memberships/:membershipRowId" element={<MembershipDetailsPage />} />
           <Route path="/events" element={<Navigate to="/events/church-calendar" replace />} />
           <Route path="/events/church-calendar" element={<EventsPage />} />
-          <Route path="/events/christmas-carols" element={<EventsPage />} />
+          <Route
+            path="/events/christmas-carols"
+            element={<ChristmasCarolsPage />}
+          />
           <Route path="/events/special-events" element={<EventsPage />} />
+          <Route
+            path="/events/christmas-carols/:dayId/visits"
+            element={<CarolDayVisitsPage />}
+          />
         </Route>
       </Route>
 
