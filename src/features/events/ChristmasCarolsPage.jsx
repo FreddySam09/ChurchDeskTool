@@ -35,6 +35,8 @@ const TABS = [
   { label: "Special Events", path: "/events/special-events" },
 ];
 
+const activeTab = TABS.find((tab) => tab.path === location.pathname) || TABS[0];
+
 function formatDate(value) {
   if (!value) return "Date not set";
 
@@ -259,8 +261,8 @@ export default function ChristmasCarolsPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [selectedYear, setSelectedYear] = useState(
-  String(new Date().getFullYear()),
-)
+    String(new Date().getFullYear()),
+  );
 
   const loadDays = useCallback(async () => {
     setLoading(true);
@@ -281,55 +283,56 @@ export default function ChristmasCarolsPage() {
   }, [loadDays]);
 
   const availableYears = useMemo(() => {
-  return [
-    ...new Set(
-      days
-        .map((day) => Number(String(day.visit_date || '').slice(0, 4)))
-        .filter((year) => Number.isInteger(year) && year >= 1900),
-    ),
-  ].sort((a, b) => b - a)
-}, [days])
+    return [
+      ...new Set(
+        days
+          .map((day) => Number(String(day.visit_date || "").slice(0, 4)))
+          .filter((year) => Number.isInteger(year) && year >= 1900),
+      ),
+    ].sort((a, b) => b - a);
+  }, [days]);
 
-useEffect(() => {
-  if (!availableYears.length) return
+  useEffect(() => {
+    if (!availableYears.length) return;
 
-  setSelectedYear((current) => {
-    const year = Number(current)
+    setSelectedYear((current) => {
+      const year = Number(current);
 
-    return availableYears.includes(year)
-      ? current
-      : String(availableYears[0])
-  })
-}, [availableYears])
+      return availableYears.includes(year)
+        ? current
+        : String(availableYears[0]);
+    });
+  }, [availableYears]);
 
   const filteredDays = useMemo(() => {
-  const query = search.trim().toLowerCase()
+    const query = search.trim().toLowerCase();
 
-  return days
-    .filter((day) => {
-      const dayYear = String(day.visit_date || '').slice(0, 4)
+    return days
+      .filter((day) => {
+        const dayYear = String(day.visit_date || "").slice(0, 4);
 
-      const matchesYear =
-        !selectedYear || dayYear === selectedYear
+        const matchesYear = !selectedYear || dayYear === selectedYear;
 
-      const matchesSearch =
-        !query ||
-        day.name?.toLowerCase().includes(query) ||
-        day.notes?.toLowerCase().includes(query)
+        const matchesSearch =
+          !query ||
+          day.name?.toLowerCase().includes(query) ||
+          day.notes?.toLowerCase().includes(query);
 
-      const matchesStatus =
-        statusFilter === 'All' || day.status === statusFilter
+        const matchesStatus =
+          statusFilter === "All" || day.status === statusFilter;
 
-      return matchesYear && matchesSearch && matchesStatus
-    })
-    .sort((a, b) => {
-      const dateOrder = (b.visit_date || '').localeCompare(a.visit_date || '')
+        return matchesYear && matchesSearch && matchesStatus;
+      })
+      .sort((a, b) => {
+        const dateOrder = (b.visit_date || "").localeCompare(
+          a.visit_date || "",
+        );
 
-      if (dateOrder !== 0) return dateOrder
+        if (dateOrder !== 0) return dateOrder;
 
-      return (a.start_time || '').localeCompare(b.start_time || '')
-    })
-}, [days, search, statusFilter, selectedYear])
+        return (a.start_time || "").localeCompare(b.start_time || "");
+      });
+  }, [days, search, statusFilter, selectedYear]);
 
   const stats = useMemo(
     () => ({
@@ -388,7 +391,7 @@ useEffect(() => {
   }
 
   return (
-    <main className="min-h-full space-y-6 bg-[#f7f7f8] p-4 sm:p-6 lg:p-8">
+    <main className="min-h-full space-y-6 bg-[#f7f7f8]">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="mt-2 text-2xl font-semibold tracking-tight text-gray-950 sm:text-3xl">
@@ -403,33 +406,60 @@ useEffect(() => {
         <button
           type="button"
           onClick={openCreate}
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#1e1e1e] px-4 py-3 text-sm font-medium text-white transition hover:bg-black"
+          className="inline-flex h-[41px] items-center gap-2 rounded-[11px] bg-[#202126] px-3.5 text-sm font-medium text-white hover:bg-[#35363d] sm:px-4"
         >
-          <Plus size={17} />
+          <Plus size={16} />
           Create Carol Day
         </button>
       </div>
 
-      <nav className="flex gap-7 overflow-x-auto border-b border-[#e5e5e7] px-1">
-  {TABS.map((tab) => {
-    const active = location.pathname === tab.path
+      <div className="mb-7 border-b border-[#e8e8ea]">
+        <nav
+          aria-label="Event workspaces"
+          className="flex gap-1 overflow-x-auto overflow-y-hidden sm:gap-2"
+        >
+          {TABS.map((tab) => {
+            const selected = tab.path === activeTab.path;
 
-    return (
-      <button
-        key={tab.path}
-        type="button"
-        onClick={() => navigate(tab.path)}
-        className={`-mb-px shrink-0 border-b-2 px-1 py-3 text-sm transition ${
-          active
-            ? 'border-[#1e1e1e] font-medium text-[#1e1e1e]'
-            : 'border-transparent text-[#85858c] hover:text-[#1e1e1e]'
-        }`}
-      >
-        {tab.label}
-      </button>
-    )
-  })}
-</nav>
+            return (
+              <button
+                key={tab.path}
+                type="button"
+                onClick={() => navigate(tab.path)}
+                aria-current={selected ? "page" : undefined}
+                className={`-mb-px shrink-0 border-b-2 px-4 py-[13px] text-[13px] transition sm:px-[19px] sm:text-sm ${
+                  selected
+                    ? "border-[#202126] font-medium text-[#15161a]"
+                    : "border-transparent text-[#858894] hover:text-[#292a30]"
+                }`}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </nav>
+      </div>
+
+      {/* <nav className="flex gap-7 overflow-x-auto border-b border-[#e5e5e7] px-1">
+        {TABS.map((tab) => {
+          const active = location.pathname === tab.path;
+
+          return (
+            <button
+              key={tab.path}
+              type="button"
+              onClick={() => navigate(tab.path)}
+              className={`-mb-px shrink-0 border-b-2 px-1 py-3 text-sm transition ${
+                active
+                  ? "border-[#1e1e1e] font-medium text-[#1e1e1e]"
+                  : "border-transparent text-[#85858c] hover:text-[#1e1e1e]"
+              }`}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
+      </nav> */}
 
       {pageError && (
         <div
@@ -448,69 +478,64 @@ useEffect(() => {
       )}
 
       <section className="overflow-hidden rounded-2xl border border-gray-200/80 bg-white">
-        
-<div className="flex flex-col gap-4 border-b border-[#eeeeef] p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-  <div>
-    <h2 className="text-base font-semibold text-[#1e1e1e]">
-      Carol Day register
-    </h2>
-    <p className="mt-1 text-xs text-[#85858c]">
-      {filteredDays.length} Carol Days
-      {selectedYear ? ` in ${selectedYear}` : ''}
-    </p>
-  </div>
+        <div className="flex flex-col gap-4 border-b border-[#eeeeef] p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+          <div>
+            <h2 className="text-base font-semibold text-[#1e1e1e]">
+              Carol Day register
+            </h2>
+            <p className="mt-1 text-xs text-[#85858c]">
+              {filteredDays.length} Carol Days
+              {selectedYear ? ` in ${selectedYear}` : ""}
+            </p>
+          </div>
 
-  <div className="flex flex-wrap items-center gap-2">
-    <select
-      value={selectedYear}
-      onChange={(event) => setSelectedYear(event.target.value)}
-      aria-label="Filter Carol Days by year"
-      className="rounded-lg border border-[#e3e3e6] bg-white px-3 py-2 text-sm text-[#34353d] outline-none focus:border-[#777985]"
-    >
-      {availableYears.map((year) => (
-        <option key={year} value={String(year)}>
-          {year}
-        </option>
-      ))}
-    </select>
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={selectedYear}
+              onChange={(event) => setSelectedYear(event.target.value)}
+              aria-label="Filter Carol Days by year"
+              className="rounded-lg border border-[#e3e3e6] bg-white px-3 py-2 text-sm text-[#34353d] outline-none focus:border-[#777985]"
+            >
+              {availableYears.map((year) => (
+                <option key={year} value={String(year)}>
+                  {year}
+                </option>
+              ))}
+            </select>
 
-    <button
-      type="button"
-      onClick={loadDays}
-      disabled={loading}
-      className="inline-flex items-center gap-2 rounded-lg border border-[#e3e3e6] px-3 py-2 text-sm text-[#454650] transition hover:bg-[#f7f7f8] disabled:opacity-50"
-    >
-      <RefreshCw
-        size={14}
-        className={loading ? 'animate-spin' : ''}
-      />
-      Refresh
-    </button>
-  </div>
-</div>
+            <button
+              type="button"
+              onClick={loadDays}
+              disabled={loading}
+              className="inline-flex items-center gap-2 rounded-lg border border-[#e3e3e6] px-3 py-2 text-sm text-[#454650] transition hover:bg-[#f7f7f8] disabled:opacity-50"
+            >
+              <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+              Refresh
+            </button>
+          </div>
+        </div>
 
-<div className="grid grid-cols-1 gap-2.5 border-b border-[#eeeeef] p-3 sm:grid-cols-[minmax(0,1fr)_160px] sm:p-4">
-  <input
-    className={inputClass}
-    value={search}
-    onChange={(event) => setSearch(event.target.value)}
-    placeholder="Search Carol Days..."
-    aria-label="Search Carol Days"
-  />
+        <div className="grid grid-cols-1 gap-2.5 border-b border-[#eeeeef] p-3 sm:grid-cols-[minmax(0,1fr)_160px] sm:p-4">
+          <input
+            className={inputClass}
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search Carol Days..."
+            aria-label="Search Carol Days"
+          />
 
-  <select
-    className={inputClass}
-    value={statusFilter}
-    onChange={(event) => setStatusFilter(event.target.value)}
-    aria-label="Filter by status"
-  >
-    <option value="All">All statuses</option>
-    <option value="Scheduled">Scheduled</option>
-    <option value="Completed">Completed</option>
-    <option value="Cancelled">Cancelled</option>
-  </select>
-</div>
-
+          <select
+            className={inputClass}
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value)}
+            aria-label="Filter by status"
+          >
+            <option value="All">All statuses</option>
+            <option value="Scheduled">Scheduled</option>
+            <option value="Completed">Completed</option>
+            <option value="Cancelled">Cancelled</option>
+          </select>
+        </div>
 
         {loading ? (
           <div className="flex items-center justify-center gap-3 px-6 py-16 text-sm text-gray-500">

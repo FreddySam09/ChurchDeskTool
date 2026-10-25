@@ -152,6 +152,40 @@ export async function postCarolOffering(offeringId) {
   )
 }
 
+
+export async function clearCarolOffering(visitId) {
+  await requireUser();
+
+  if (!visitId) throw new Error("Visit ID is missing.");
+
+  const existing = unwrap(
+    await supabase
+      .from(TABLE)
+      .select("id, verification_status")
+      .eq("visit_id", visitId)
+      .maybeSingle(),
+  );
+
+  if (!existing) return null;
+
+  if (existing.verification_status !== "Unverified") {
+    throw new Error(
+      "This offering has already been verified or posted and cannot be cleared.",
+    );
+  }
+
+  return unwrap(
+    await supabase
+      .from(TABLE)
+      .delete()
+      .eq("id", existing.id)
+      .eq("verification_status", "Unverified")
+      .select("id")
+      .maybeSingle(),
+  );
+}
+
+
 /**
  * This returns a verified or posted record to Unverified only if
  * your database permits it. By default, this service deliberately

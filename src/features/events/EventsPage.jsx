@@ -1062,7 +1062,7 @@ export default function EventsPage() {
       <div className="mb-7 border-b border-[#e8e8ea]">
         <nav
           aria-label="Event workspaces"
-          className="flex gap-1 overflow-x-auto sm:gap-2"
+          className="flex gap-1 overflow-x-auto overflow-y-hidden sm:gap-2"
         >
           {TABS.map((tab) => {
             const selected = tab.path === activeTab.path

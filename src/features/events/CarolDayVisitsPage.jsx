@@ -11,9 +11,13 @@ import {
   Trash2,
   Users,
   X,
+  Plus,
+  CircleDollarSign,
 } from "lucide-react";
 import CarolOfferingPanel from "./CarolOfferingPanel";
-
+import CarolMembershipPickerModal from "./CarolMembershipPickerModal";
+import CarolOfferingAmountInput from "./CarolOfferingAmountInput";
+import { clearCarolOffering } from "../../services/events/carolOfferingService";
 import {
   assignMembershipsToCarolDay,
   getAssignableCarolMemberships,
@@ -109,6 +113,8 @@ export default function CarolDayVisitsPage() {
   const [busyVisitId, setBusyVisitId] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+
+  const [membershipPickerOpen, setMembershipPickerOpen] = useState(false);
 
   const loadPage = useCallback(async () => {
     setLoading(true);
@@ -312,6 +318,7 @@ export default function CarolDayVisitsPage() {
         `${inserted.length} membership${inserted.length === 1 ? "" : "s"} assigned to this Carol Day.`,
       );
       setSelectedIds([]);
+      setMembershipPickerOpen(false);
       await loadPage();
     } catch (err) {
       setError(err.message || "Unable to assign memberships.");
@@ -319,24 +326,39 @@ export default function CarolDayVisitsPage() {
       setAssigning(false);
     }
   }
+  
+    async function handleStatusChange(visit, nextStatus) {
+      if (visit.status === nextStatus) return;
 
-  async function handleStatusChange(visit, nextStatus) {
-    if (visit.status === nextStatus) return;
+      setBusyVisitId(visit.id);
+      setError("");
+      setNotice("");
 
-    setBusyVisitId(visit.id);
-    setError("");
-    setNotice("");
+      try {
+        await updateCarolVisitStatus(visit.id, nextStatus);
 
-    try {
-      await updateCarolVisitStatus(visit.id, nextStatus);
-      setNotice(`Visit status updated to ${nextStatus}.`);
-      await loadPage();
-    } catch (err) {
-      setError(err.message || "Unable to update visit status.");
-    } finally {
-      setBusyVisitId("");
+        if (nextStatus !== "Visited") {
+          await clearCarolOffering(visit.id);
+        }
+
+        setNotice(
+          nextStatus === "Visited"
+            ? "Visit marked as visited. You can now enter the offering amount."
+            : "Visit status updated and offering cleared.",
+        );
+
+        await loadPage();
+      } catch (err) {
+        setError(
+          err.message ||
+            "Unable to update the visit status or clear its offering.",
+        );
+
+        await loadPage();
+      } finally {
+        setBusyVisitId("");
+      }
     }
-  }
 
   async function handleRemoveVisit(visit) {
     const name = visit.membership?.head_name || "this membership";
@@ -374,7 +396,7 @@ export default function CarolDayVisitsPage() {
 
   if (loading && !day) {
     return (
-      <div className="mx-auto w-full max-w-[1500px] p-6">
+      <div className="mx-auto w-full max-w-375 p-6">
         <div className="animate-pulse rounded-2xl border border-[#e9e9ed] bg-white p-8">
           <div className="h-5 w-48 rounded bg-gray-200" />
           <div className="mt-4 h-4 w-72 rounded bg-gray-100" />
@@ -386,7 +408,7 @@ export default function CarolDayVisitsPage() {
 
   if (!day && error) {
     return (
-      <div className="mx-auto w-full max-w-[1500px] p-6">
+      <div className="mx-auto w-full max-w-375 p-6">
         <button
           type="button"
           onClick={() => navigate("/events/christmas-carols")}
@@ -411,7 +433,7 @@ export default function CarolDayVisitsPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-[1500px] space-y-6">
+    <div className="mx-auto w-full max-w-375 space-y-6">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <button
@@ -488,217 +510,49 @@ export default function CarolDayVisitsPage() {
       </section>
 
       <section className="overflow-hidden rounded-2xl border border-[#e8e8ec] bg-white">
-        <div className="border-b border-[#ededf0] p-5 sm:p-6">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="text-lg font-bold text-[#1e1e1e]">
-                Find memberships
-              </h2>
-              <p className="mt-1 text-sm text-[#777985]">
-                Search by household, membership number, or address. Select
-                multiple families to assign them together.
-              </p>
-            </div>
-            <span className="text-sm text-[#777985]">
-              {filteredMemberships.length} result
-              {filteredMemberships.length === 1 ? "" : "s"}
-            </span>
+        <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+          <div>
+            <h2 className="text-lg font-bold text-[#1e1e1e]">
+              Add members
+            </h2>
+            <p className="mt-1 text-sm text-[#777985]">
+              Search and filter households in a popup, then select the ones to
+              assign.
+            </p>
           </div>
-
-          <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <label className="relative block">
-              <span className="sr-only">Search memberships</span>
-              <Search
-                size={17}
-                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#8b8d97]"
-              />
-              <input
-                type="search"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Name, number, street, pincode..."
-                className="w-full rounded-xl border border-[#e1e1e6] bg-white py-3 pl-10 pr-3 text-sm outline-none transition focus:border-[#777985] focus:ring-2 focus:ring-[#eeeeF1]"
-              />
-            </label>
-
-            <label>
-              <span className="sr-only">Filter by area</span>
-              <select
-                value={areaFilter}
-                onChange={(event) => {
-                  setAreaFilter(event.target.value);
-                  setStreetFilter("");
-                }}
-                className="w-full rounded-xl border border-[#e1e1e6] bg-white px-3 py-3 text-sm outline-none focus:border-[#777985]"
-              >
-                <option value="">All areas</option>
-                {areas.map((area) => (
-                  <option key={area} value={area}>
-                    {area}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label>
-              <span className="sr-only">Filter by street</span>
-              <select
-                value={streetFilter}
-                onChange={(event) => setStreetFilter(event.target.value)}
-                className="w-full rounded-xl border border-[#e1e1e6] bg-white px-3 py-3 text-sm outline-none focus:border-[#777985]"
-              >
-                <option value="">All streets</option>
-                {streets.map((street) => (
-                  <option key={street} value={street}>
-                    {street}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label>
-              <span className="sr-only">Filter assignment status</span>
-              <select
-                value={statusFilter}
-                onChange={(event) => {
-                  setStatusFilter(event.target.value);
-                  setSelectedIds([]);
-                }}
-                className="w-full rounded-xl border border-[#e1e1e6] bg-white px-3 py-3 text-sm outline-none focus:border-[#777985]"
-              >
-                <option value="Available">Available to assign</option>
-                <option value="Assigned here">Already assigned here</option>
-                <option value="Assigned elsewhere">
-                  Assigned to another day
-                </option>
-                <option value="All">All memberships</option>
-              </select>
-            </label>
-          </div>
-
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-            <button
-              type="button"
-              onClick={toggleVisibleMemberships}
-              disabled={filteredMemberships.length === 0}
-              className="inline-flex items-center gap-2 text-sm font-semibold text-[#34353d] hover:text-black disabled:opacity-40"
-            >
-              <Check size={16} />
-              {selectedVisibleCount === filteredMemberships.length &&
-              filteredMemberships.length > 0
-                ? "Deselect visible results"
-                : "Select all visible results"}
-            </button>
-
-            <button
-              type="button"
-              onClick={clearFilters}
-              className="text-sm font-medium text-[#777985] underline underline-offset-4 hover:text-[#1e1e1e]"
-            >
-              Clear filters
-            </button>
-          </div>
-        </div>
-
-        <div className="max-h-[620px] overflow-y-auto">
-          {filteredMemberships.length === 0 ? (
-            <div className="px-6 py-12 text-center">
-              <Users size={28} className="mx-auto text-[#b6b7be]" />
-              <p className="mt-3 text-sm font-semibold text-[#454650]">
-                No memberships match these filters
-              </p>
-              <p className="mt-1 text-sm text-[#898b95]">
-                Try another area, street, or search term.
-              </p>
-            </div>
-          ) : (
-            <div className="divide-y divide-[#f0f0f2]">
-              {filteredMemberships.map((membership) => {
-                const isSelected = selectedIds.includes(membership.id);
-                const visit = visitByMembershipId.get(membership.id);
-                const campaignAssignment = campaignAssignmentByMembershipId.get(
-                  membership.id,
-                );
-                const assignedElsewhere =
-                  campaignAssignment &&
-                  campaignAssignment.carol_day_id !== dayId;
-
-                return (
-                  <label
-                    key={membership.id}
-                    className={`flex cursor-pointer items-start gap-3 px-4 py-4 transition sm:px-6 ${
-                      isSelected ? "bg-[#f7f7f8]" : "hover:bg-[#fbfbfc]"
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      disabled={Boolean(visit || assignedElsewhere)}
-                      onChange={() => toggleMembership(membership.id)}
-                      className="mt-1 h-4 w-4 shrink-0 accent-[#1e1e1e] disabled:cursor-not-allowed"
-                    />
-
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-semibold text-[#1e1e1e]">
-                          {membership.head_name}
-                        </p>
-                        <span className="rounded-md bg-[#f0f0f2] px-2 py-0.5 text-xs font-semibold text-[#555762]">
-                          #{getMembershipNumber(membership)}
-                        </span>
-
-                        {visit && (
-                          <span
-                            className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${statusClasses(
-                              visit.status,
-                            )}`}
-                          >
-                            {visit.status} · This day
-                          </span>
-                        )}
-
-                        {assignedElsewhere && (
-                          <span className="rounded-full border border-orange-200 bg-orange-50 px-2 py-0.5 text-[11px] font-semibold text-orange-700">
-                            Assigned to another day
-                          </span>
-                        )}
-                      </div>
-
-                      <p className="mt-1 flex items-start gap-1.5 text-sm leading-5 text-[#777985]">
-                        <MapPin size={14} className="mt-0.5 shrink-0" />
-                        <span>{formatAddress(membership)}</span>
-                      </p>
-
-                      {membership.primary_phone_number && (
-                        <p className="mt-1 text-xs text-[#8b8d97]">
-                          Phone: {membership.primary_phone_number}
-                        </p>
-                      )}
-                    </div>
-                  </label>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        <div className="flex flex-col gap-3 border-t border-[#ededf0] bg-[#fcfcfd] p-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-          <p className="text-sm text-[#777985]">
-            {selectedIds.length} membership{selectedIds.length === 1 ? "" : "s"}{" "}
-            selected
-          </p>
 
           <button
             type="button"
-            onClick={handleAssign}
-            disabled={assigning || selectedIds.length === 0}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#1e1e1e] px-5 py-3 text-sm font-semibold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-40"
+            onClick={() => setMembershipPickerOpen(true)}
+            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-[#1e1e1e] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-black"
           >
-            <Users size={16} />
-            {assigning ? "Assigning..." : "Assign selected memberships"}
+            <Plus size={16} />
+            Assign members
           </button>
         </div>
       </section>
+
+      <CarolMembershipPickerModal
+        open={membershipPickerOpen}
+        onClose={() => setMembershipPickerOpen(false)}
+        memberships={memberships}
+        visits={visits}
+        campaignAssignments={campaignAssignments}
+        dayId={dayId}
+        search={search}
+        setSearch={setSearch}
+        areaFilter={areaFilter}
+        setAreaFilter={setAreaFilter}
+        streetFilter={streetFilter}
+        setStreetFilter={setStreetFilter}
+        statusFilter={statusFilter}
+        setStatusFilter={setStatusFilter}
+        selectedIds={selectedIds}
+        setSelectedIds={setSelectedIds}
+        assigning={assigning}
+        onAssign={handleAssign}
+        onClearFilters={clearFilters}
+      />
 
       <section className="overflow-hidden rounded-2xl border border-[#e8e8ec] bg-white">
         <div className="flex flex-col gap-2 border-b border-[#ededf0] p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
@@ -715,89 +569,109 @@ export default function CarolDayVisitsPage() {
             {visits.length} assigned
           </span>
         </div>
-
         {visits.length === 0 ? (
-          <div className="px-6 py-12 text-center">
+          <div className="px-6 py-14 text-center">
             <Users size={28} className="mx-auto text-[#b6b7be]" />
             <p className="mt-3 text-sm font-semibold text-[#454650]">
               No families assigned yet
             </p>
             <p className="mt-1 text-sm text-[#898b95]">
-              Search above and select the memberships you want to visit.
+              Use Find memberships to assign households to this Carol Day.
             </p>
           </div>
         ) : (
-          <div className="divide-y divide-[#f0f0f2]">
-            {visits.map((visit, index) => {
-              const membership = visit.membership;
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-225 border-collapse text-left">
+              <thead className="bg-[#f7f7f9]">
+                <tr className="border-b border-[#e9e9ed] text-[11px] font-semibold uppercase tracking-wide text-[#777985]">
+                  <th className="w-16 px-4 py-3 text-center">S.No.</th>
+                  <th className="px-4 py-3">Name</th>
+                  <th className="px-4 py-3">Membeship No</th>
+                  <th className="px-4 py-3">Street Name</th>
+                  <th className="px-4 py-3">Area</th>
+                  <th className="px-4 py-3">Visited Status</th>
+                  <th className="px-4 py-3">Offering</th>
+                  <th className="w-16 px-4 py-3 text-center">Remove</th>
+                </tr>
+              </thead>
 
-              return (
-                <div
-                  key={visit.id}
-                  className="flex flex-col gap-4 px-4 py-4 sm:px-6"
-                >
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#f1f1f3] text-xs font-bold text-[#454650]">
-                      {index + 1}
-                    </div>
+              <tbody className="divide-y divide-[#f0f0f2]">
+                {visits.map((visit, index) => {
+                  const membership = visit.membership;
 
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-semibold text-[#1e1e1e]">
+                  return (
+                    <tr
+                      key={visit.id}
+                      className="align-middle transition hover:bg-[#fbfbfc]"
+                    >
+                      <td className="px-4 py-3 text-center text-xs text-[#898b95]">
+                        {index + 1}
+                      </td>
+
+                      <td className="px-4 py-3">
+                        <p className="text-sm font-semibold text-[#1e1e1e]">
                           {membership?.head_name || "Membership not found"}
                         </p>
-                        <span className="rounded-md bg-[#f0f0f2] px-2 py-0.5 text-xs font-semibold text-[#555762]">
+                      </td>
+
+                      <td className="px-4 py-3">
+                        <p className="mt-0.5 text-xs text-[#898b95]">
                           #{getMembershipNumber(membership)}
-                        </span>
-                        <span
-                          className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${statusClasses(
-                            visit.status,
-                          )}`}
+                        </p>
+                      </td>
+
+                      <td className="px-4 py-3 text-sm text-[#626575]">
+                        {membership?.street_name || "—"}
+                      </td>
+
+                      <td className="px-4 py-3 text-sm text-[#626575]">
+                        {membership?.area || "—"}
+                      </td>
+
+                      <td className="px-4 py-3">
+                        <select
+                          aria-label={`Visit status for ${membership?.head_name || "membership"}`}
+                          value={visit.status}
+                          disabled={busyVisitId === visit.id}
+                          onChange={(event) =>
+                            handleStatusChange(visit, event.target.value)
+                          }
+                          className={`rounded-lg border px-2.5 py-2 text-xs font-semibold outline-none disabled:opacity-50 ${statusClasses(visit.status)}`}
                         >
-                          {visit.status}
-                        </span>
-                      </div>
+                          {VISIT_STATUS_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
 
-                      <p className="mt-1 flex items-start gap-1.5 text-sm leading-5 text-[#777985]">
-                        <MapPin size={14} className="mt-0.5 shrink-0" />
-                        <span>{formatAddress(membership)}</span>
-                      </p>
-                    </div>
-                  </div>
+                      <td className="px-3 py-3">
+                        <div className="min-w-52.5 max-w-67.5">
+                          <CarolOfferingAmountInput
+                            key={`${visit.id}-${visit.status}`}
+                            visit={visit}
+                          />
+                        </div>
+                      </td>
 
-                  <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
-                    <select
-                      aria-label={`Visit status for ${membership?.head_name || "membership"}`}
-                      value={visit.status}
-                      disabled={busyVisitId === visit.id}
-                      onChange={(event) =>
-                        handleStatusChange(visit, event.target.value)
-                      }
-                      className="min-w-32 rounded-lg border border-[#e1e1e6] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#777985] disabled:opacity-50"
-                    >
-                      {VISIT_STATUS_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-
-                    <button
-                      type="button"
-                      title="Remove from this Carol Day"
-                      aria-label={`Remove ${membership?.head_name || "membership"} from this Carol Day`}
-                      disabled={busyVisitId === visit.id}
-                      onClick={() => handleRemoveVisit(visit)}
-                      className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#e6e6ea] text-[#777985] transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 disabled:opacity-50"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                  <CarolOfferingPanel visit={visit} />
-                </div>
-
-              );
-            })}
+                      <td className="px-4 py-3 text-center">
+                        <button
+                          type="button"
+                          title="Remove from this Carol Day"
+                          aria-label={`Remove ${membership?.head_name || "membership"} from this Carol Day`}
+                          disabled={busyVisitId === visit.id}
+                          onClick={() => handleRemoveVisit(visit)}
+                          className="inline-flex size-9 items-center justify-center rounded-lg border border-transparent text-[#898b95] transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 disabled:opacity-40"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
       </section>
