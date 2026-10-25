@@ -1,3 +1,4 @@
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
@@ -81,12 +82,12 @@ function statusClasses(status) {
 
 function StatCard({ label, value, icon: Icon }) {
   return (
-    <div className="rounded-2xl border border-[#e9e9ed] bg-white p-4">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-sm text-[#777985]">{label}</p>
-        <Icon size={18} className="text-[#777985]" />
+    <div className="rounded-xl border border-[#e9e9ed] bg-white p-3">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-medium text-[#777985]">{label}</p>
+        <Icon size={16} className="shrink-0 text-[#92939b]" />
       </div>
-      <p className="mt-2 text-2xl font-bold tracking-tight text-[#1e1e1e]">
+      <p className="mt-2 text-xl font-semibold tracking-tight text-[#1e1e1e]">
         {value}
       </p>
     </div>
@@ -253,8 +254,30 @@ export default function CarolDayVisitsPage() {
     dayId,
   ]);
 
-  const selectedVisibleCount = filteredMemberships.filter((item) =>
-    selectedIds.includes(item.id),
+  const eligibleVisibleIds = useMemo(
+    () =>
+      filteredMemberships
+        .filter((membership) => {
+          const assignedHere = visitByMembershipId.has(membership.id);
+          const assignment = campaignAssignmentByMembershipId.get(
+            membership.id,
+          );
+          const assignedElsewhere =
+            assignment && assignment.carol_day_id !== dayId;
+
+          return !assignedHere && !assignedElsewhere;
+        })
+        .map((membership) => membership.id),
+    [
+      filteredMemberships,
+      visitByMembershipId,
+      campaignAssignmentByMembershipId,
+      dayId,
+    ],
+  );
+
+  const selectedVisibleCount = eligibleVisibleIds.filter((id) =>
+    selectedIds.includes(id),
   ).length;
 
   const assignedCount = visits.length;
@@ -277,27 +300,20 @@ export default function CarolDayVisitsPage() {
   }
 
   function toggleVisibleMemberships() {
-    const eligibleIds = filteredMemberships
-      .filter((membership) => {
-        const assignedHere = visitByMembershipId.has(membership.id);
-        const assignment = campaignAssignmentByMembershipId.get(membership.id);
-        const assignedElsewhere =
-          assignment && assignment.carol_day_id !== dayId;
+    if (!eligibleVisibleIds.length) return;
 
-        return !assignedHere && !assignedElsewhere;
-      })
-      .map((membership) => membership.id);
-
-    if (!eligibleIds.length) return;
-
-    const allSelected = eligibleIds.every((id) => selectedIds.includes(id));
+    const allSelected = eligibleVisibleIds.every((id) =>
+      selectedIds.includes(id),
+    );
 
     if (allSelected) {
       setSelectedIds((current) =>
-        current.filter((id) => !eligibleIds.includes(id)),
+        current.filter((id) => !eligibleVisibleIds.includes(id)),
       );
     } else {
-      setSelectedIds((current) => [...new Set([...current, ...eligibleIds])]);
+      setSelectedIds((current) => [
+        ...new Set([...current, ...eligibleVisibleIds]),
+      ]);
     }
   }
 
@@ -399,8 +415,8 @@ export default function CarolDayVisitsPage() {
       <div className="mx-auto w-full max-w-375 p-6">
         <div className="animate-pulse rounded-2xl border border-[#e9e9ed] bg-white p-8">
           <div className="h-5 w-48 rounded bg-gray-200" />
-          <div className="mt-4 h-4 w-72 rounded bg-gray-100" />
-          <div className="mt-8 h-32 rounded-xl bg-gray-100" />
+          <div className="mt-4 h-4 w-72 max-w-full rounded bg-gray-100" />
+          <div className="mt-8 h-32 rounded-lg bg-gray-100" />
         </div>
       </div>
     );
@@ -412,7 +428,7 @@ export default function CarolDayVisitsPage() {
         <button
           type="button"
           onClick={() => navigate("/events/christmas-carols")}
-          className="mb-5 inline-flex items-center gap-2 text-sm font-semibold text-[#454650] hover:text-black"
+          className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-[#626575] transition hover:text-[#1e1e1e]"
         >
           <ArrowLeft size={16} />
           Back to Christmas Carols
@@ -439,17 +455,17 @@ export default function CarolDayVisitsPage() {
           <button
             type="button"
             onClick={() => navigate("/events/christmas-carols")}
-            className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-[#626575] transition hover:text-[#1e1e1e]"
+            className="mb-3 inline-flex items-center gap-2 text-sm font-medium text-[#626575] transition hover:text-[#1e1e1e]"
           >
             <ArrowLeft size={16} />
             Back to Christmas Carols
           </button>
 
-          <h1 className="text-[28px] font-extrabold tracking-[-0.8px] text-[#131418] sm:text-[34px]">
+          <h1 className="text-2xl font-semibold tracking-tight text-[#1e1e1e]">
             Manage Carol Visits
           </h1>
 
-          <p className="mt-2 text-sm text-[#777985]">
+          <p className="mt-1.5 text-sm text-[#777985]">
             {day?.name} · {formatDate(day?.visit_date)}
             {day?.start_time ? ` · ${String(day.start_time).slice(0, 5)}` : ""}
           </p>
@@ -459,9 +475,9 @@ export default function CarolDayVisitsPage() {
           type="button"
           onClick={loadPage}
           disabled={loading}
-          className="inline-flex items-center justify-center gap-2 self-start rounded-xl border border-[#e4e4e8] bg-white px-4 py-2.5 text-sm font-semibold text-[#34353d] transition hover:bg-[#f8f8f9] disabled:opacity-50"
+          className="inline-flex items-center justify-center gap-2 self-start rounded-lg border border-[#e4e4e8] bg-white px-3.5 py-2 text-sm font-medium text-[#34353d] transition hover:bg-[#f8f8f9] disabled:opacity-50"
         >
-          <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
+          <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
           Refresh
         </button>
       </header>
@@ -469,7 +485,7 @@ export default function CarolDayVisitsPage() {
       {error && (
         <div
           role="alert"
-          className="flex items-start justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
+          className="flex items-start justify-between gap-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
         >
           <span>{error}</span>
           <button
@@ -485,7 +501,7 @@ export default function CarolDayVisitsPage() {
       {notice && (
         <div
           role="status"
-          className="flex items-start justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+          className="flex items-start justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
         >
           <span>{notice}</span>
           <button
@@ -499,11 +515,7 @@ export default function CarolDayVisitsPage() {
       )}
 
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard
-          label="Assigned families"
-          value={assignedCount}
-          icon={Users}
-        />
+        <StatCard label="Assigned families" value={assignedCount} icon={Users} />
         <StatCard label="Pending visits" value={pendingCount} icon={Clock3} />
         <StatCard label="Visited" value={visitedCount} icon={CheckCheck} />
         <StatCard label="Missed" value={missedCount} icon={MapPin} />
@@ -520,6 +532,95 @@ export default function CarolDayVisitsPage() {
               assign.
             </p>
           </div>
+        </div>
+
+        <div className="max-h-[620px] overflow-y-auto">
+          {filteredMemberships.length === 0 ? (
+            <div className="px-6 py-12 text-center">
+              <Users size={28} className="mx-auto text-[#b6b7be]" />
+              <p className="mt-3 text-sm font-semibold text-[#454650]">
+                No memberships match these filters
+              </p>
+              <p className="mt-1 text-sm text-[#898b95]">
+                Try another area, street, or search term.
+              </p>
+            </div>
+          ) : (
+            <div className="divide-y divide-[#f0f0f2]">
+              {filteredMemberships.map((membership) => {
+                const isSelected = selectedIds.includes(membership.id);
+                const visit = visitByMembershipId.get(membership.id);
+                const campaignAssignment = campaignAssignmentByMembershipId.get(
+                  membership.id,
+                );
+                const assignedElsewhere =
+                  campaignAssignment &&
+                  campaignAssignment.carol_day_id !== dayId;
+
+                return (
+                  <label
+                    key={membership.id}
+                    className={`flex cursor-pointer items-start gap-3 px-4 py-4 transition sm:px-6 ${
+                      isSelected ? "bg-[#f7f7f8]" : "hover:bg-[#fbfbfc]"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      disabled={Boolean(visit || assignedElsewhere)}
+                      onChange={() => toggleMembership(membership.id)}
+                      className="mt-1 h-4 w-4 shrink-0 accent-[#1e1e1e] disabled:cursor-not-allowed"
+                    />
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-semibold text-[#1e1e1e]">
+                          {membership.head_name}
+                        </p>
+                        <span className="rounded-md bg-[#f0f0f2] px-2 py-0.5 text-xs font-semibold text-[#555762]">
+                          #{getMembershipNumber(membership)}
+                        </span>
+
+                        {visit && (
+                          <span
+                            className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${statusClasses(
+                              visit.status,
+                            )}`}
+                          >
+                            {visit.status} · This day
+                          </span>
+                        )}
+
+                        {assignedElsewhere && (
+                          <span className="rounded-full border border-orange-200 bg-orange-50 px-2 py-0.5 text-[11px] font-semibold text-orange-700">
+                            Assigned to another day
+                          </span>
+                        )}
+                      </div>
+
+                      <p className="mt-1 flex items-start gap-1.5 text-sm leading-5 text-[#777985]">
+                        <MapPin size={14} className="mt-0.5 shrink-0" />
+                        <span>{formatAddress(membership)}</span>
+                      </p>
+
+                      {membership.primary_phone_number && (
+                        <p className="mt-1 text-xs text-[#8b8d97]">
+                          Phone: {membership.primary_phone_number}
+                        </p>
+                      )}
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-3 border-t border-[#ededf0] bg-[#fcfcfd] p-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <p className="text-sm text-[#777985]">
+            {selectedIds.length} membership{selectedIds.length === 1 ? "" : "s"}{" "}
+            selected
+          </p>
 
           <button
             type="button"
@@ -554,18 +655,19 @@ export default function CarolDayVisitsPage() {
         onClearFilters={clearFilters}
       />
 
-      <section className="overflow-hidden rounded-2xl border border-[#e8e8ec] bg-white">
-        <div className="flex flex-col gap-2 border-b border-[#ededf0] p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+      {/* Assigned visits */}
+      <section className="overflow-hidden rounded-xl border border-[#e8e8ec] bg-white">
+        <div className="flex flex-col gap-2 border-b border-[#ededf0] p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5 sm:py-4">
           <div>
-            <h2 className="text-lg font-bold text-[#1e1e1e]">
+            <h2 className="text-base font-semibold text-[#1e1e1e]">
               Assigned visit list
             </h2>
             <p className="mt-1 text-sm text-[#777985]">
-              Update the outcome of each household visit or remove an
-              assignment.
+              Update each household's visit status or remove its assignment.
             </p>
           </div>
-          <span className="rounded-lg bg-[#f2f2f4] px-3 py-1.5 text-sm font-semibold text-[#454650]">
+
+          <span className="self-start rounded-lg bg-[#f2f2f4] px-3 py-1.5 text-sm font-medium text-[#454650] sm:self-auto">
             {visits.length} assigned
           </span>
         </div>
