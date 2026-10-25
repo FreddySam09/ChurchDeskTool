@@ -515,7 +515,11 @@ export default function CarolDayVisitsPage() {
       )}
 
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard label="Assigned families" value={assignedCount} icon={Users} />
+        <StatCard
+          label="Assigned families"
+          value={assignedCount}
+          icon={Users}
+        />
         <StatCard label="Pending visits" value={pendingCount} icon={Clock3} />
         <StatCard label="Visited" value={visitedCount} icon={CheckCheck} />
         <StatCard label="Missed" value={missedCount} icon={MapPin} />
@@ -525,102 +529,13 @@ export default function CarolDayVisitsPage() {
         <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
           <div>
             <h2 className="text-lg font-bold text-[#1e1e1e]">
-              Add members
+              Find memberships
             </h2>
             <p className="mt-1 text-sm text-[#777985]">
               Search and filter households in a popup, then select the ones to
               assign.
             </p>
           </div>
-        </div>
-
-        <div className="max-h-[620px] overflow-y-auto">
-          {filteredMemberships.length === 0 ? (
-            <div className="px-6 py-12 text-center">
-              <Users size={28} className="mx-auto text-[#b6b7be]" />
-              <p className="mt-3 text-sm font-semibold text-[#454650]">
-                No memberships match these filters
-              </p>
-              <p className="mt-1 text-sm text-[#898b95]">
-                Try another area, street, or search term.
-              </p>
-            </div>
-          ) : (
-            <div className="divide-y divide-[#f0f0f2]">
-              {filteredMemberships.map((membership) => {
-                const isSelected = selectedIds.includes(membership.id);
-                const visit = visitByMembershipId.get(membership.id);
-                const campaignAssignment = campaignAssignmentByMembershipId.get(
-                  membership.id,
-                );
-                const assignedElsewhere =
-                  campaignAssignment &&
-                  campaignAssignment.carol_day_id !== dayId;
-
-                return (
-                  <label
-                    key={membership.id}
-                    className={`flex cursor-pointer items-start gap-3 px-4 py-4 transition sm:px-6 ${
-                      isSelected ? "bg-[#f7f7f8]" : "hover:bg-[#fbfbfc]"
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      disabled={Boolean(visit || assignedElsewhere)}
-                      onChange={() => toggleMembership(membership.id)}
-                      className="mt-1 h-4 w-4 shrink-0 accent-[#1e1e1e] disabled:cursor-not-allowed"
-                    />
-
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-semibold text-[#1e1e1e]">
-                          {membership.head_name}
-                        </p>
-                        <span className="rounded-md bg-[#f0f0f2] px-2 py-0.5 text-xs font-semibold text-[#555762]">
-                          #{getMembershipNumber(membership)}
-                        </span>
-
-                        {visit && (
-                          <span
-                            className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${statusClasses(
-                              visit.status,
-                            )}`}
-                          >
-                            {visit.status} · This day
-                          </span>
-                        )}
-
-                        {assignedElsewhere && (
-                          <span className="rounded-full border border-orange-200 bg-orange-50 px-2 py-0.5 text-[11px] font-semibold text-orange-700">
-                            Assigned to another day
-                          </span>
-                        )}
-                      </div>
-
-                      <p className="mt-1 flex items-start gap-1.5 text-sm leading-5 text-[#777985]">
-                        <MapPin size={14} className="mt-0.5 shrink-0" />
-                        <span>{formatAddress(membership)}</span>
-                      </p>
-
-                      {membership.primary_phone_number && (
-                        <p className="mt-1 text-xs text-[#8b8d97]">
-                          Phone: {membership.primary_phone_number}
-                        </p>
-                      )}
-                    </div>
-                  </label>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        <div className="flex flex-col gap-3 border-t border-[#ededf0] bg-[#fcfcfd] p-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-          <p className="text-sm text-[#777985]">
-            {selectedIds.length} membership{selectedIds.length === 1 ? "" : "s"}{" "}
-            selected
-          </p>
 
           <button
             type="button"
@@ -628,7 +543,7 @@ export default function CarolDayVisitsPage() {
             className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-[#1e1e1e] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-black"
           >
             <Plus size={16} />
-            Assign members
+            Find memberships
           </button>
         </div>
       </section>
