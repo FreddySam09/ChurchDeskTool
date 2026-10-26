@@ -1,5 +1,6 @@
 
 import { useEffect, useState } from 'react'
+import { NavLink, useLocation } from 'react-router-dom'
 import {
   CalendarDays,
   ChevronRight,
@@ -7,8 +8,9 @@ import {
   Settings2,
   Users,
   X,
-} from 'lucide-react'
-import { NavLink, useLocation } from 'react-router-dom'
+  MessageCircle,
+  Crown,
+} from "lucide-react";
 
 export default function Sidebar({ open = false, onClose }) {
   const location = useLocation()
@@ -129,6 +131,14 @@ export default function Sidebar({ open = false, onClose }) {
                   </NavLink>
 
                   <NavLink
+                    to="/annual-register"
+                    onClick={onClose}
+                    className={linkClass}
+                  >
+                    Annual Membership Register
+                  </NavLink>
+
+                  <NavLink
                     to="/groups"
                     onClick={onClose}
                     className={linkClass}
@@ -137,11 +147,11 @@ export default function Sidebar({ open = false, onClose }) {
                   </NavLink>
 
                   <NavLink
-                    to="/annual-register"
+                    to="/leadership"
                     onClick={onClose}
                     className={linkClass}
                   >
-                    Annual Membership Register
+                    Leadership
                   </NavLink>
                 </div>
               </div>
@@ -208,6 +218,21 @@ export default function Sidebar({ open = false, onClose }) {
                   </NavLink>
                 </div>
               </div>
+
+              <NavLink
+  to="/communications"
+  onClick={onClose}
+  className={({ isActive }) =>
+    `flex items-center gap-3 rounded-[10px] px-3 py-[11px] text-[13px] transition ${
+      isActive
+        ? "bg-white/[0.08] font-medium text-white"
+        : "text-white/60 hover:bg-white/[0.05] hover:text-white"
+    }`
+  }
+>
+  <MessageCircle size={17} />
+  <span>Communications</span>
+</NavLink>
             </div>
           </div>
         </nav>

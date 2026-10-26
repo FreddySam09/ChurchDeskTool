@@ -1,3 +1,4 @@
+
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import AnnualRegister from "../features/membership/annual-register/AnnualRegister";
 import { AuthProvider } from "../features/auth/AuthContext";
@@ -10,10 +11,10 @@ import GroupsPage from "../features/groups/GroupsPage";
 import EventsPage from "../features/events/EventsPage";
 import ChristmasCarolsPage from "../features/events/ChristmasCarolsPage";
 import CarolDayVisitsPage from "../features/events/CarolDayVisitsPage";
-
-
+import CommunicationsPage from "../features/communications/CommunicationsPage";
 import AppLayout from "../components/layout/AppLayout";
 import ProtectedRoute from "./ProtectedRoute";
+import LeadershipPage from "../features/leadership/LeadershipPage";
 
 function AppRoutes() {
   return (
@@ -28,8 +29,17 @@ function AppRoutes() {
           <Route path="/groups" element={<GroupsPage />} />
           <Route path="/annual-register" element={<AnnualRegister />} />
 
-          <Route path="/memberships/:membershipRowId" element={<MembershipDetailsPage />} />
-          <Route path="/events" element={<Navigate to="/events/church-calendar" replace />} />
+          <Route
+            path="/memberships/:membershipRowId"
+            element={<MembershipDetailsPage />}
+          />
+
+          <Route path="/communications" element={<CommunicationsPage />} />
+
+          <Route
+            path="/events"
+            element={<Navigate to="/events/church-calendar" replace />}
+          />
           <Route path="/events/church-calendar" element={<EventsPage />} />
           <Route
             path="/events/christmas-carols"
@@ -40,6 +50,7 @@ function AppRoutes() {
             path="/events/christmas-carols/:dayId/visits"
             element={<CarolDayVisitsPage />}
           />
+          <Route path="/leadership" element={<LeadershipPage />} />
         </Route>
       </Route>
 

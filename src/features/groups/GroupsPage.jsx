@@ -13,6 +13,9 @@ import {
   FolderOpen,
   Check,
   AlertCircle,
+  Trash2,
+  Archive,
+  RotateCcw,
 } from 'lucide-react'
 import {
   getChurchGroups,
@@ -62,6 +65,9 @@ function GroupModal({ group, onClose, onSaved }) {
   const [status, setStatus] = useState(group?.group_status ?? 'Active')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [groupType, setGroupType] = useState(
+    group?.group_type ?? 'group',
+  )
 
   async function handleSubmit(event) {
     event.preventDefault()
@@ -74,15 +80,20 @@ function GroupModal({ group, onClose, onSaved }) {
           name,
           description,
           groupStatus: status,
+          groupType,
         })
       } else {
-        await createChurchGroup({ name, description })
+        await createChurchGroup({
+          name,
+          description,
+          groupType,
+        })
       }
 
       await onSaved()
       onClose()
     } catch (err) {
-      setError(err.message || 'Could not save this group.')
+      setError(err.message || 'Could not save this organisation.')
     } finally {
       setSaving(false)
     }
@@ -107,10 +118,10 @@ function GroupModal({ group, onClose, onSaved }) {
               id="group-modal-title"
               className="text-[16px] font-bold text-[#131418]"
             >
-              {group ? 'Edit group' : 'Create group'}
+              {group ? 'Edit organisation' : 'Create organisation'}
             </h2>
             <p className="mt-1 text-[12px] text-[#777984]">
-              Manage the group name and availability.
+              Manage the organisation name, type, description, and availability.
             </p>
           </div>
 
@@ -127,7 +138,7 @@ function GroupModal({ group, onClose, onSaved }) {
 
         <form onSubmit={handleSubmit} className="space-y-4 p-5">
           <label className={labelClass}>
-            Group name <span className="text-red-500">*</span>
+            Organisation name <span className="text-red-500">*</span>
             <input
               autoFocus
               required
@@ -137,9 +148,24 @@ function GroupModal({ group, onClose, onSaved }) {
                 setName(event.target.value)
                 setError('')
               }}
-              placeholder="e.g. Youth Fellowship"
+              placeholder="e.g. Youth Fellowship or Choir"
               className={inputClass}
             />
+          </label>
+
+          <label className={labelClass}>
+            Organisation type
+            <select
+              value={groupType}
+              onChange={(event) => setGroupType(event.target.value)}
+              className={inputClass}
+            >
+              <option value="fellowship">Fellowship</option>
+              <option value="group">Group</option>
+            </select>
+            <span className="mt-1 block font-normal leading-5 text-[#92939b]">
+              Choose whether this organisation is a fellowship or a church group.
+            </span>
           </label>
 
           <label className={labelClass}>
@@ -166,7 +192,7 @@ function GroupModal({ group, onClose, onSaved }) {
                 <option value="Inactive">Inactive</option>
               </select>
               <span className="mt-1 block font-normal leading-5 text-[#92939b]">
-                Inactive groups cannot receive new assignments. Existing
+                Inactive organisations cannot receive new assignments. Existing
                 assignments are preserved.
               </span>
             </label>
@@ -189,7 +215,11 @@ function GroupModal({ group, onClose, onSaved }) {
               className="inline-flex items-center justify-center gap-2 rounded-[10px] bg-[#191a1f] px-4 py-2.5 text-[12px] font-semibold text-white hover:bg-black disabled:opacity-50"
             >
               <Check size={15} />
-              {saving ? 'Saving…' : group ? 'Save changes' : 'Create group'}
+              {saving
+                ? 'Saving…'
+                : group
+                  ? 'Save changes'
+                  : 'Create organisation'}
             </button>
           </footer>
         </form>
@@ -228,6 +258,7 @@ function AssignmentModal({ group, members, assignedIds, onClose, onAssigned }) {
 
   async function handleSubmit(event) {
     event.preventDefault()
+
     if (!memberId) {
       setError('Select a member first.')
       return
@@ -276,6 +307,7 @@ function AssignmentModal({ group, members, assignedIds, onClose, onAssigned }) {
               Assign an existing person to {group.name}.
             </p>
           </div>
+
           <button
             type="button"
             onClick={onClose}
@@ -366,7 +398,7 @@ function AssignmentModal({ group, members, assignedIds, onClose, onAssigned }) {
               className="inline-flex items-center justify-center gap-2 rounded-[10px] bg-[#191a1f] px-4 py-2.5 text-[12px] font-semibold text-white hover:bg-black disabled:opacity-50"
             >
               <UserPlus size={15} />
-              {saving ? 'Adding…' : 'Add to group'}
+              {saving ? 'Adding…' : 'Add to organisation'}
             </button>
           </footer>
         </form>
@@ -384,6 +416,7 @@ export default function GroupsPage() {
   const [selectedGroupId, setSelectedGroupId] = useState('')
   const [assignments, setAssignments] = useState([])
   const [groupSearch, setGroupSearch] = useState('')
+  const [typeFilter, setTypeFilter] = useState('all')
   const [memberSearch, setMemberSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [detailsLoading, setDetailsLoading] = useState(false)
@@ -392,6 +425,8 @@ export default function GroupsPage() {
   const [groupModal, setGroupModal] = useState(null)
   const [assignmentModalOpen, setAssignmentModalOpen] = useState(false)
   const [endingAssignmentId, setEndingAssignmentId] = useState('')
+  const [showArchived, setShowArchived] = useState(false)
+  const [restoringGroupId, setRestoringGroupId] = useState('')
 
   const selectedGroup =
     groups.find((group) => group.id === selectedGroupId) ?? null
@@ -414,12 +449,13 @@ export default function GroupsPage() {
           return current
         }
 
-        return groupRows.find((group) => group.group_status === 'Active')?.id
-          ?? groupRows[0]?.id
-          ?? ''
+        return (
+          groupRows.find((group) => group.group_status === 'Active')?.id ??
+          ''
+        )
       })
     } catch (err) {
-      setError(err.message || 'Unable to load groups and members.')
+      setError(err.message || 'Unable to load fellowships and groups.')
     } finally {
       setLoading(false)
     }
@@ -437,7 +473,7 @@ export default function GroupsPage() {
       const rows = await getGroupAssignments(groupId)
       setAssignments(rows)
     } catch (err) {
-      setError(err.message || 'Unable to load group members.')
+      setError(err.message || 'Unable to load assigned members.')
     } finally {
       setDetailsLoading(false)
     }
@@ -461,17 +497,34 @@ export default function GroupsPage() {
     [assignments],
   )
 
-  const visibleGroups = useMemo(() => {
+  const filteredGroups = useMemo(() => {
     const query = `${groupSearch} ${globalSearch}`.trim().toLowerCase()
 
     return groups.filter((group) => {
-      if (!query) return true
+      const matchesType =
+        typeFilter === 'all' || group.group_type === typeFilter
 
-      return `${group.name} ${group.description || ''} ${group.group_status}`
-        .toLowerCase()
-        .includes(query)
+      const matchesQuery =
+        !query ||
+        `${group.name} ${group.description || ''} ${
+          group.group_type || ''
+        } ${group.group_status}`
+          .toLowerCase()
+          .includes(query)
+
+      return matchesType && matchesQuery
     })
-  }, [groups, groupSearch, globalSearch])
+  }, [groups, groupSearch, globalSearch, typeFilter])
+
+  const visibleGroups = useMemo(
+    () => filteredGroups.filter((group) => group.group_status === 'Active'),
+    [filteredGroups],
+  )
+
+  const archivedGroups = useMemo(
+    () => filteredGroups.filter((group) => group.group_status === 'Inactive'),
+    [filteredGroups],
+  )
 
   const visibleAssignments = useMemo(() => {
     const query = memberSearch.trim().toLowerCase()
@@ -504,20 +557,74 @@ export default function GroupsPage() {
   async function refreshAll() {
     setNotice('')
     await loadBase()
+
     if (selectedGroupId) {
       await loadAssignments(selectedGroupId)
     }
   }
 
-  async function refreshSelectedGroup() {
-    if (selectedGroupId) {
-      await loadAssignments(selectedGroupId)
+  async function handleDeleteGroup(group) {
+    if (group.group_status === 'Inactive') {
+      setNotice(`"${group.name}" is already archived.`)
+      return
     }
-    await loadBase()
+
+    const confirmed = window.confirm(
+      `Archive "${group.name}"? Existing member assignments and leadership history will be preserved.`,
+    )
+
+    if (!confirmed) return
+
+    setError('')
+    setNotice('')
+
+    try {
+      await updateChurchGroup(group.id, {
+        name: group.name,
+        description: group.description || '',
+        groupStatus: 'Inactive',
+        groupType: group.group_type || 'group',
+      })
+
+      const nextActiveGroup = groups.find(
+        (item) => item.id !== group.id && item.group_status === 'Active',
+      )
+
+      setSelectedGroupId(nextActiveGroup?.id ?? '')
+      await loadBase()
+      setNotice(`"${group.name}" has been moved to Archived.`)
+    } catch (err) {
+      setError(err.message || 'Unable to archive this organisation.')
+    }
+  }
+
+  async function handleRestoreGroup(group) {
+    setRestoringGroupId(group.id)
+    setError('')
+    setNotice('')
+
+    try {
+      await updateChurchGroup(group.id, {
+        name: group.name,
+        description: group.description || '',
+        groupStatus: 'Active',
+        groupType: group.group_type || 'group',
+      })
+
+      setSelectedGroupId(group.id)
+      await loadBase()
+      setShowArchived(false)
+      setNotice(`"${group.name}" has been restored.`)
+    } catch (err) {
+      setError(err.message || 'Unable to restore this organisation.')
+    } finally {
+      setRestoringGroupId('')
+    }
   }
 
   async function handleEndAssignment(assignment) {
     const member = memberById.get(assignment.member_id)
+
     const confirmed = window.confirm(
       `Remove ${member?.name || 'this member'} from ${selectedGroup?.name}? Their member record will not be deleted.`,
     )
@@ -534,7 +641,9 @@ export default function GroupsPage() {
       })
 
       await loadAssignments(selectedGroupId)
-      setNotice(`${member?.name || 'Member'} was removed from this group.`)
+      setNotice(
+        `${member?.name || 'Member'} was removed from this organisation.`,
+      )
     } catch (err) {
       setError(err.message || 'Could not remove this assignment.')
     } finally {
@@ -553,8 +662,9 @@ export default function GroupsPage() {
             Fellowships & Groups
           </h1>
           <p className="mt-2 max-w-[620px] text-[13px] leading-6 text-[#777984]">
-            Organise existing members into fellowships and church groups.
-            People can belong to more than one group.
+            Create and manage fellowships and church groups, and organise
+            existing members into them. People can belong to more than one
+            organisation.
           </p>
         </div>
 
@@ -568,13 +678,14 @@ export default function GroupsPage() {
             <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
             Refresh
           </button>
+
           <button
             type="button"
             onClick={() => setGroupModal({ mode: 'create' })}
             className="inline-flex min-h-[42px] items-center justify-center gap-2 rounded-[12px] bg-[#191a1f] px-4 text-[12px] font-semibold text-white hover:bg-black"
           >
             <Plus size={16} />
-            Create group
+            Create organisation
           </button>
         </div>
       </header>
@@ -600,12 +711,15 @@ export default function GroupsPage() {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-[13px] font-bold text-[#131418]">
-                  All groups
+                  Fellowships & Groups
                 </h2>
                 <p className="mt-1 text-[11px] text-[#92939b]">
-                  {groups.length} total
+                  {visibleGroups.length} active
+                  {archivedGroups.length > 0 &&
+                    ` · ${archivedGroups.length} archived`}
                 </p>
               </div>
+
               <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#eeeeef] text-[#53555e]">
                 <FolderOpen size={17} />
               </span>
@@ -619,73 +733,191 @@ export default function GroupsPage() {
               <input
                 value={groupSearch}
                 onChange={(event) => setGroupSearch(event.target.value)}
-                placeholder="Find a group..."
+                placeholder="Find a fellowship or group..."
                 className={`${inputClass} mt-0 pl-9`}
               />
+            </div>
+
+            <div className="mt-3 grid grid-cols-3 gap-1 rounded-xl bg-[#f4f4f5] p-1">
+              {[
+                { value: 'all', label: 'All' },
+                { value: 'fellowship', label: 'Fellowships' },
+                { value: 'group', label: 'Groups' },
+              ].map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setTypeFilter(option.value)}
+                  aria-pressed={typeFilter === option.value}
+                  className={`rounded-lg px-2 py-2 text-[10.5px] font-semibold transition ${
+                    typeFilter === option.value
+                      ? 'bg-white text-[#25262c] shadow-sm'
+                      : 'text-[#777984] hover:text-[#25262c]'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
             </div>
           </div>
 
           <div className="max-h-[620px] overflow-y-auto p-2">
             {loading ? (
               <p className="px-3 py-8 text-center text-[12px] text-[#888a93]">
-                Loading groups…
+                Loading fellowships and groups…
               </p>
             ) : visibleGroups.length ? (
               visibleGroups.map((group) => {
                 const selected = group.id === selectedGroupId
 
                 return (
-                  <button
+                  <div
                     key={group.id}
-                    type="button"
-                    onClick={() => {
-                      setSelectedGroupId(group.id)
-                      setMemberSearch('')
-                      setError('')
-                      setNotice('')
-                    }}
-                    className={`mb-1 flex w-full items-center gap-3 rounded-xl border p-3 text-left transition ${
+                    className={`mb-1 flex w-full items-center gap-1 rounded-xl border p-1 transition ${
                       selected
                         ? 'border-[#dce2ff] bg-[#f2f4ff]'
                         : 'border-transparent hover:bg-[#f8f8f9]'
                     }`}
                   >
-                    <span
-                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
-                        selected
-                          ? 'bg-[#e1e7ff] text-[#4058c9]'
-                          : 'bg-[#eeeeef] text-[#777984]'
-                      }`}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedGroupId(group.id)
+                        setMemberSearch('')
+                        setError('')
+                        setNotice('')
+                      }}
+                      className="flex min-w-0 flex-1 items-center gap-3 rounded-lg p-2 text-left"
                     >
-                      <Users size={17} />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[12.5px] font-bold text-[#25262c]">
-                        {group.name}
+                      <span
+                        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
+                          selected
+                            ? 'bg-[#e1e7ff] text-[#4058c9]'
+                            : 'bg-[#eeeeef] text-[#777984]'
+                        }`}
+                      >
+                        <Users size={17} />
                       </span>
-                      <span className="mt-1 block text-[10.5px] text-[#92939b]">
-                        {group.group_status}
+
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[12.5px] font-bold text-[#25262c]">
+                          {group.name}
+                        </span>
+                        <span className="mt-1 block text-[10.5px] text-[#92939b]">
+                          {group.group_type === 'fellowship'
+                            ? 'Fellowship'
+                            : 'Group'}
+                        </span>
                       </span>
-                    </span>
-                    <span
-                      className={`h-2 w-2 shrink-0 rounded-full ${
-                        group.group_status === 'Active'
-                          ? 'bg-emerald-500'
-                          : 'bg-[#b9bbc2]'
-                      }`}
-                    />
-                  </button>
+
+                      <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteGroup(group)}
+                      aria-label={`Archive ${group.name}`}
+                      title="Archive organisation"
+                      className="mr-1 shrink-0 rounded-lg p-2 text-[#b64343] transition hover:bg-[#fff0f0]"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                 )
               })
             ) : (
               <div className="px-4 py-10 text-center">
                 <FolderOpen size={25} className="mx-auto text-[#c2c3c9]" />
                 <p className="mt-3 text-[12px] font-semibold text-[#53555e]">
-                  No groups found
+                  No active organisations found
                 </p>
                 <p className="mt-1 text-[11px] text-[#92939b]">
-                  Try another search or create a group.
+                  Try another search or create a fellowship or group. Inactive
+                  organisations are kept in Archived below.
                 </p>
+              </div>
+            )}
+          </div>
+
+          <div className="border-t border-[#f0f0f1] px-3 py-2">
+            <button
+              type="button"
+              onClick={() => setShowArchived((current) => !current)}
+              aria-expanded={showArchived}
+              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[11px] font-medium text-[#888a93] transition hover:bg-[#f8f8f9] hover:text-[#53555e]"
+            >
+              <Archive size={14} />
+              <span className="flex-1">Archived</span>
+              <span className="rounded-full bg-[#f0f0f1] px-2 py-0.5 text-[10px] tabular-nums">
+                {
+                  groups.filter((group) => group.group_status === 'Inactive')
+                    .length
+                }
+              </span>
+              <span className="text-[10px]">
+                {showArchived ? 'Hide' : 'Show'}
+              </span>
+            </button>
+
+            {showArchived && (
+              <div className="mt-1 space-y-1 pb-1">
+                {archivedGroups.length === 0 ? (
+                  <p className="px-3 py-3 text-[11px] text-[#a0a1a8]">
+                    {groupSearch.trim() ||
+                    globalSearch.trim() ||
+                    typeFilter !== 'all'
+                      ? 'No archived organisations match these filters.'
+                      : 'No archived organisations.'}
+                  </p>
+                ) : (
+                  archivedGroups.map((group) => (
+                    <div
+                      key={group.id}
+                      className={`flex items-center gap-2 rounded-lg px-2.5 py-2 transition ${
+                        group.id === selectedGroupId
+                          ? 'bg-[#f2f4ff]'
+                          : 'hover:bg-[#f8f8f9]'
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedGroupId(group.id)
+                          setMemberSearch('')
+                          setError('')
+                          setNotice('')
+                        }}
+                        className="min-w-0 flex-1 text-left"
+                      >
+                        <span className="block truncate text-[11px] font-medium text-[#777984]">
+                          {group.name}
+                        </span>
+                        <span className="block text-[10px] text-[#a0a1a8]">
+                          {group.group_type === 'fellowship'
+                            ? 'Fellowship'
+                            : 'Group'}{' '}
+                          · Inactive
+                        </span>
+                      </button>
+
+                      <button
+                        type="button"
+                        title={`Restore ${group.name}`}
+                        aria-label={`Restore ${group.name}`}
+                        disabled={restoringGroupId === group.id}
+                        onClick={() => handleRestoreGroup(group)}
+                        className="shrink-0 rounded-md p-1.5 text-[#777984] transition hover:bg-white hover:text-emerald-700 disabled:opacity-50"
+                      >
+                        <RotateCcw
+                          size={13}
+                          className={
+                            restoringGroupId === group.id ? 'animate-spin' : ''
+                          }
+                        />
+                      </button>
+                    </div>
+                  ))
+                )}
               </div>
             )}
           </div>
@@ -699,24 +931,30 @@ export default function GroupsPage() {
                   <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[15px] bg-[#eeeeef] text-[#53555e]">
                     <Users size={21} />
                   </span>
+
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <h2 className="break-words text-[18px] font-extrabold tracking-[-0.4px] text-[#131418]">
                         {selectedGroup.name}
                       </h2>
-                      <span
-                        className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${
-                          selectedGroup.group_status === 'Active'
-                            ? 'bg-emerald-50 text-emerald-700'
-                            : 'bg-[#eeeeef] text-[#6b6d76]'
-                        }`}
-                      >
-                        {selectedGroup.group_status}
+
+                      <span className="rounded-full bg-[#f1f3ff] px-2.5 py-1 text-[10px] font-semibold text-[#4058c9]">
+                        {selectedGroup.group_type === 'fellowship'
+                          ? 'Fellowship'
+                          : 'Group'}
                       </span>
+
+                      {selectedGroup.group_status === 'Inactive' && (
+                        <span className="rounded-full bg-[#eeeeef] px-2.5 py-1 text-[10px] font-semibold text-[#6b6d76]">
+                          Archived
+                        </span>
+                      )}
                     </div>
+
                     <p className="mt-1 max-w-[600px] whitespace-pre-wrap text-[12px] leading-5 text-[#777984]">
                       {selectedGroup.description || 'No description added.'}
                     </p>
+
                     <p className="mt-2 text-[11px] text-[#92939b]">
                       {assignments.length}{' '}
                       {assignments.length === 1 ? 'member' : 'members'} assigned
@@ -730,7 +968,7 @@ export default function GroupsPage() {
                   className="inline-flex min-h-[38px] shrink-0 items-center justify-center gap-2 self-start rounded-[10px] border border-[#e5e5e7] bg-white px-3.5 text-[11.5px] font-semibold text-[#53555e] hover:bg-[#f8f8f9]"
                 >
                   <Pencil size={14} />
-                  Edit group
+                  Edit organisation
                 </button>
               </header>
 
@@ -757,9 +995,20 @@ export default function GroupsPage() {
                 </div>
 
                 {selectedGroup.group_status !== 'Active' && (
-                  <p className="mb-4 rounded-lg bg-[#f4f4f5] px-3 py-2.5 text-[11px] text-[#6b6d76]">
-                    This group is inactive. Reactivate it to add new members.
-                  </p>
+                  <div className="mb-4 flex flex-col gap-2 rounded-lg bg-[#f4f4f5] px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-[11px] text-[#6b6d76]">
+                      This organisation is archived. Restore it to add new members.
+                    </p>
+                    <button
+                      type="button"
+                      disabled={restoringGroupId === selectedGroup.id}
+                      onClick={() => handleRestoreGroup(selectedGroup)}
+                      className="inline-flex min-h-[32px] shrink-0 items-center justify-center gap-1.5 self-start rounded-lg border border-[#e5e5e7] bg-white px-3 text-[11px] font-semibold text-[#53555e] hover:bg-[#fafafa] disabled:opacity-50 sm:self-auto"
+                    >
+                      <RotateCcw size={12} />
+                      Restore
+                    </button>
+                  </div>
                 )}
 
                 <div className="relative mb-4">
@@ -781,10 +1030,11 @@ export default function GroupsPage() {
                       <tr className="text-[10px] font-bold uppercase tracking-[0.08em] text-[#888a93]">
                         <th className="px-4 py-3">Member</th>
                         <th className="px-4 py-3">Person ID</th>
-                        <th className="px-4 py-3">Joined group</th>
+                        <th className="px-4 py-3">Joined organisation</th>
                         <th className="px-4 py-3 text-right">Action</th>
                       </tr>
                     </thead>
+
                     <tbody>
                       {detailsLoading ? (
                         <tr>
@@ -812,6 +1062,7 @@ export default function GroupsPage() {
                                       .charAt(0)
                                       .toUpperCase()}
                                   </span>
+
                                   <span className="min-w-0">
                                     <span className="block truncate text-[12px] font-semibold text-[#25262c]">
                                       {member.name}
@@ -822,16 +1073,19 @@ export default function GroupsPage() {
                                   </span>
                                 </div>
                               </td>
+
                               <td className="px-4 py-3 font-mono text-[11px] text-[#6b6d76]">
                                 {member.person_id || '—'}
                               </td>
+
                               <td className="px-4 py-3 text-[11px] text-[#6b6d76]">
                                 {formatDate(assignment.valid_from)}
                               </td>
+
                               <td className="px-4 py-3 text-right">
                                 <button
                                   type="button"
-                                  title={`Remove ${member.name} from this group`}
+                                  title={`Remove ${member.name} from this organisation`}
                                   disabled={endingAssignmentId === assignment.id}
                                   onClick={() => handleEndAssignment(assignment)}
                                   className="inline-flex min-h-[34px] items-center justify-center gap-1.5 rounded-lg border border-[#f0dada] px-2.5 text-[10.5px] font-semibold text-[#b64343] transition hover:bg-[#fff5f5] disabled:opacity-50"
@@ -860,7 +1114,7 @@ export default function GroupsPage() {
                             <p className="mt-1 text-[11px] text-[#92939b]">
                               {assignments.length
                                 ? 'Try a different search.'
-                                : 'Use Add members to assign existing people to this group.'}
+                                : 'Use Add members to assign existing people to this organisation.'}
                             </p>
                           </td>
                         </tr>
@@ -874,10 +1128,10 @@ export default function GroupsPage() {
             <div className="px-6 py-16 text-center">
               <FolderOpen size={30} className="mx-auto text-[#c2c3c9]" />
               <h2 className="mt-3 text-[14px] font-bold text-[#25262c]">
-                Select a group
+                Select an organisation
               </h2>
               <p className="mt-1 text-[12px] text-[#888a93]">
-                Choose a group from the list or create a new one.
+                Choose an active organisation from the list or create a new one.
               </p>
             </div>
           )}
@@ -891,7 +1145,11 @@ export default function GroupsPage() {
           onSaved={async () => {
             const wasCreating = groupModal.mode === 'create'
             await loadBase()
-            setNotice(wasCreating ? 'Group created successfully.' : 'Group updated successfully.')
+            setNotice(
+              wasCreating
+                ? 'Organisation created successfully.'
+                : 'Organisation updated successfully.',
+            )
           }}
         />
       )}

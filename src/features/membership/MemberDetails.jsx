@@ -1,12 +1,20 @@
 import { useCallback, useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Pencil, RefreshCw, UserRound, Users } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRightLeft,
+  Pencil,
+  RefreshCw,
+  UserRound,
+  Users,
+} from "lucide-react";
 import {
   getMemberDirectory,
   updateMember,
   updateMemberGroups,
 } from "../../services/membershipService";
 import GroupMultiSelect from "./GroupMultiSelect";
+import TransferMemberModal from "./TransferMemberModal";
 
 const inputClass =
   "mt-1.5 min-h-[42px] w-full rounded-[10px] border border-[#e5e5e7] bg-white px-3 py-2 text-[12px] text-[#25262c] outline-none focus:border-[#9b9da5]";
@@ -365,11 +373,12 @@ export default function MemberDetails() {
   const { memberId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-
+  
   const [member, setMember] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [editing, setEditing] = useState(false);
+const [transferOpen, setTransferOpen] = useState(false);
 
   const loadMember = useCallback(async () => {
     setLoading(true);
@@ -492,6 +501,23 @@ export default function MemberDetails() {
             <Pencil size={15} />
             Edit Member
           </button>
+
+          <button
+  type="button"
+  onClick={() => setTransferOpen(true)}
+  disabled={!member.membership_row_id || member.is_head}
+  title={
+    member.is_head
+      ? "Change the membership head before transferring this person."
+      : !member.membership_row_id
+        ? "This person has no current membership assignment."
+        : "Transfer this person to another membership"
+  }
+  className="inline-flex min-h-[40px] items-center gap-2 rounded-[10px] border border-[#e5e5e7] bg-white px-3.5 py-2 text-[12px] font-semibold text-[#25262c] hover:bg-[#f7f7f8] disabled:cursor-not-allowed disabled:opacity-50"
+>
+  <ArrowRightLeft size={15} />
+  Transfer Membership
+</button>
         </div>
       </header>
 
@@ -620,6 +646,25 @@ export default function MemberDetails() {
           onSaved={loadMember}
         />
       )}
+
+      {editing && (
+  <EditMemberModal
+    member={member}
+    onClose={() => setEditing(false)}
+    onSaved={loadMember}
+  />
+)}
+
+{transferOpen && (
+  <TransferMemberModal
+    member={member}
+    onClose={() => setTransferOpen(false)}
+    onTransferred={async () => {
+      setTransferOpen(false);
+      await loadMember();
+    }}
+  />
+)}
     </div>
   );
 }

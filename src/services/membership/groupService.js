@@ -2,10 +2,13 @@
 import { supabase } from '../../lib/supabase'
 import { unwrap } from './serviceUtils'
 
+
 export async function getChurchGroups({ activeOnly = true } = {}) {
   let query = supabase
     .from('church_groups')
-    .select('id, name, description, group_status, created_at, updated_at')
+    .select(
+      'id, name, description, group_status, group_type, created_at, updated_at',
+    )
     .order('name')
 
   if (activeOnly) {
@@ -15,23 +18,33 @@ export async function getChurchGroups({ activeOnly = true } = {}) {
   return unwrap(await query) ?? []
 }
 
-export async function createChurchGroup({ name, description = '' }) {
-  const cleanName = name?.trim()
+export async function createChurchGroup({
+  name,
+  description = '',
+  groupType = 'group',
+}) {
+  const cleanName = String(name ?? '').trim()
+  const cleanDescription = String(description ?? '').trim()
 
   if (!cleanName) {
-    throw new Error('Enter a group name.')
+    throw new Error('Enter an organisation name.')
   }
 
-  const existing = unwrap(
-    await supabase
-      .from('church_groups')
-      .select('id, name')
-      .ilike('name', cleanName)
-      .limit(1),
-  ) ?? []
+  if (!['fellowship', 'group'].includes(groupType)) {
+    throw new Error('Choose Fellowship or Group.')
+  }
+
+  const existing =
+    unwrap(
+      await supabase
+        .from('church_groups')
+        .select('id, name')
+        .ilike('name', cleanName)
+        .limit(1),
+    ) ?? []
 
   if (existing.length) {
-    throw new Error('A group with this name already exists.')
+    throw new Error('An organisation with this name already exists.')
   }
 
   return unwrap(
@@ -39,59 +52,95 @@ export async function createChurchGroup({ name, description = '' }) {
       .from('church_groups')
       .insert({
         name: cleanName,
-        description: description.trim() || null,
+        description: cleanDescription || null,
+        group_type: groupType,
         group_status: 'Active',
       })
-      .select('id, name, description, group_status, created_at, updated_at')
+      .select(
+        'id, name, description, group_status, group_type, created_at, updated_at',
+      )
       .single(),
   )
 }
+
 
 export async function updateChurchGroup(
   groupId,
-  { name, description = '', groupStatus = 'Active' },
+  {
+    name,
+    description = '',
+    groupStatus = 'Active',
+    groupType,
+  },
 ) {
   if (!groupId) {
-    throw new Error('Select a group to update.')
+    throw new Error('Select an organisation to update.')
   }
 
-  const cleanName = name?.trim()
+  const cleanName = String(name ?? '').trim()
+  const cleanDescription = String(description ?? '').trim()
 
   if (!cleanName) {
-    throw new Error('Enter a group name.')
+    throw new Error('Enter an organisation name.')
   }
 
   if (!['Active', 'Inactive'].includes(groupStatus)) {
-    throw new Error('Select a valid group status.')
+    throw new Error('Select a valid status.')
   }
 
-  const existing = unwrap(
-    await supabase
-      .from('church_groups')
-      .select('id, name')
-      .ilike('name', cleanName)
-      .neq('id', groupId)
-      .limit(1),
-  ) ?? []
+  if (
+    groupType !== undefined &&
+    !['fellowship', 'group'].includes(groupType)
+  ) {
+    throw new Error('Choose Fellowship or Group.')
+  }
+
+  const duplicateQuery = supabase
+    .from('church_groups')
+    .select('id')
+    .ilike('name', cleanName)
+    .neq('id', groupId)
+    .limit(1)
+
+  const existing = unwrap(await duplicateQuery) ?? []
 
   if (existing.length) {
-    throw new Error('Another group already uses this name.')
+    throw new Error('Another organisation already uses this name.')
   }
 
-  return unwrap(
-    await supabase
-      .from('church_groups')
-      .update({
-        name: cleanName,
-        description: description.trim() || null,
-        group_status: groupStatus,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', groupId)
-      .select('id, name, description, group_status, created_at, updated_at')
-      .single(),
-  )
+  const changes = {
+    name: cleanName,
+    description: cleanDescription || null,
+    group_status: groupStatus,
+    updated_at: new Date().toISOString(),
+  }
+
+  if (groupType !== undefined) {
+    changes.group_type = groupType
+  }
+
+  // Do not use .single(): an update returning zero rows should be
+  // reported explicitly instead of producing a JSON coercion error.
+  const result = await supabase
+    .from('church_groups')
+    .update(changes)
+    .eq('id', groupId)
+    .select(
+      'id, name, description, group_status, group_type, created_at, updated_at',
+    )
+
+  const updatedRows = unwrap(result) ?? []
+
+  if (updatedRows.length === 0) {
+    throw new Error(
+      'The organisation was not updated. It may not exist, or your Supabase permissions may prevent this change. Check the church_groups UPDATE policy.',
+    )
+  }
+
+  return updatedRows[0]
 }
+
+
 
 export async function getMemberGroups(memberId) {
   if (!memberId) {

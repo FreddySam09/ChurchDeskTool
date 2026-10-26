@@ -6,7 +6,7 @@ export {
   updateMembership,
   changeMembershipHead,
   getNextMembershipNumber,
-} from './membershipDirectoryService'
+} from "./membershipDirectoryService";
 
 export {
   getMembers,
@@ -15,7 +15,7 @@ export {
   addMemberToMembershipWithGroups,
   recordMemberRelationship,
   updateMember,
-} from './memberService'
+} from "./memberService";
 
 export {
   getChurchGroups,
@@ -25,12 +25,16 @@ export {
   getGroupAssignments,
   saveMemberGroupAssignments,
   updateMemberGroups,
-} from './groupService'
+} from "./groupService";
 
 export {
   getMembershipHistory,
-} from './membershipHistoryService'
+} from "./membershipHistoryService";
 
 export {
   createBranchFromMember,
-} from './createBranchService'
+} from "./createBranchService";
+
+export {
+  transferMembershipMember,
+} from "./memberTransferService";

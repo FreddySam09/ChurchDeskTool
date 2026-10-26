@@ -1,3 +1,4 @@
+
 export {
   getMembershipDirectory,
   getMembershipDetails,
@@ -26,8 +27,18 @@ export {
   updateMemberGroups,
 } from "./membership";
 
-export { getMembershipHistory } from "./membership";
+export {
+  getMembershipHistory,
+} from "./membership";
 
-export { createBranchFromMember } from "./membership";
+export {
+  createBranchFromMember,
+} from "./membership";
 
-export { convertBranchToIndependent } from "./membership/convertBranchToIndependent";
+export {
+  convertBranchToIndependent,
+} from "./membership/convertBranchToIndependent";
+
+export {
+  transferMembershipMember,
+} from "./membership";
