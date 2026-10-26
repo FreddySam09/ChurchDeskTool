@@ -14,11 +14,14 @@ import {
   X,
   Plus,
   CircleDollarSign,
+  FileSpreadsheet,
+  FileText,
 } from "lucide-react";
 import CarolOfferingPanel from "./CarolOfferingPanel";
+import { exportCarolVisitsToExcel, exportCarolVisitsToPdf } from "../../services/events/CarolServiceExportService";
 import CarolMembershipPickerModal from "./CarolMembershipPickerModal";
 import CarolOfferingAmountInput from "./CarolOfferingAmountInput";
-import { clearCarolOffering } from "../../services/events/carolOfferingService";
+import { clearCarolOffering, getCarolOfferingsForVisits } from "../../services/events/carolOfferingService";
 import {
   assignMembershipsToCarolDay,
   getAssignableCarolMemberships,
@@ -116,6 +119,7 @@ export default function CarolDayVisitsPage() {
   const [notice, setNotice] = useState("");
 
   const [membershipPickerOpen, setMembershipPickerOpen] = useState(false);
+  const [exporting, setExporting] = useState("");
 
   const loadPage = useCallback(async () => {
     setLoading(true);
@@ -402,6 +406,40 @@ export default function CarolDayVisitsPage() {
     }
   }
 
+  async function handleExport(format) {
+    if (!day || exporting || visits.length === 0) return;
+    
+    setExporting(format);
+    setError("");
+    setNotice("");
+
+    try {
+      // Fetch saved amounts for every visit, including amounts not
+      // currently visible or focused in the input fields.
+      const offerings = await getCarolOfferingsForVisits(
+        visits.map((visit) => visit.id),
+      );
+
+      const exportData = {
+        day,
+        visits, // Preserve the exact current displayed order.
+        offerings,
+      };
+
+      if (format === "pdf") {
+        exportCarolVisitsToPdf(exportData);
+        setNotice("Day-wise visit list exported as PDF.");
+      } else {
+        exportCarolVisitsToExcel(exportData);
+        setNotice("Day-wise visit list exported as Excel.");
+      }
+    } catch (err) {
+      setError(err.message || "Unable to export the visit list.");
+    } finally {
+      setExporting("");
+    }
+  }
+
   function clearFilters() {
     setSearch("");
     setAreaFilter("");
@@ -585,6 +623,27 @@ export default function CarolDayVisitsPage() {
           <span className="self-start rounded-lg bg-[#f2f2f4] px-3 py-1.5 text-sm font-medium text-[#454650] sm:self-auto">
             {visits.length} assigned
           </span>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+            type="button"
+            onClick={() => handleExport("pdf")}
+            disabled={visits.length === 0 || Boolean(exporting)}
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#e1e1e6] bg-white px-3.5 py-2.5 text-sm font-semibold text-[#34353d] transition hover:bg-[#f7f7f9] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+            <FileText size={16} />
+            {exporting === "pdf" ? "Exporting PDF..." : "Download PDF"}
+            </button>
+
+            <button
+            type="button"
+            onClick={() => handleExport("excel")}
+            disabled={visits.length === 0 || Boolean(exporting)}
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#1e1e1e] px-3.5 py-2.5 text-sm font-semibold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-50"
+            >
+            <FileSpreadsheet size={16} />
+            {exporting === "excel" ? "Exporting Excel..." : "Download Excel"}
+            </button>
+        </div>
         </div>
         {visits.length === 0 ? (
           <div className="px-6 py-14 text-center">
