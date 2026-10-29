@@ -96,9 +96,7 @@ function Modal({ title, description, onClose, children, wide = false }) {
 function Field({ label, children, hint }) {
   return (
     <label className="block space-y-1.5">
-      <span className="block text-sm font-medium text-slate-700">
-        {label}
-      </span>
+      <span className="block text-sm font-medium text-slate-700">{label}</span>
 
       {children}
 
@@ -476,9 +474,7 @@ function AppointmentRow({ appointment, onEnd }) {
           </p>
 
           {appointment.notes && (
-            <p className="mt-1 text-xs text-slate-500">
-              {appointment.notes}
-            </p>
+            <p className="mt-1 text-xs text-slate-500">{appointment.notes}</p>
           )}
 
           {!active && (
@@ -658,6 +654,7 @@ export default function LeadershipPage() {
 
   const [organizations, setOrganizations] = useState({
     officePositions: [],
+    committeePositions: [],
     fellowships: [],
     groups: [],
   });
@@ -678,15 +675,17 @@ export default function LeadershipPage() {
     setError("");
 
     try {
-      const [organizationData, memberData, appointmentData] =
-        await Promise.all([
+      const [organizationData, memberData, appointmentData] = await Promise.all(
+        [
           getLeadershipOrganizations(),
           getLeadershipMembers(),
           getLeadershipAppointments(),
-        ]);
+        ],
+      );
 
       setOrganizations({
         officePositions: organizationData?.officePositions || [],
+        committeePositions: organizationData?.committeePositions || [],
         fellowships: organizationData?.fellowships || [],
         groups: organizationData?.groups || [],
       });
@@ -713,6 +712,12 @@ export default function LeadershipPage() {
           type: "church_office",
           positions: organizations.officePositions,
         },
+        {
+          id: "church-committee",
+          name: "Church Committee",
+          type: "church_committee",
+          positions: organizations.committeePositions,
+        },
       ];
     }
 
@@ -726,11 +731,6 @@ export default function LeadershipPage() {
   }, [tab, organizations]);
 
   useEffect(() => {
-    if (tab === "church_office") {
-      setSelectedOrganizationId("church-office");
-      return;
-    }
-
     const exists = visibleOrganizations.some(
       (organization) => organization.id === selectedOrganizationId,
     );
@@ -738,7 +738,7 @@ export default function LeadershipPage() {
     if (!exists) {
       setSelectedOrganizationId(visibleOrganizations[0]?.id || "");
     }
-  }, [tab, visibleOrganizations, selectedOrganizationId]);
+  }, [visibleOrganizations, selectedOrganizationId]);
 
   const selectedOrganization = visibleOrganizations.find(
     (organization) => organization.id === selectedOrganizationId,
@@ -812,12 +812,7 @@ export default function LeadershipPage() {
     }
   }
 
-  async function savePosition({
-    organization,
-    position,
-    roleName,
-    capacity,
-  }) {
+  async function savePosition({ organization, position, roleName, capacity }) {
     setSaving(true);
     setError("");
 
@@ -830,8 +825,11 @@ export default function LeadershipPage() {
       } else {
         await createLeadershipPosition({
           organizationType: organization.type,
-          groupId:
-            organization.type === "church_office" ? null : organization.id,
+          groupId: ["church_office", "church_committee"].includes(
+            organization.type,
+          )
+            ? null
+            : organization.id,
           roleName,
           capacity,
         });
@@ -888,20 +886,14 @@ export default function LeadershipPage() {
         {/* Page heading */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.13em] text-slate-400">
-              <Crown size={14} />
-              Church administration
-            </div>
-
             <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
               Leadership
             </h1>
 
             <p className="mt-1.5 max-w-2xl text-sm text-slate-500">
-              Manage appointments, leadership capacities, and past terms
-              without changing membership or fellowship/group assignments.
-              Create and manage organisations from the Fellowships & Groups
-              page.
+              Manage appointments, leadership capacities, and past terms without
+              changing membership or fellowship/group assignments. Create and
+              manage organisations from the Fellowships & Groups page.
             </p>
           </div>
         </div>
@@ -996,9 +988,7 @@ export default function LeadershipPage() {
                   <button
                     key={organization.id}
                     type="button"
-                    onClick={() =>
-                      setSelectedOrganizationId(organization.id)
-                    }
+                    onClick={() => setSelectedOrganizationId(organization.id)}
                     className={`flex w-full items-center justify-between gap-3 rounded-xl px-3 py-3 text-left transition ${
                       selected
                         ? "bg-slate-100 text-slate-900"

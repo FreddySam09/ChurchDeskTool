@@ -15,6 +15,7 @@ import CommunicationsPage from "../features/communications/CommunicationsPage";
 import AppLayout from "../components/layout/AppLayout";
 import ProtectedRoute from "./ProtectedRoute";
 import LeadershipPage from "../features/leadership/LeadershipPage";
+import ReportsPage from "../features/reports/ReportsPage";
 
 function AppRoutes() {
   return (
@@ -51,6 +52,7 @@ function AppRoutes() {
             element={<CarolDayVisitsPage />}
           />
           <Route path="/leadership" element={<LeadershipPage />} />
+          <Route path="/reports" element={<ReportsPage />} />
         </Route>
       </Route>
 

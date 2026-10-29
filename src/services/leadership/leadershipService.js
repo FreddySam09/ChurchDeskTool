@@ -65,25 +65,33 @@ export async function getLeadershipOrganizations() {
   }))
 
   return {
-    officePositions: positions.filter(
-      (position) => position.organization_type === 'church_office',
-    ),
+  officePositions: positions.filter(
+    (position) =>
+      position.organization_type === 'church_office' &&
+      position.is_active,
+  ),
 
-    fellowships: organizationsWithPositions.filter(
-      (group) =>
-        group.group_type === 'fellowship' &&
-        group.group_status === 'Active',
-    ),
+  committeePositions: positions.filter(
+    (position) =>
+      position.organization_type === 'church_committee' &&
+      position.is_active,
+  ),
 
-    groups: organizationsWithPositions.filter(
-      (group) =>
-        group.group_type === 'group' &&
-        group.group_status === 'Active',
-    ),
+  fellowships: organizationsWithPositions.filter(
+    (group) =>
+      group.group_type === 'fellowship' &&
+      group.group_status === 'Active',
+  ),
 
-    allGroups: groups,
-    positions,
-  }
+  groups: organizationsWithPositions.filter(
+    (group) =>
+      group.group_type === 'group' &&
+      group.group_status === 'Active',
+  ),
+
+  allGroups: groups,
+  positions,
+}
 }
 
 
@@ -213,17 +221,24 @@ export async function createLeadershipPosition({
 
   if (!cleanRole) throw new Error('Enter a position name.')
 
-  if (!['church_office', 'fellowship', 'group'].includes(organizationType)) {
-    throw new Error('Choose a valid organization type.')
-  }
+  if (
+  ![
+    'church_office',
+    'church_committee',
+    'fellowship',
+    'group',
+  ].includes(organizationType)
+) {
+  throw new Error('Choose a valid organization type.')
+}
 
   if (
-    organizationType === 'church_office'
-      ? groupId !== null
-      : !groupId
-  ) {
-    throw new Error('The selected organization is invalid.')
-  }
+  ['church_office', 'church_committee'].includes(organizationType)
+    ? groupId !== null
+    : !groupId
+) {
+  throw new Error('The selected organization is invalid.')
+}
 
   if (!Number.isInteger(numericCapacity) || numericCapacity < 1) {
     throw new Error('Position capacity must be at least one.')

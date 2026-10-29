@@ -10,6 +10,7 @@ import {
   X,
   MessageCircle,
   Crown,
+  ChartNoAxesCombined,
 } from "lucide-react";
 
 export default function Sidebar({ open = false, onClose }) {
@@ -232,6 +233,20 @@ export default function Sidebar({ open = false, onClose }) {
 >
   <MessageCircle size={17} />
   <span>Communications</span>
+</NavLink>
+<NavLink
+  to="/reports"
+  onClick={onClose}
+  className={({ isActive }) =>
+    `flex items-center gap-3 rounded-[10px] px-3 py-[11px] text-[13px] transition ${
+      isActive
+        ? "bg-white/[0.08] font-medium text-white"
+        : "text-white/60 hover:bg-white/[0.05] hover:text-white"
+    }`
+  }
+>
+  <ChartNoAxesCombined size={17} />
+  <span>Reports</span>
 </NavLink>
             </div>
           </div>
