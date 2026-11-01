@@ -16,6 +16,8 @@ import AppLayout from "../components/layout/AppLayout";
 import ProtectedRoute from "./ProtectedRoute";
 import LeadershipPage from "../features/leadership/LeadershipPage";
 import ReportsPage from "../features/reports/ReportsPage";
+import UsersPage from "../features/users/UsersPage";
+import ResetPasswordPage from "../features/auth/ResetPasswordPage";
 
 function AppRoutes() {
   return (
@@ -53,6 +55,9 @@ function AppRoutes() {
           />
           <Route path="/leadership" element={<LeadershipPage />} />
           <Route path="/reports" element={<ReportsPage />} />
+          <Route element={<ProtectedRoute allowedRoles={["Super Admin", "Admin"]} />}>
+            <Route path="/users" element={<UsersPage />} />
+          </Route>
         </Route>
       </Route>
 

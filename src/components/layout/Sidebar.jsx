@@ -1,6 +1,5 @@
-
-import { useEffect, useState } from 'react'
-import { NavLink, useLocation } from 'react-router-dom'
+import { useEffect, useState } from "react";
+import { NavLink, useLocation } from "react-router-dom";
 import {
   CalendarDays,
   ChevronRight,
@@ -11,28 +10,30 @@ import {
   MessageCircle,
   Crown,
   ChartNoAxesCombined,
+  ShieldCheck,
 } from "lucide-react";
+import { useAuth } from "../../features/auth/AuthContext";
 
 export default function Sidebar({ open = false, onClose }) {
-  const location = useLocation()
-
-  const [membershipExpanded, setMembershipExpanded] = useState(true)
-  const [eventsExpanded, setEventsExpanded] = useState(
-    () => location.pathname.startsWith('/events'),
-  )
+  const location = useLocation();
+  const { canManageUsers } = useAuth();
+  const [membershipExpanded, setMembershipExpanded] = useState(true);
+  const [eventsExpanded, setEventsExpanded] = useState(() =>
+    location.pathname.startsWith("/events"),
+  );
 
   useEffect(() => {
-    if (location.pathname.startsWith('/events')) {
-      setEventsExpanded(true)
+    if (location.pathname.startsWith("/events")) {
+      setEventsExpanded(true);
     }
-  }, [location.pathname])
+  }, [location.pathname]);
 
   const linkClass = ({ isActive }) =>
     `flex items-center gap-2.5 rounded-r-lg border-l-2 px-3 py-[9px] text-[13px] transition ${
       isActive
-        ? 'border-[#4f70e8] bg-white/[0.07] font-medium text-white'
-        : 'border-transparent text-white/60 hover:bg-white/[0.05] hover:text-white'
-    }`
+        ? "border-[#4f70e8] bg-white/[0.07] font-medium text-white"
+        : "border-transparent text-white/60 hover:bg-white/[0.05] hover:text-white"
+    }`;
 
   return (
     <>
@@ -47,7 +48,7 @@ export default function Sidebar({ open = false, onClose }) {
 
       <aside
         className={`fixed inset-y-0 left-0 z-50 flex h-screen w-[264px] shrink-0 flex-col overflow-y-auto bg-gradient-to-b from-[#131418] to-[#0b0c0f] text-[#eef3ee] shadow-xl transition-transform duration-200 lg:sticky lg:top-0 lg:z-40 lg:translate-x-0 lg:shadow-none ${
-          open ? 'translate-x-0' : '-translate-x-full'
+          open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         <div className="flex items-center gap-3 border-b border-white/[0.08] px-[22px] pb-5 pt-[26px]">
@@ -87,9 +88,7 @@ export default function Sidebar({ open = false, onClose }) {
           <div className="mb-1">
             <button
               type="button"
-              onClick={() =>
-                setMembershipExpanded((value) => !value)
-              }
+              onClick={() => setMembershipExpanded((value) => !value)}
               aria-expanded={membershipExpanded}
               className="flex w-full items-center gap-3 rounded-[10px] bg-white/[0.10] px-3 py-[11px] text-left text-[14px] font-medium text-white transition hover:bg-white/[0.13]"
             >
@@ -100,26 +99,19 @@ export default function Sidebar({ open = false, onClose }) {
               <ChevronRight
                 size={15}
                 className={`text-white/60 transition-transform ${
-                  membershipExpanded ? 'rotate-90' : ''
+                  membershipExpanded ? "rotate-90" : ""
                 }`}
               />
             </button>
 
             <div
               className={`grid transition-[grid-template-rows] duration-200 ${
-                membershipExpanded
-                  ? 'grid-rows-[1fr]'
-                  : 'grid-rows-[0fr]'
+                membershipExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
               }`}
             >
               <div className="overflow-hidden">
                 <div className="ml-[22px] mt-1 space-y-0.5 border-l border-white/[0.10] pl-2">
-                  <NavLink
-                    to="/"
-                    end
-                    onClick={onClose}
-                    className={linkClass}
-                  >
+                  <NavLink to="/" end onClick={onClose} className={linkClass}>
                     Memberships
                   </NavLink>
 
@@ -139,11 +131,7 @@ export default function Sidebar({ open = false, onClose }) {
                     Annual Membership Register
                   </NavLink>
 
-                  <NavLink
-                    to="/groups"
-                    onClick={onClose}
-                    className={linkClass}
-                  >
+                  <NavLink to="/groups" onClick={onClose} className={linkClass}>
                     Fellowships &amp; Groups
                   </NavLink>
 
@@ -163,9 +151,7 @@ export default function Sidebar({ open = false, onClose }) {
           <div className="mb-1">
             <button
               type="button"
-              onClick={() =>
-                setEventsExpanded((value) => !value)
-              }
+              onClick={() => setEventsExpanded((value) => !value)}
               aria-expanded={eventsExpanded}
               className="flex w-full items-center gap-3 rounded-[10px] px-3 py-[11px] text-left text-[14px] font-medium text-white/90 transition hover:bg-white/[0.07]"
             >
@@ -180,16 +166,14 @@ export default function Sidebar({ open = false, onClose }) {
               <ChevronRight
                 size={15}
                 className={`text-white/60 transition-transform ${
-                  eventsExpanded ? 'rotate-90' : ''
+                  eventsExpanded ? "rotate-90" : ""
                 }`}
               />
             </button>
 
             <div
               className={`grid transition-[grid-template-rows] duration-200 ${
-                eventsExpanded
-                  ? 'grid-rows-[1fr]'
-                  : 'grid-rows-[0fr]'
+                eventsExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
               }`}
             >
               <div className="overflow-hidden">
@@ -221,33 +205,49 @@ export default function Sidebar({ open = false, onClose }) {
               </div>
 
               <NavLink
-  to="/communications"
-  onClick={onClose}
-  className={({ isActive }) =>
-    `flex items-center gap-3 rounded-[10px] px-3 py-[11px] text-[13px] transition ${
-      isActive
-        ? "bg-white/[0.08] font-medium text-white"
-        : "text-white/60 hover:bg-white/[0.05] hover:text-white"
-    }`
-  }
->
-  <MessageCircle size={17} />
-  <span>Communications</span>
-</NavLink>
-<NavLink
-  to="/reports"
-  onClick={onClose}
-  className={({ isActive }) =>
-    `flex items-center gap-3 rounded-[10px] px-3 py-[11px] text-[13px] transition ${
-      isActive
-        ? "bg-white/[0.08] font-medium text-white"
-        : "text-white/60 hover:bg-white/[0.05] hover:text-white"
-    }`
-  }
->
-  <ChartNoAxesCombined size={17} />
-  <span>Reports</span>
-</NavLink>
+                to="/communications"
+                onClick={onClose}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 rounded-[10px] px-3 py-[11px] text-[13px] transition ${
+                    isActive
+                      ? "bg-white/[0.08] font-medium text-white"
+                      : "text-white/60 hover:bg-white/[0.05] hover:text-white"
+                  }`
+                }
+              >
+                <MessageCircle size={17} />
+                <span>Communications</span>
+              </NavLink>
+              <NavLink
+                to="/reports"
+                onClick={onClose}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 rounded-[10px] px-3 py-[11px] text-[13px] transition ${
+                    isActive
+                      ? "bg-white/[0.08] font-medium text-white"
+                      : "text-white/60 hover:bg-white/[0.05] hover:text-white"
+                  }`
+                }
+              >
+                <ChartNoAxesCombined size={17} />
+                <span>Reports</span>
+              </NavLink>
+              {canManageUsers && (
+                <NavLink
+                  to="/users"
+                  onClick={onClose}
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 rounded-[10px] px-3 py-[11px] text-[13px] transition ${
+                      isActive
+                        ? "bg-white/[0.08] font-medium text-white"
+                        : "text-white/60 hover:bg-white/[0.05] hover:text-white"
+                    }`
+                  }
+                >
+                  <ShieldCheck size={17} />
+                  <span>Users</span>
+                </NavLink>
+              )}
             </div>
           </div>
         </nav>
@@ -285,5 +285,5 @@ export default function Sidebar({ open = false, onClose }) {
         </div>
       </aside>
     </>
-  )
+  );
 }
