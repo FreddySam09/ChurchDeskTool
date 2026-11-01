@@ -1,8 +1,28 @@
 
 import { supabase } from "../lib/supabase";
 
-function unwrap({ data, error }) {
-  if (error) throw error;
+async function unwrap({ data, error }) {
+  if (error) {
+    let message = error.message;
+
+    if (error.context) {
+      try {
+        const details = await error.context.json();
+        message = details.error || details.message || message;
+      } catch {
+        // Keep the original error message.
+      }
+    }
+
+    console.error("Church Desk user management error:", {
+      message,
+      error,
+      data,
+    });
+
+    throw new Error(message);
+  }
+
   return data;
 }
 
