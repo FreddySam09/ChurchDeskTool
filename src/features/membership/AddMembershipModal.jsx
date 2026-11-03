@@ -16,7 +16,7 @@ const initialForm = {
   name: "",
   gender: "",
   date_of_birth: "",
-  marital_status: "Single",
+  marital_status: "Unmarried",
   baptism_status: "Unknown",
   date_of_baptism: "",
   occupation_or_studying: "",
@@ -193,21 +193,21 @@ export default function AddMembershipModal({ onClose, onCreated }) {
           email: form.email,
         },
         membership: {
-  membership_number: form.membership_number.trim(),
-  door_number: form.door_number,
-  street_name: form.street_name,
-  area: form.area,
-  city: form.city,
-  pincode: form.pincode,
-  landmark: form.landmark,
-  primary_phone_number:
-    form.primary_phone_number || form.phone_number,
-  alternate_phone_number: form.alternate_phone_number,
-  email: form.household_email || form.email,
-  year_joined: form.year_joined.trim()
-    ? Number(form.year_joined)
-    : null,
-},
+          membership_number: form.membership_number.trim(),
+          door_number: form.door_number,
+          street_name: form.street_name,
+          area: form.area,
+          city: form.city,
+          pincode: form.pincode,
+          landmark: form.landmark,
+          primary_phone_number:
+            form.primary_phone_number || form.phone_number,
+          alternate_phone_number: form.alternate_phone_number,
+          email: form.household_email || form.email,
+          year_joined: form.year_joined.trim()
+            ? Number(form.year_joined)
+            : null,
+        },
       });
 
       let savedPhotoPath = null;
@@ -231,7 +231,6 @@ export default function AddMembershipModal({ onClose, onCreated }) {
         );
 
         try {
-          // Persist the Storage path using the existing membership update RPC.
           const { updateMembership } = await import(
             "../../services/membershipService"
           );
@@ -240,7 +239,6 @@ export default function AddMembershipModal({ onClose, onCreated }) {
             head_photo_path: savedPhotoPath,
           });
         } catch (photoSaveError) {
-          // Avoid leaving an orphaned upload if saving its path fails.
           await deleteMembershipHeadPhoto(savedPhotoPath).catch(() => {});
           throw photoSaveError;
         }
@@ -415,13 +413,13 @@ export default function AddMembershipModal({ onClose, onCreated }) {
               </label>
 
               <Field
-  label="Year joined"
-  name="year_joined"
-  form={form}
-  onChange={handleChange}
-  type="number"
-  placeholder="Optional"
-/>
+                label="Year joined"
+                name="year_joined"
+                form={form}
+                onChange={handleChange}
+                type="number"
+                placeholder="Optional"
+              />
             </Section>
 
             <Section icon={UserRound} title="Head of membership">
@@ -462,10 +460,12 @@ export default function AddMembershipModal({ onClose, onCreated }) {
                 form={form}
                 onChange={handleChange}
                 options={[
-                  { value: "Single", label: "Single" },
+                  { value: "Unmarried", label: "Unmarried" },
                   { value: "Married", label: "Married" },
                   { value: "Widowed", label: "Widowed" },
                   { value: "Divorced", label: "Divorced" },
+                  { value: "Separated", label: "Separated" },
+                  { value: "Unknown", label: "Unknown" },
                 ]}
               />
 

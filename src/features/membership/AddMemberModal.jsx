@@ -7,7 +7,7 @@ const initialForm = {
   name: "",
   gender: "Female",
   date_of_birth: "",
-  marital_status: "Single",
+  marital_status: "Unmarried",
   occupation_or_studying: "",
   phone_number: "",
   email: "",
@@ -371,7 +371,7 @@ export default function AddMemberModal({
               required
               disabled={isSpouse}
               options={[
-                { value: "Single", label: "Single" },
+                { value: "Unmarried", label: "Unmarried" },
                 { value: "Married", label: "Married" },
                 { value: "Widowed", label: "Widowed" },
                 { value: "Divorced", label: "Divorced" },

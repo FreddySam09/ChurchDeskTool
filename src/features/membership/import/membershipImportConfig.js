@@ -49,7 +49,34 @@ const RELATIONSHIPS = [
 ];
 
 const GENDERS = ["Male", "Female", "Other"];
-const MARITAL_STATUSES = ["Single", "Married", "Widowed", "Divorced"];
+
+export const MARITAL_STATUSES = [
+  "Unmarried",
+  "Married",
+  "Widowed",
+  "Divorced",
+  "Separated",
+  "Unknown",
+];
+
+export function normalizeMaritalStatus(value) {
+  const clean = String(value ?? "").trim();
+
+  if (!clean) return "";
+
+  const aliases = {
+    single: "Unmarried",
+    unmarried: "Unmarried",
+    married: "Married",
+    widowed: "Widowed",
+    divorced: "Divorced",
+    separated: "Separated",
+    unknown: "Unknown",
+  };
+
+  return aliases[clean.toLocaleLowerCase()] ?? clean;
+}
+
 const MEMBERSHIP_STATUSES = ["Active", "Inactive", "Closed"];
 const RECORD_TYPES = ["Membership", "Branch"];
 
@@ -121,7 +148,7 @@ export const MEMBERSHIP_EXAMPLE_ROWS = [
     "Relationship to Head": "Child",
     Gender: "Male",
     "Date of Birth": "2005-03-15",
-    "Marital Status": "Single",
+    "Marital Status": "Unmarried",
     "Married To": "",
     "Date of Marriage": "",
     Occupation: "College Student",
@@ -150,7 +177,7 @@ export const MEMBERSHIP_EXAMPLE_ROWS = [
     "Relationship to Head": "Child",
     Gender: "Female",
     "Date of Birth": "2010-07-22",
-    "Marital Status": "Single",
+    "Marital Status": "Unmarried",
     "Married To": "",
     "Date of Marriage": "",
     Occupation: "Student",
@@ -239,7 +266,9 @@ export const MEMBERSHIP_EXAMPLE_ROWS = [
 export function parseGroupNames(value) {
   const values = Array.isArray(value) ? value : [value];
 
-  const names = values.flatMap((item) => String(item ?? "").split(/[;,\n\r]+/));
+  const names = values.flatMap((item) =>
+    String(item ?? "").split(/[;,\n\r]+/),
+  );
 
   const seen = new Set();
 
@@ -264,15 +293,37 @@ export function formatGroupNames(value) {
 }
 
 export function createEmptyRow() {
-  return Object.fromEntries(MEMBERSHIP_HEADERS.map((header) => [header, ""]));
+  return Object.fromEntries(
+    MEMBERSHIP_HEADERS.map((header) => [header, ""]),
+  );
+}
+
+export function formatTitleCase(value) {
+  return String(value ?? "")
+    .trim()
+    .toLocaleLowerCase("en")
+    .replace(/(^|[\s'-])(\p{L})/gu, (_, separator, letter) => {
+      return separator + letter.toLocaleUpperCase("en");
+    });
 }
 
 export function prepareImportedRows(rows) {
   const normalized = normalizeRows(rows, MEMBERSHIP_HEADERS);
 
+  const titleCaseFields = [
+    "Name",
+    "Married To",
+    "Occupation",
+    "Street Name",
+    "Area",
+    "City",
+    "Landmark",
+  ];
+
   return normalized.map((row, index) => {
     const prepared = { ...row };
 
+    // Standardise dates.
     for (const header of DATE_HEADERS) {
       const value = cleanCell(prepared[header]);
 
@@ -285,25 +336,36 @@ export function prepareImportedRows(rows) {
       prepared[header] = parsed ?? value;
     }
 
+    // Clean all spreadsheet values.
     for (const header of MEMBERSHIP_HEADERS) {
       if (DATE_HEADERS.includes(header)) continue;
       prepared[header] = cleanCell(prepared[header]);
     }
 
-    prepared["Membership Number"] = prepared["Membership Number"].replace(
-      /\s+/g,
-      "",
+    // Standardise names and address-related text.
+    for (const field of titleCaseFields) {
+      prepared[field] = formatTitleCase(prepared[field]);
+    }
+
+    // Convert legacy Single values to the canonical Unmarried value.
+    prepared["Marital Status"] = normalizeMaritalStatus(
+      prepared["Marital Status"],
     );
 
-    prepared["Record Type"] = prepared["Record Type"].trim();
+    // Preserve membership numbers.
+    prepared["Membership Number"] =
+      prepared["Membership Number"].replace(/\s+/g, "");
 
-    prepared["Branch Suffix"] = prepared["Branch Suffix"].toUpperCase();
+    prepared["Record Type"] =
+      prepared["Record Type"].trim();
+
+    prepared["Branch Suffix"] =
+      prepared["Branch Suffix"].toUpperCase();
 
     prepared["Is Head"] =
       prepared["Is Head"].toLowerCase() === "yes" ? "Yes" : "No";
 
-    // The database supports "Child", not "Son" or "Daughter".
-    // Normalize common Excel values before validation and import.
+    // Standardise relationship values.
     const relationship = prepared["Relationship to Head"]
       .trim()
       .toLocaleLowerCase();
@@ -321,14 +383,16 @@ export function prepareImportedRows(rows) {
 
     if (relationship) {
       prepared["Relationship to Head"] =
-        relationshipAliases[relationship] ?? prepared["Relationship to Head"];
+        relationshipAliases[relationship] ??
+        formatTitleCase(prepared["Relationship to Head"]);
     }
 
+    // Keep group names unchanged so they match registered Church Desk names.
     prepared["Fellowship / Groups"] = formatGroupNames(
       prepared["Fellowship / Groups"],
     );
 
-    // Preserve the original Excel row number when available.
+    // Preserve original Excel row number.
     prepared.__sourceRow = row.__sourceRow ?? index + 2;
 
     return prepared;
@@ -375,7 +439,11 @@ export function validateMembershipRows(rows) {
     const relationship = cleanCell(row["Relationship to Head"]);
     const status = cleanCell(row["Membership Status"]);
     const gender = cleanCell(row.Gender);
-    const maritalStatus = cleanCell(row["Marital Status"]);
+
+    const maritalStatus = normalizeMaritalStatus(
+      cleanCell(row["Marital Status"]),
+    );
+
     const marriageDate = cleanCell(row["Date of Marriage"]);
     const yearJoined = cleanCell(row["Year Joined"]);
 
@@ -392,7 +460,8 @@ export function validateMembershipRows(rows) {
       }
 
       const normalizedNumber = number.toLowerCase();
-      const numberIndexes = membershipNumberRows.get(normalizedNumber) ?? [];
+      const numberIndexes =
+        membershipNumberRows.get(normalizedNumber) ?? [];
 
       numberIndexes.push(index);
       membershipNumberRows.set(normalizedNumber, numberIndexes);
@@ -447,15 +516,25 @@ export function validateMembershipRows(rows) {
       );
     }
 
-    if (head === "Yes" && relationship) {
+    // Main membership heads have no relationship to themselves.
+    // Branch heads must specify their relationship to the original membership head.
+    if (type === "Membership" && head === "Yes" && relationship) {
       addWarning(
         index,
         "Relationship to Head",
-        "The household head normally has no relationship to themselves.",
+        "The main membership head normally has no relationship to themselves.",
       );
     }
 
-    if (head === "No" && !relationship) {
+    if (type === "Branch" && head === "Yes" && !relationship) {
+      addError(
+        index,
+        "Relationship to Head",
+        "A branch member must specify their relationship to the original membership head.",
+      );
+    }
+
+    if (type === "Membership" && head === "No" && !relationship) {
       addError(
         index,
         "Relationship to Head",
@@ -469,7 +548,11 @@ export function validateMembershipRows(rows) {
     }
 
     if (maritalStatus && !MARITAL_STATUSES.includes(maritalStatus)) {
-      addError(index, "Marital Status", `Use ${MARITAL_STATUSES.join(", ")}.`);
+      addError(
+        index,
+        "Marital Status",
+        `Use ${MARITAL_STATUSES.join(", ")}.`,
+      );
     }
 
     if (status && !MEMBERSHIP_STATUSES.includes(status)) {
@@ -511,24 +594,32 @@ export function validateMembershipRows(rows) {
       );
     }
 
-    if (relationship === "Spouse" && maritalStatus === "Single") {
+    // A spouse relationship must have Married status.
+    if (relationship === "Spouse" && maritalStatus !== "Married") {
       addError(
         index,
         "Marital Status",
-        "A spouse relationship cannot have marital status Single.",
+        "A spouse relationship must have marital status Married.",
       );
     }
 
-    // Year joined.
-    if (!yearJoined) {
-      addError(index, "Year Joined", "Year joined is required.");
-    } else if (!/^\d{4}$/.test(yearJoined)) {
-      addError(index, "Year Joined", "Enter a four-digit year.");
+    // Year joined is optional.
+    // Validate only when a value is provided.
+    if (yearJoined && !/^\d{4}$/.test(yearJoined)) {
+      addError(
+        index,
+        "Year Joined",
+        "Enter a four-digit year.",
+      );
     }
 
     // Validate household composition using membership number AND suffix.
     // Repeated membership numbers within the same household are expected.
-    if (number && type && (type === "Membership" || /^[A-Z]$/.test(suffix))) {
+    if (
+      number &&
+      type &&
+      (type === "Membership" || /^[A-Z]$/.test(suffix))
+    ) {
       const key = getHouseholdKey(row);
       const indexes = householdRows.get(key) ?? [];
 
@@ -538,8 +629,50 @@ export function validateMembershipRows(rows) {
   });
 
   // Each household/branch must contain exactly one head.
+  // Main memberships can contain multiple people.
+  // Branch memberships must contain exactly one person.
   for (const [key, indexes] of householdRows) {
     if (!key || key.startsWith("::")) continue;
+
+    const types = new Set(
+      indexes.map((index) =>
+        cleanCell(rows[index]["Record Type"]),
+      ),
+    );
+
+    const isBranch = types.has("Branch");
+
+    if (isBranch) {
+      if (indexes.length !== 1) {
+        indexes.forEach((index) => {
+          addError(
+            index,
+            "Record Type",
+            "A branch must contain exactly one person. Create a separate branch for each person.",
+          );
+        });
+      }
+
+      indexes.forEach((index) => {
+        if (cleanCell(rows[index]["Is Head"]) !== "Yes") {
+          addError(
+            index,
+            "Is Head",
+            "The single person in a branch must be marked as its head.",
+          );
+        }
+
+        if (!cleanCell(rows[index]["Relationship to Head"])) {
+          addError(
+            index,
+            "Relationship to Head",
+            "A branch member must specify their relationship to the original membership head.",
+          );
+        }
+      });
+
+      continue;
+    }
 
     const heads = indexes.filter(
       (index) => cleanCell(rows[index]["Is Head"]) === "Yes",
@@ -550,21 +683,7 @@ export function validateMembershipRows(rows) {
         addError(
           index,
           "Is Head",
-          `This household needs exactly one head; found ${heads.length}.`,
-        );
-      });
-    }
-
-    const types = new Set(
-      indexes.map((index) => cleanCell(rows[index]["Record Type"])),
-    );
-
-    if (types.size > 1) {
-      indexes.forEach((index) => {
-        addWarning(
-          index,
-          "Record Type",
-          "This household has mixed Membership/Branch record types.",
+          `This membership needs exactly one head; found ${heads.length}.`,
         );
       });
     }
@@ -623,8 +742,10 @@ export function validateMembershipRows(rows) {
     if (headIndex === undefined) continue;
 
     const headRow = rows[headIndex];
+
     const spouseRows = indexes.filter(
-      (index) => cleanCell(rows[index]["Relationship to Head"]) === "Spouse",
+      (index) =>
+        cleanCell(rows[index]["Relationship to Head"]) === "Spouse",
     );
 
     for (const spouseIndex of spouseRows) {
@@ -648,7 +769,8 @@ export function validateMembershipRows(rows) {
       if (
         headMarriedTo &&
         spouseName &&
-        headMarriedTo.toLocaleLowerCase() !== spouseName.toLocaleLowerCase()
+        headMarriedTo.toLocaleLowerCase() !==
+          spouseName.toLocaleLowerCase()
       ) {
         addWarning(
           headIndex,
@@ -660,7 +782,8 @@ export function validateMembershipRows(rows) {
       if (
         spouseMarriedTo &&
         headName &&
-        spouseMarriedTo.toLocaleLowerCase() !== headName.toLocaleLowerCase()
+        spouseMarriedTo.toLocaleLowerCase() !==
+          headName.toLocaleLowerCase()
       ) {
         addWarning(
           spouseIndex,

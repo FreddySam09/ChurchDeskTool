@@ -23,6 +23,27 @@ const labelClass = "block text-[11.5px] font-semibold text-[#53555e]";
 
 const STATUS_OPTIONS = ["Active", "Inactive", "Deceased", "Removed"];
 
+const MARITAL_STATUS_OPTIONS = [
+  "Unmarried",
+  "Married",
+  "Widowed",
+  "Divorced",
+  "Separated",
+  "Unknown",
+];
+
+function normalizeMaritalStatus(value) {
+  const clean = String(value ?? "").trim();
+
+  if (!clean) return "Unknown";
+
+  if (clean.toLowerCase() === "single") {
+    return "Unmarried";
+  }
+
+  return clean;
+}
+
 function displayValue(value) {
   return value === null || value === undefined || value === ""
     ? "Not Recorded"
@@ -101,7 +122,7 @@ function EditMemberModal({ member, onClose, onSaved }) {
     name: member.name ?? "",
     gender: member.gender ?? "",
     date_of_birth: member.date_of_birth ?? "",
-    marital_status: member.marital_status ?? "Unknown",
+    marital_status: normalizeMaritalStatus(member.marital_status),
     occupation_or_studying: member.occupation_or_studying ?? "",
     phone_number: member.phone_number ?? "",
     email: member.email ?? "",
@@ -111,12 +132,21 @@ function EditMemberModal({ member, onClose, onSaved }) {
   const [selectedGroupIds, setSelectedGroupIds] = useState(() => [
     ...new Set((member.groups ?? []).map((group) => group.id).filter(Boolean)),
   ]);
+
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   function handleChange(event) {
     const { name, value } = event.target;
-    setForm((current) => ({ ...current, [name]: value }));
+
+    setForm((current) => ({
+      ...current,
+      [name]:
+        name === "marital_status"
+          ? normalizeMaritalStatus(value)
+          : value,
+    }));
+
     setError("");
   }
 
@@ -134,21 +164,18 @@ function EditMemberModal({ member, onClose, onSaved }) {
     setError("");
 
     try {
-      // Update the member's editable personal fields.
-      // Baptism fields are intentionally omitted so existing database values
-      // are not overwritten.
       await updateMember(member.id, {
         name: cleanName,
         gender: form.gender || null,
         date_of_birth: form.date_of_birth || null,
-        marital_status: form.marital_status || null,
-        occupation_or_studying: form.occupation_or_studying.trim() || null,
+        marital_status: normalizeMaritalStatus(form.marital_status),
+        occupation_or_studying:
+          form.occupation_or_studying.trim() || null,
         phone_number: form.phone_number.trim() || null,
         email: form.email.trim() || null,
         status: form.status || null,
       });
 
-      // Synchronise group assignments without deleting assignment history.
       await updateMemberGroups(member.id, selectedGroupIds);
 
       await onSaved();
@@ -184,9 +211,11 @@ function EditMemberModal({ member, onClose, onSaved }) {
             >
               Edit Member
             </h2>
+
             <p className="mt-1 text-[12px] text-[#777984]">
               Update this person's information and group assignments.
             </p>
+
             <p className="mt-2 text-[11px] text-[#888a93]">
               Person ID: {displayValue(member.person_id)}
             </p>
@@ -247,14 +276,10 @@ function EditMemberModal({ member, onClose, onSaved }) {
                 name="marital_status"
                 value={form.marital_status}
                 onChange={handleChange}
-                options={[
-                  { value: "Single", label: "Single" },
-                  { value: "Married", label: "Married" },
-                  { value: "Widowed", label: "Widowed" },
-                  { value: "Divorced", label: "Divorced" },
-                  { value: "Separated", label: "Separated" },
-                  { value: "Unknown", label: "Unknown" },
-                ]}
+                options={MARITAL_STATUS_OPTIONS.map((status) => ({
+                  value: status,
+                  label: status,
+                }))}
               />
 
               <FormField
@@ -307,6 +332,7 @@ function EditMemberModal({ member, onClose, onSaved }) {
             <h3 className="text-[13px] font-bold text-[#131418]">
               Permanent Record
             </h3>
+
             <p className="mt-2 text-[11.5px] leading-5 text-[#777984]">
               Person ID, membership ID, membership number, and household
               assignment are not editable here. Removing a group ends its
@@ -351,12 +377,12 @@ export default function MemberDetails() {
   const { memberId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  
+
   const [member, setMember] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [editing, setEditing] = useState(false);
-const [transferOpen, setTransferOpen] = useState(false);
+  const [transferOpen, setTransferOpen] = useState(false);
 
   const loadMember = useCallback(async () => {
     setLoading(true);
@@ -372,7 +398,10 @@ const [transferOpen, setTransferOpen] = useState(false);
         return;
       }
 
-      setMember(found);
+      setMember({
+        ...found,
+        marital_status: normalizeMaritalStatus(found.marital_status),
+      });
     } catch (err) {
       setError(err.message || "Unable to load member details.");
     } finally {
@@ -404,9 +433,11 @@ const [transferOpen, setTransferOpen] = useState(false);
           <ArrowLeft size={16} />
           Back
         </button>
+
         <p role="alert" className="text-[13px] font-semibold text-red-700">
           {error || "Member not found."}
         </p>
+
         <button
           type="button"
           onClick={loadMember}
@@ -440,9 +471,11 @@ const [transferOpen, setTransferOpen] = useState(false);
             <h1 className="text-[24px] font-extrabold tracking-[-0.7px] text-[#131418]">
               {member.name}
             </h1>
+
             <p className="mt-1 text-[12px] text-[#777984]">
               Person ID: {displayValue(member.person_id)}
             </p>
+
             <div className="mt-2">
               <span className="rounded-full bg-[#eeeeef] px-2.5 py-1 text-[10.5px] font-semibold text-[#53555e]">
                 {member.status || "Unknown"}
@@ -481,21 +514,21 @@ const [transferOpen, setTransferOpen] = useState(false);
           </button>
 
           <button
-  type="button"
-  onClick={() => setTransferOpen(true)}
-  disabled={!member.membership_row_id || member.is_head}
-  title={
-    member.is_head
-      ? "Change the membership head before transferring this person."
-      : !member.membership_row_id
-        ? "This person has no current membership assignment."
-        : "Transfer this person to another membership"
-  }
-  className="inline-flex min-h-[40px] items-center gap-2 rounded-[10px] border border-[#e5e5e7] bg-white px-3.5 py-2 text-[12px] font-semibold text-[#25262c] hover:bg-[#f7f7f8] disabled:cursor-not-allowed disabled:opacity-50"
->
-  <ArrowRightLeft size={15} />
-  Transfer Membership
-</button>
+            type="button"
+            onClick={() => setTransferOpen(true)}
+            disabled={!member.membership_row_id || member.is_head}
+            title={
+              member.is_head
+                ? "Change the membership head before transferring this person."
+                : !member.membership_row_id
+                  ? "This person has no current membership assignment."
+                  : "Transfer this person to another membership"
+            }
+            className="inline-flex min-h-[40px] items-center gap-2 rounded-[10px] border border-[#e5e5e7] bg-white px-3.5 py-2 text-[12px] font-semibold text-[#25262c] hover:bg-[#f7f7f8] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <ArrowRightLeft size={15} />
+            Transfer Membership
+          </button>
         </div>
       </header>
 
@@ -510,22 +543,32 @@ const [transferOpen, setTransferOpen] = useState(false);
           <div className="grid grid-cols-1 gap-x-6 px-5 sm:grid-cols-2">
             <Detail label="Full Name" value={member.name} />
             <Detail label="Permanent Person ID" value={member.person_id} />
+
             <Detail
               label="Relationship to Household Head"
               value={member.relationship_to_head}
             />
+
             <Detail label="Gender" value={member.gender} />
+
             <Detail
               label="Date of Birth"
               value={formatDate(member.date_of_birth)}
             />
+
             <Detail label="Personal Phone" value={member.phone_number} />
             <Detail label="Personal Email" value={member.email} />
-            <Detail label="Marital Status" value={member.marital_status} />
+
+            <Detail
+              label="Marital Status"
+              value={normalizeMaritalStatus(member.marital_status)}
+            />
+
             <Detail
               label="Occupation / Studying"
               value={member.occupation_or_studying}
             />
+
             <Detail label="Member Status" value={member.status} />
           </div>
         </section>
@@ -536,6 +579,7 @@ const [transferOpen, setTransferOpen] = useState(false);
               <h2 className="text-[13.5px] font-extrabold text-[#131418]">
                 Membership Information
               </h2>
+
               {member.membership_row_id && (
                 <button
                   type="button"
@@ -554,20 +598,24 @@ const [transferOpen, setTransferOpen] = useState(false);
                 label="Membership Number"
                 value={member.display_membership_number}
               />
+
               <Detail
                 label="Permanent Membership ID"
                 value={member.membership_id}
               />
+
               <Detail
                 label="Membership Status"
                 value={member.membership_status}
               />
+
               <Detail
                 label="Area"
                 value={[member.membership_area, member.membership_city]
                   .filter(Boolean)
                   .join(", ")}
               />
+
               {!member.membership_row_id && (
                 <p className="py-3 text-[11.5px] text-[#888a93]">
                   No current membership assignment is recorded.
@@ -594,6 +642,7 @@ const [transferOpen, setTransferOpen] = useState(false);
                       <span className="text-[12px] font-semibold text-[#25262c]">
                         {group.name}
                       </span>
+
                       {group.role && (
                         <span className="text-right text-[10.5px] text-[#777984]">
                           {group.role}
@@ -620,24 +669,16 @@ const [transferOpen, setTransferOpen] = useState(false);
         />
       )}
 
-      {editing && (
-  <EditMemberModal
-    member={member}
-    onClose={() => setEditing(false)}
-    onSaved={loadMember}
-  />
-)}
-
-{transferOpen && (
-  <TransferMemberModal
-    member={member}
-    onClose={() => setTransferOpen(false)}
-    onTransferred={async () => {
-      setTransferOpen(false);
-      await loadMember();
-    }}
-  />
-)}
+      {transferOpen && (
+        <TransferMemberModal
+          member={member}
+          onClose={() => setTransferOpen(false)}
+          onTransferred={async () => {
+            setTransferOpen(false);
+            await loadMember();
+          }}
+        />
+      )}
     </div>
   );
 }
