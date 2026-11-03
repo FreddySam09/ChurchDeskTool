@@ -68,24 +68,28 @@ export default function EditMembershipModal({ membership, onClose, onSaved }) {
   );
 
   useEffect(() => {
-    setForm({
-      membership_number: toFormValue(membership.membership_number),
-      membership_status: toFormValue(membership.membership_status || "Active"),
-      door_number: toFormValue(membership.door_number),
-      street_name: toFormValue(membership.street_name),
-      area: toFormValue(membership.area),
-      city: toFormValue(membership.city),
-      pincode: toFormValue(membership.pincode),
-      landmark: toFormValue(membership.landmark),
-      primary_phone_number: toFormValue(membership.primary_phone_number),
-      alternate_phone_number: toFormValue(membership.alternate_phone_number),
-      email: toFormValue(membership.email),
-      year_joined: toFormValue(
-        membership.year_joined || new Date().getFullYear(),
-      ),
-      head_photo_path: toFormValue(membership.head_photo_path),
-    });
-  }, [membership]);
+  setForm({
+    membership_number: toFormValue(membership.membership_number),
+    membership_status: toFormValue(
+      membership.membership_status || "Active"
+    ),
+    door_number: toFormValue(membership.door_number),
+    street_name: toFormValue(membership.street_name),
+    area: toFormValue(membership.area),
+    city: toFormValue(membership.city),
+    pincode: toFormValue(membership.pincode),
+    landmark: toFormValue(membership.landmark),
+    primary_phone_number: toFormValue(
+      membership.primary_phone_number
+    ),
+    alternate_phone_number: toFormValue(
+      membership.alternate_phone_number
+    ),
+    email: toFormValue(membership.email),
+    year_joined: toFormValue(membership.year_joined),
+    head_photo_path: toFormValue(membership.head_photo_path),
+  });
+}, [membership]);
 
   function handleChange(event) {
     const { name, value } = event.target;
@@ -101,12 +105,23 @@ export default function EditMembershipModal({ membership, onClose, onSaved }) {
       return;
     }
 
-    const year = Number(form.year_joined);
+    const yearJoinedValue = String(form.year_joined ?? "").trim();
 
-    if (!Number.isInteger(year) || year < 1800 || year > 2200) {
-      setError("Enter a valid year joined.");
-      return;
-    }
+const year = yearJoinedValue
+  ? Number(yearJoinedValue)
+  : null;
+
+if (
+  yearJoinedValue &&
+  (
+    !Number.isInteger(year) ||
+    year < 1800 ||
+    year > 2200
+  )
+) {
+  setError("Enter a valid year joined.");
+  return;
+}
 
     const number = form.membership_number.trim();
 
@@ -130,20 +145,20 @@ export default function EditMembershipModal({ membership, onClose, onSaved }) {
       }
 
       await updateMembership(membership.id, {
-        membership_number: number || null,
-        membership_status: form.membership_status,
-        door_number: form.door_number.trim() || null,
-        street_name: form.street_name.trim() || null,
-        area: form.area.trim() || null,
-        city: form.city.trim() || null,
-        pincode: form.pincode.trim() || null,
-        landmark: form.landmark.trim() || null,
-        primary_phone_number: form.primary_phone_number.trim() || null,
-        alternate_phone_number: form.alternate_phone_number.trim() || null,
-        email: form.email.trim() || null,
-        year_joined: year,
-        head_photo_path: newPhotoPath,
-      });
+  membership_number: number || null,
+  membership_status: form.membership_status,
+  door_number: form.door_number.trim() || null,
+  street_name: form.street_name.trim() || null,
+  area: form.area.trim() || null,
+  city: form.city.trim() || null,
+  pincode: form.pincode.trim() || null,
+  landmark: form.landmark.trim() || null,
+  primary_phone_number: form.primary_phone_number.trim() || null,
+  alternate_phone_number: form.alternate_phone_number.trim() || null,
+  email: form.email.trim() || null,
+  year_joined: year,
+  head_photo_path: newPhotoPath,
+});
 
       const oldPhotoPath = membership.head_photo_path;
 
@@ -267,13 +282,13 @@ export default function EditMembershipModal({ membership, onClose, onSaved }) {
             </label>
 
             <Field
-              label="Year joined"
-              name="year_joined"
-              type="number"
-              value={form.year_joined ?? ""}
-              onChange={handleChange}
-              required
-            />
+  label="Year joined"
+  name="year_joined"
+  type="number"
+  value={form.year_joined ?? ""}
+  onChange={handleChange}
+  placeholder="Optional"
+/>
 
             
             <section className="rounded-xl border border-[#ececed] bg-white p-4 sm:p-5">

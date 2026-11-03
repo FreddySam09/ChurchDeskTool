@@ -17,6 +17,8 @@ const initialForm = {
   gender: "",
   date_of_birth: "",
   marital_status: "Single",
+  baptism_status: "Unknown",
+  date_of_baptism: "",
   occupation_or_studying: "",
   phone_number: "",
   email: "",
@@ -29,7 +31,7 @@ const initialForm = {
   primary_phone_number: "",
   alternate_phone_number: "",
   household_email: "",
-  year_joined: String(new Date().getFullYear()),
+  year_joined: "",
 };
 
 const inputClass =
@@ -191,19 +193,21 @@ export default function AddMembershipModal({ onClose, onCreated }) {
           email: form.email,
         },
         membership: {
-          membership_number: form.membership_number.trim(),
-          door_number: form.door_number,
-          street_name: form.street_name,
-          area: form.area,
-          city: form.city,
-          pincode: form.pincode,
-          landmark: form.landmark,
-          primary_phone_number:
-            form.primary_phone_number || form.phone_number,
-          alternate_phone_number: form.alternate_phone_number,
-          email: form.household_email || form.email,
-          year_joined: form.year_joined,
-        },
+  membership_number: form.membership_number.trim(),
+  door_number: form.door_number,
+  street_name: form.street_name,
+  area: form.area,
+  city: form.city,
+  pincode: form.pincode,
+  landmark: form.landmark,
+  primary_phone_number:
+    form.primary_phone_number || form.phone_number,
+  alternate_phone_number: form.alternate_phone_number,
+  email: form.household_email || form.email,
+  year_joined: form.year_joined.trim()
+    ? Number(form.year_joined)
+    : null,
+},
       });
 
       let savedPhotoPath = null;
@@ -411,13 +415,13 @@ export default function AddMembershipModal({ onClose, onCreated }) {
               </label>
 
               <Field
-                label="Year joined"
-                name="year_joined"
-                form={form}
-                onChange={handleChange}
-                type="number"
-                required
-              />
+  label="Year joined"
+  name="year_joined"
+  form={form}
+  onChange={handleChange}
+  type="number"
+  placeholder="Optional"
+/>
             </Section>
 
             <Section icon={UserRound} title="Head of membership">
