@@ -102,8 +102,6 @@ function EditMemberModal({ member, onClose, onSaved }) {
     gender: member.gender ?? "",
     date_of_birth: member.date_of_birth ?? "",
     marital_status: member.marital_status ?? "Unknown",
-    baptism_status: member.baptism_status ?? "Unknown",
-    date_of_baptism: member.date_of_baptism ?? "",
     occupation_or_studying: member.occupation_or_studying ?? "",
     phone_number: member.phone_number ?? "",
     email: member.email ?? "",
@@ -137,13 +135,13 @@ function EditMemberModal({ member, onClose, onSaved }) {
 
     try {
       // Update the member's editable personal fields.
+      // Baptism fields are intentionally omitted so existing database values
+      // are not overwritten.
       await updateMember(member.id, {
         name: cleanName,
         gender: form.gender || null,
         date_of_birth: form.date_of_birth || null,
         marital_status: form.marital_status || null,
-        baptism_status: form.baptism_status || null,
-        date_of_baptism: form.date_of_baptism || null,
         occupation_or_studying: form.occupation_or_studying.trim() || null,
         phone_number: form.phone_number.trim() || null,
         email: form.email.trim() || null,
@@ -257,26 +255,6 @@ function EditMemberModal({ member, onClose, onSaved }) {
                   { value: "Separated", label: "Separated" },
                   { value: "Unknown", label: "Unknown" },
                 ]}
-              />
-
-              <FormField
-                label="Baptism Status"
-                name="baptism_status"
-                value={form.baptism_status}
-                onChange={handleChange}
-                options={[
-                  { value: "Unknown", label: "Unknown" },
-                  { value: "Baptised", label: "Baptised" },
-                  { value: "Not Baptised", label: "Not Baptised" },
-                ]}
-              />
-
-              <FormField
-                label="Date of Baptism"
-                name="date_of_baptism"
-                type="date"
-                value={form.date_of_baptism}
-                onChange={handleChange}
               />
 
               <FormField
@@ -544,11 +522,6 @@ const [transferOpen, setTransferOpen] = useState(false);
             <Detail label="Personal Phone" value={member.phone_number} />
             <Detail label="Personal Email" value={member.email} />
             <Detail label="Marital Status" value={member.marital_status} />
-            <Detail label="Baptism Status" value={member.baptism_status} />
-            <Detail
-              label="Date of Baptism"
-              value={formatDate(member.date_of_baptism)}
-            />
             <Detail
               label="Occupation / Studying"
               value={member.occupation_or_studying}

@@ -1,14 +1,15 @@
 import { useState, useEffect } from "react";
 import { X, UserRound, MapPin, Phone, Hash } from "lucide-react";
-import { createMembershipWithHead, getNextMembershipNumber, } from "../../services/membershipService";
+import {
+  createMembershipWithHead,
+  getNextMembershipNumber,
+} from "../../services/membershipService";
 
 import {
-  getMembershipHeadPhotoUrl,
   uploadMembershipHeadPhoto,
   deleteMembershipHeadPhoto,
   validateMembershipHeadPhoto,
 } from "../../services/membership/membershipPhotoService";
-
 
 const initialForm = {
   membership_number: "",
@@ -16,8 +17,6 @@ const initialForm = {
   gender: "",
   date_of_birth: "",
   marital_status: "Single",
-  baptism_status: "Unknown",
-  date_of_baptism: "",
   occupation_or_studying: "",
   phone_number: "",
   email: "",
@@ -114,7 +113,9 @@ function Section({ icon: Icon, title, children }) {
         <h3 className="text-[13px] font-bold text-[#131418]">{title}</h3>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">{children}</div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+        {children}
+      </div>
     </section>
   );
 }
@@ -125,45 +126,44 @@ export default function AddMembershipModal({ onClose, onCreated }) {
   const [error, setError] = useState("");
   const [created, setCreated] = useState(null);
   const [numberLoading, setNumberLoading] = useState(true);
-  
+
   const [headPhotoFile, setHeadPhotoFile] = useState(null);
   const [headPhotoPreview, setHeadPhotoPreview] = useState(null);
 
+  useEffect(() => {
+    let cancelled = false;
 
-useEffect(() => {
-  let cancelled = false;
+    async function loadNextNumber() {
+      setNumberLoading(true);
 
-  async function loadNextNumber() {
-    setNumberLoading(true);
+      try {
+        const nextNumber = await getNextMembershipNumber();
 
-    try {
-      const nextNumber = await getNextMembershipNumber();
-
-      if (!cancelled) {
-        setForm((current) => ({
-          ...current,
-          membership_number: current.membership_number || nextNumber,
-        }));
-      }
-    } catch (err) {
-      if (!cancelled) {
-        setError(
-          err.message || "Could not determine the next membership number."
-        );
-      }
-    } finally {
-      if (!cancelled) {
-        setNumberLoading(false);
+        if (!cancelled) {
+          setForm((current) => ({
+            ...current,
+            membership_number: current.membership_number || nextNumber,
+          }));
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(
+            err.message || "Could not determine the next membership number.",
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setNumberLoading(false);
+        }
       }
     }
-  }
 
-  loadNextNumber();
+    loadNextNumber();
 
-  return () => {
-    cancelled = true;
-  };
-}, []);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   function handleChange(event) {
     const { name, value } = event.target;
@@ -186,8 +186,6 @@ useEffect(() => {
           gender: form.gender,
           date_of_birth: form.date_of_birth,
           marital_status: form.marital_status,
-          baptism_status: form.baptism_status,
-          date_of_baptism: form.date_of_baptism,
           occupation_or_studying: form.occupation_or_studying,
           phone_number: form.phone_number,
           email: form.email,
@@ -200,14 +198,14 @@ useEffect(() => {
           city: form.city,
           pincode: form.pincode,
           landmark: form.landmark,
-          primary_phone_number: form.primary_phone_number || form.phone_number,
+          primary_phone_number:
+            form.primary_phone_number || form.phone_number,
           alternate_phone_number: form.alternate_phone_number,
           email: form.household_email || form.email,
           year_joined: form.year_joined,
         },
       });
 
-      
       let savedPhotoPath = null;
 
       if (headPhotoFile) {
@@ -219,13 +217,13 @@ useEffect(() => {
 
         if (!membershipRecordId) {
           throw new Error(
-            "Membership was created, but its record ID was not returned. The photo could not be uploaded."
+            "Membership was created, but its record ID was not returned. The photo could not be uploaded.",
           );
         }
 
         savedPhotoPath = await uploadMembershipHeadPhoto(
           headPhotoFile,
-          membershipRecordId
+          membershipRecordId,
         );
 
         try {
@@ -246,7 +244,6 @@ useEffect(() => {
 
       setCreated(result);
       await onCreated?.();
-
     } catch (err) {
       setError(err.message || "Could not create this membership.");
     } finally {
@@ -254,7 +251,6 @@ useEffect(() => {
     }
   }
 
-  
   function handleHeadPhotoChange(event) {
     const file = event.target.files?.[0];
 
@@ -291,7 +287,6 @@ useEffect(() => {
       return null;
     });
   }
-
 
   return (
     <div
@@ -392,26 +387,29 @@ useEffect(() => {
           <form onSubmit={handleSubmit} className="space-y-4 p-4 sm:p-6">
             <Section icon={Hash} title="Annual register">
               <label className={labelClass}>
-  Membership number
-  <span className="ml-1 text-red-500">*</span>
+                Membership number
+                <span className="ml-1 text-red-500">*</span>
 
-  <input
-    name="membership_number"
-    type="text"
-    value={form.membership_number}
-    onChange={handleChange}
-    required
-    autoComplete="off"
-    placeholder={numberLoading ? "Calculating next number..." : "e.g. 1"}
-    className={inputClass}
-  />
+                <input
+                  name="membership_number"
+                  type="text"
+                  value={form.membership_number}
+                  onChange={handleChange}
+                  required
+                  autoComplete="off"
+                  placeholder={
+                    numberLoading ? "Calculating next number..." : "e.g. 1"
+                  }
+                  className={inputClass}
+                />
 
-  <span className="mt-1 block text-[10px] font-normal leading-4 text-[#92939b]">
-    {numberLoading
-      ? "Finding the next available number..."
-      : `Suggested next number: ${form.membership_number || "â€”"}. You can edit it if required.`}
-  </span>
-</label>
+                <span className="mt-1 block text-[10px] font-normal leading-4 text-[#92939b]">
+                  {numberLoading
+                    ? "Finding the next available number..."
+                    : `Suggested next number: ${form.membership_number || "—"}. You can edit it if required.`}
+                </span>
+              </label>
+
               <Field
                 label="Year joined"
                 name="year_joined"
@@ -465,26 +463,6 @@ useEffect(() => {
                   { value: "Widowed", label: "Widowed" },
                   { value: "Divorced", label: "Divorced" },
                 ]}
-              />
-
-              <SelectField
-                label="Baptism status"
-                name="baptism_status"
-                form={form}
-                onChange={handleChange}
-                options={[
-                  { value: "Unknown", label: "Unknown" },
-                  { value: "Baptised", label: "Baptised" },
-                  { value: "Not baptised", label: "Not baptised" },
-                ]}
-              />
-
-              <Field
-                label="Date of baptism"
-                name="date_of_baptism"
-                form={form}
-                onChange={handleChange}
-                type="date"
               />
 
               <Field
@@ -546,7 +524,6 @@ useEffect(() => {
                 name="pincode"
                 form={form}
                 onChange={handleChange}
-                inputMode="numeric"
               />
 
               <Field
@@ -583,7 +560,6 @@ useEffect(() => {
               />
             </Section>
 
-            
             <section className="rounded-xl border border-[#ececed] bg-white p-4 sm:p-5">
               <div className="mb-3">
                 <h3 className="text-[13px] font-bold text-[#131418]">
@@ -633,7 +609,6 @@ useEffect(() => {
               </div>
             </section>
 
-
             {error && (
               <div
                 role="alert"
@@ -664,7 +639,7 @@ useEffect(() => {
                   disabled={saving}
                   className="rounded-[10px] bg-[#1a1b20] px-5 py-2.5 text-[12px] font-semibold text-white hover:bg-black disabled:opacity-60"
                 >
-                  {saving ? "Savingâ€¦" : "Create membership"}
+                  {saving ? "Saving…" : "Create membership"}
                 </button>
               </div>
             </footer>
@@ -674,4 +649,3 @@ useEffect(() => {
     </div>
   );
 }
-

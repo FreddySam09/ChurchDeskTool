@@ -11,8 +11,6 @@ export const REPORT_SOURCES = {
       { key: "birth_month", label: "Birth Month", type: "number" },
       { key: "age", label: "Age", type: "number" },
       { key: "marital_status", label: "Marital Status", type: "text" },
-      { key: "baptism_status", label: "Baptism Status", type: "text" },
-      { key: "date_of_baptism", label: "Date of Baptism", type: "date" },
       { key: "occupation_or_studying", label: "Occupation / Studying", type: "text" },
       { key: "phone_number", label: "Phone Number", type: "text" },
       { key: "email", label: "Email", type: "text" },

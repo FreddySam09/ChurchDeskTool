@@ -16,8 +16,6 @@ export const MEMBERSHIP_HEADERS = [
   "Marital Status",
   "Married To",
   "Date of Marriage",
-  "Baptism Status",
-  "Date of Baptism",
   "Occupation",
   "Role",
   "Phone Number",
@@ -39,7 +37,6 @@ export const MEMBERSHIP_HEADERS = [
 export const DATE_HEADERS = [
   "Date of Birth",
   "Date of Marriage",
-  "Date of Baptism",
 ];
 
 const RELATIONSHIPS = [
@@ -53,7 +50,6 @@ const RELATIONSHIPS = [
 
 const GENDERS = ["Male", "Female", "Other"];
 const MARITAL_STATUSES = ["Single", "Married", "Widowed", "Divorced"];
-const BAPTISM_STATUSES = ["Unknown", "Baptised", "Not Baptised"];
 const MEMBERSHIP_STATUSES = ["Active", "Inactive", "Closed"];
 const RECORD_TYPES = ["Membership", "Branch"];
 
@@ -63,20 +59,18 @@ export const MEMBERSHIP_EXAMPLE_ROWS = [
     "Record Type": "Membership",
     "Branch Suffix": "",
     "Is Head": "Yes",
-    Name: "Example Head",
+    Name: "Rajesh Kumar",
     "Relationship to Head": "",
     Gender: "Male",
     "Date of Birth": "1980-04-12",
     "Marital Status": "Married",
-    "Married To": "Example Spouse",
+    "Married To": "Priya Rajesh",
     "Date of Marriage": "2005-08-20",
-    "Baptism Status": "Baptised",
-    "Date of Baptism": "1995-06-10",
     Occupation: "Teacher",
     Role: "Head",
     "Phone Number": "9876543210",
-    Email: "head@example.com",
-    "Fellowship / Groups": "Youth Fellowship; Sunday School",
+    Email: "rajesh@example.com",
+    "Fellowship / Groups": "Men's Fellowship; Choir",
     "Door Number": "12A",
     "Street Name": "Church Street",
     Area: "Anna Nagar",
@@ -85,7 +79,7 @@ export const MEMBERSHIP_EXAMPLE_ROWS = [
     Landmark: "Near park",
     "Primary Phone Number": "9876543210",
     "Alternate Phone Number": "",
-    "Membership Email": "head@example.com",
+    "Membership Email": "rajesh@example.com",
     "Year Joined": "2005",
     "Membership Status": "Active",
   },
@@ -94,20 +88,18 @@ export const MEMBERSHIP_EXAMPLE_ROWS = [
     "Record Type": "Membership",
     "Branch Suffix": "",
     "Is Head": "No",
-    Name: "Example Spouse",
+    Name: "Priya Rajesh",
     "Relationship to Head": "Spouse",
     Gender: "Female",
     "Date of Birth": "1983-09-18",
     "Marital Status": "Married",
-    "Married To": "Example Head",
+    "Married To": "Rajesh Kumar",
     "Date of Marriage": "2005-08-20",
-    "Baptism Status": "Baptised",
-    "Date of Baptism": "1998-02-01",
     Occupation: "Teacher",
     Role: "Member",
     "Phone Number": "9876543211",
-    Email: "spouse@example.com",
-    "Fellowship / Groups": "Youth Fellowship",
+    Email: "priya@example.com",
+    "Fellowship / Groups": "Women's Fellowship; Young Couples",
     "Door Number": "12A",
     "Street Name": "Church Street",
     Area: "Anna Nagar",
@@ -116,7 +108,123 @@ export const MEMBERSHIP_EXAMPLE_ROWS = [
     Landmark: "Near park",
     "Primary Phone Number": "9876543210",
     "Alternate Phone Number": "",
-    "Membership Email": "head@example.com",
+    "Membership Email": "rajesh@example.com",
+    "Year Joined": "2005",
+    "Membership Status": "Active",
+  },
+  {
+    "Membership Number": "101",
+    "Record Type": "Membership",
+    "Branch Suffix": "",
+    "Is Head": "No",
+    Name: "Arun Rajesh",
+    "Relationship to Head": "Child",
+    Gender: "Male",
+    "Date of Birth": "2005-03-15",
+    "Marital Status": "Single",
+    "Married To": "",
+    "Date of Marriage": "",
+    Occupation: "College Student",
+    Role: "Member",
+    "Phone Number": "9876543212",
+    Email: "arun@example.com",
+    "Fellowship / Groups": "Youth Fellowship; Media Team",
+    "Door Number": "12A",
+    "Street Name": "Church Street",
+    Area: "Anna Nagar",
+    City: "Chennai",
+    Pincode: "600040",
+    Landmark: "Near park",
+    "Primary Phone Number": "9876543210",
+    "Alternate Phone Number": "",
+    "Membership Email": "rajesh@example.com",
+    "Year Joined": "2005",
+    "Membership Status": "Active",
+  },
+  {
+    "Membership Number": "101",
+    "Record Type": "Membership",
+    "Branch Suffix": "",
+    "Is Head": "No",
+    Name: "Ananya Rajesh",
+    "Relationship to Head": "Child",
+    Gender: "Female",
+    "Date of Birth": "2010-07-22",
+    "Marital Status": "Single",
+    "Married To": "",
+    "Date of Marriage": "",
+    Occupation: "Student",
+    Role: "Member",
+    "Phone Number": "9876543213",
+    Email: "ananya@example.com",
+    "Fellowship / Groups": "Sunday School",
+    "Door Number": "12A",
+    "Street Name": "Church Street",
+    Area: "Anna Nagar",
+    City: "Chennai",
+    Pincode: "600040",
+    Landmark: "Near park",
+    "Primary Phone Number": "9876543210",
+    "Alternate Phone Number": "",
+    "Membership Email": "rajesh@example.com",
+    "Year Joined": "2005",
+    "Membership Status": "Active",
+  },
+  {
+    "Membership Number": "101",
+    "Record Type": "Membership",
+    "Branch Suffix": "",
+    "Is Head": "No",
+    Name: "Lakshmi Rajesh",
+    "Relationship to Head": "Parent",
+    Gender: "Female",
+    "Date of Birth": "1955-01-10",
+    "Marital Status": "Widowed",
+    "Married To": "",
+    "Date of Marriage": "",
+    Occupation: "Retired",
+    Role: "Member",
+    "Phone Number": "9876543214",
+    Email: "",
+    "Fellowship / Groups": "Women's Fellowship; Prayer Group",
+    "Door Number": "12A",
+    "Street Name": "Church Street",
+    Area: "Anna Nagar",
+    City: "Chennai",
+    Pincode: "600040",
+    Landmark: "Near park",
+    "Primary Phone Number": "9876543210",
+    "Alternate Phone Number": "",
+    "Membership Email": "rajesh@example.com",
+    "Year Joined": "2005",
+    "Membership Status": "Active",
+  },
+  {
+    "Membership Number": "101",
+    "Record Type": "Branch",
+    "Branch Suffix": "A",
+    "Is Head": "Yes",
+    Name: "Joseph Kumar",
+    "Relationship to Head": "",
+    Gender: "Male",
+    "Date of Birth": "1978-11-05",
+    "Marital Status": "Married",
+    "Married To": "",
+    "Date of Marriage": "",
+    Occupation: "Business",
+    Role: "Head",
+    "Phone Number": "9876543215",
+    Email: "joseph@example.com",
+    "Fellowship / Groups": "Men's Fellowship; Choir",
+    "Door Number": "24B",
+    "Street Name": "Church Street",
+    Area: "Anna Nagar",
+    City: "Chennai",
+    Pincode: "600040",
+    Landmark: "Near park",
+    "Primary Phone Number": "9876543215",
+    "Alternate Phone Number": "",
+    "Membership Email": "joseph@example.com",
     "Year Joined": "2005",
     "Membership Status": "Active",
   },
@@ -268,7 +376,6 @@ export function validateMembershipRows(rows) {
     const status = cleanCell(row["Membership Status"]);
     const gender = cleanCell(row.Gender);
     const maritalStatus = cleanCell(row["Marital Status"]);
-    const baptismStatus = cleanCell(row["Baptism Status"]);
     const marriageDate = cleanCell(row["Date of Marriage"]);
     const yearJoined = cleanCell(row["Year Joined"]);
 
@@ -352,7 +459,7 @@ export function validateMembershipRows(rows) {
       addError(
         index,
         "Relationship to Head",
-        "Select the member’s relationship to the household head.",
+        "Select the member's relationship to the household head.",
       );
     }
 
@@ -363,10 +470,6 @@ export function validateMembershipRows(rows) {
 
     if (maritalStatus && !MARITAL_STATUSES.includes(maritalStatus)) {
       addError(index, "Marital Status", `Use ${MARITAL_STATUSES.join(", ")}.`);
-    }
-
-    if (baptismStatus && !BAPTISM_STATUSES.includes(baptismStatus)) {
-      addError(index, "Baptism Status", `Use ${BAPTISM_STATUSES.join(", ")}.`);
     }
 
     if (status && !MEMBERSHIP_STATUSES.includes(status)) {
@@ -550,7 +653,7 @@ export function validateMembershipRows(rows) {
         addWarning(
           headIndex,
           "Married To",
-          "The head’s Married To value does not match the spouse row’s name.",
+          "The head's Married To value does not match the spouse row's name.",
         );
       }
 
@@ -562,7 +665,7 @@ export function validateMembershipRows(rows) {
         addWarning(
           spouseIndex,
           "Married To",
-          "The spouse’s Married To value does not match the head’s name.",
+          "The spouse's Married To value does not match the head's name.",
         );
       }
 

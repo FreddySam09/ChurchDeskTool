@@ -4,7 +4,6 @@ import {
   ArrowDownToLine,
   ChevronRight,
   RefreshCw,
-  Search,
   Users,
 } from "lucide-react";
 import { getMemberDirectory } from "../../services/membershipService";
@@ -140,7 +139,6 @@ export default function MemberList() {
           member.phone_number,
           member.email,
           member.marital_status,
-          member.baptism_status,
           ...(member.groups ?? []).map((group) => group.name),
         ]
           .filter(Boolean)
@@ -150,23 +148,23 @@ export default function MemberList() {
         return searchable.includes(query);
       })
       .sort((a, b) => {
-  // Active members first; all other statuses appear afterwards.
-  const aInactive = a.status !== "Active";
-  const bInactive = b.status !== "Active";
+        // Active members first; all other statuses appear afterwards.
+        const aInactive = a.status !== "Active";
+        const bInactive = b.status !== "Active";
 
-  if (aInactive !== bInactive) {
-    return aInactive ? 1 : -1;
-  }
+        if (aInactive !== bInactive) {
+          return aInactive ? 1 : -1;
+        }
 
-  // Preserve membership-number ordering within each status group.
-  return (
-    String(a.display_membership_number ?? "").localeCompare(
-      String(b.display_membership_number ?? ""),
-      undefined,
-      { numeric: true },
-    ) || String(a.name ?? "").localeCompare(String(b.name ?? ""))
-  );
-});
+        // Preserve membership-number ordering within each status group.
+        return (
+          String(a.display_membership_number ?? "").localeCompare(
+            String(b.display_membership_number ?? ""),
+            undefined,
+            { numeric: true },
+          ) || String(a.name ?? "").localeCompare(String(b.name ?? ""))
+        );
+      });
   }, [
     members,
     search,
@@ -188,7 +186,6 @@ export default function MemberList() {
       "Phone",
       "Email",
       "Marital Status",
-      "Baptism Status",
       "Fellowships",
       "Status",
     ];
@@ -204,7 +201,6 @@ export default function MemberList() {
       member.phone_number,
       member.email,
       member.marital_status,
-      member.baptism_status,
       (member.groups ?? []).map((group) => group.name).join("; "),
       member.status,
     ]);

@@ -1,4 +1,3 @@
-
 import { useEffect, useMemo, useState } from "react";
 import { X, UserRound, Users, Heart } from "lucide-react";
 import { addMemberToMembershipWithGroups } from "../../services/membershipService";
@@ -9,8 +8,6 @@ const initialForm = {
   gender: "Female",
   date_of_birth: "",
   marital_status: "Single",
-  baptism_status: "Unknown",
-  date_of_baptism: "",
   occupation_or_studying: "",
   phone_number: "",
   email: "",
@@ -208,13 +205,6 @@ export default function AddMemberModal({
       return;
     }
 
-    if (
-      !["Unknown", "Baptised", "Not Baptised"].includes(form.baptism_status)
-    ) {
-      setError("Select a valid baptism status.");
-      return;
-    }
-
     if (needsWeddingDate && !form.date_of_marriage) {
       setError("Enter the wedding date before saving.");
       return;
@@ -261,8 +251,6 @@ export default function AddMemberModal({
           gender: form.gender || null,
           date_of_birth: form.date_of_birth || null,
           marital_status: isSpouse ? "Married" : form.marital_status,
-          baptism_status: form.baptism_status,
-          date_of_baptism: form.date_of_baptism || null,
           occupation_or_studying:
             form.occupation_or_studying.trim() || null,
           phone_number: form.phone_number.trim() || null,
@@ -312,7 +300,7 @@ export default function AddMemberModal({
               </span>
               {membership?.membership_id && (
                 <>
-                  {" · "}Permanent ID:{" "}
+                  {" Â· "}Permanent ID:{" "}
                   <span className="font-mono">
                     {membership.membership_id}
                   </span>
@@ -390,27 +378,6 @@ export default function AddMemberModal({
                 { value: "Separated", label: "Separated" },
                 { value: "Unknown", label: "Unknown" },
               ]}
-            />
-
-            <SelectField
-              label="Baptism status"
-              name="baptism_status"
-              form={form}
-              onChange={handleChange}
-              required
-              options={[
-                { value: "Unknown", label: "Unknown" },
-                { value: "Baptised", label: "Baptised" },
-                { value: "Not Baptised", label: "Not Baptised" },
-              ]}
-            />
-
-            <Field
-              label="Date of baptism"
-              name="date_of_baptism"
-              form={form}
-              onChange={handleChange}
-              type="date"
             />
 
             <Field

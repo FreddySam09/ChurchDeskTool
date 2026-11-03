@@ -97,8 +97,12 @@ export default function LoginPage() {
     <main className="flex min-h-screen items-center justify-center bg-[#f5f6f8] px-4 py-10">
       <section className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#1e1e1e] text-white shadow-lg">
-            <Church size={27} strokeWidth={1.7} />
+          <div className="mx-auto mb-4 flex h-18 w-18 items-center justify-center rounded-[42px] bg-[#1e1e1e] text-white shadow-lg">
+            <img
+              src="/favicon.svg"
+              alt="Church Desk logo"
+              className="h-14 object-contain"
+            />
           </div>
 
           <h1 className="text-2xl font-semibold tracking-tight text-[#1e1e1e]">
