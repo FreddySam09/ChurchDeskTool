@@ -323,17 +323,29 @@ export default function MembershipDetailsPage() {
     .join(", ");
 
   function navigateToAddress() {
-    if (!address.trim()) {
-      window.alert("No address has been recorded for this membership.");
-      return;
-    }
-    console.log("Navigating to address:", address);
-    const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
-      address,
-    )}&travelmode=driving`;
+  const mapsLink = membership?.google_maps_link?.trim();
 
-    window.open(url, "_blank", "noopener,noreferrer");
+  if (!mapsLink) {
+    window.alert(
+      "Google Maps link has not been provided for this membership.",
+    );
+    return;
   }
+
+  try {
+    const url = new URL(mapsLink);
+
+    if (url.protocol !== "https:" && url.protocol !== "http:") {
+      throw new Error("Invalid URL protocol");
+    }
+
+    window.open(url.href, "_blank", "noopener,noreferrer");
+  } catch {
+    window.alert(
+      "The Google Maps link for this membership is invalid.",
+    );
+  }
+}
 
   const eligibleHeads = useMemo(
     () =>

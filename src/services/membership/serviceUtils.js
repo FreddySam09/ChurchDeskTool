@@ -30,6 +30,7 @@ export const MEMBERSHIP_FIELDS = `
   city,
   pincode,
   landmark,
+  google_maps_link,
   primary_phone_number,
   alternate_phone_number,
   email,
