@@ -310,7 +310,7 @@ export default function MembershipDetailsPage() {
     membership?.door_number,
     membership?.street_name,
     membership?.area,
-    membership?.landmark ? `Near ${membership.landmark}` : null,
+    // membership?.landmark ? `Near ${membership.landmark}` : null,
     membership?.city,
     membership?.pincode,
   ]
@@ -327,7 +327,7 @@ export default function MembershipDetailsPage() {
       window.alert("No address has been recorded for this membership.");
       return;
     }
-
+    console.log("Navigating to address:", address);
     const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
       address,
     )}&travelmode=driving`;
