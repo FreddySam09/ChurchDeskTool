@@ -1,4 +1,3 @@
-import { useState, useEffect } from "react";
 import { X, UserRound, MapPin, Phone, Hash } from "lucide-react";
 import {
   createMembershipWithHead,
@@ -23,6 +22,9 @@ const initialForm = {
   phone_number: "",
   email: "",
   door_number: "",
+  floor_number: "",
+  apartment_name: "",
+  block_number: "",
   street_name: "",
   area: "",
   city: "",
@@ -195,6 +197,9 @@ export default function AddMembershipModal({ onClose, onCreated }) {
         membership: {
           membership_number: form.membership_number.trim(),
           door_number: form.door_number,
+          floor_number: form.floor_number,
+          apartment_name: form.apartment_name,
+          block_number: form.block_number,
           street_name: form.street_name,
           area: form.area,
           city: form.city,
@@ -408,7 +413,7 @@ export default function AddMembershipModal({ onClose, onCreated }) {
                 <span className="mt-1 block text-[10px] font-normal leading-4 text-[#92939b]">
                   {numberLoading
                     ? "Finding the next available number..."
-                    : `Suggested next number: ${form.membership_number || "—"}. You can edit it if required.`}
+                    : `Suggested next number: ${form.membership_number || "â€”"}. You can edit it if required.`}
                 </span>
               </label>
 
@@ -501,6 +506,10 @@ export default function AddMembershipModal({ onClose, onCreated }) {
                 form={form}
                 onChange={handleChange}
               />
+
+              <Field label="Floor number" name="floor_number" form={form} onChange={handleChange} />
+              <Field label="Apartment / house name" name="apartment_name" form={form} onChange={handleChange} />
+              <Field label="Block number" name="block_number" form={form} onChange={handleChange} />
 
               <Field
                 label="Street name"
@@ -643,7 +652,7 @@ export default function AddMembershipModal({ onClose, onCreated }) {
                   disabled={saving}
                   className="rounded-[10px] bg-[#1a1b20] px-5 py-2.5 text-[12px] font-semibold text-white hover:bg-black disabled:opacity-60"
                 >
-                  {saving ? "Saving…" : "Create membership"}
+                  {saving ? "Savingâ€¦" : "Create membership"}
                 </button>
               </div>
             </footer>

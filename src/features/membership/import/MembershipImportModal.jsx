@@ -1,4 +1,3 @@
-
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
@@ -52,13 +51,19 @@ const QUICK_COLUMNS = [
 const SELECT_OPTIONS = {
   "Record Type": ["Membership", "Branch"],
   "Is Head": ["Yes", "No"],
-  "Relationship to Head": [
+    "Relationship to Head": [
     "Spouse",
-    "Parent",
-    "Child",
-    "Sibling",
+    "Son",
+    "Daughter",
+    "Father",
+    "Mother",
+    "Grand Son",
+    "Grand daughter",
     "Guardian",
-    "Other",
+    "Brother",
+    "Sister",
+    "Son-in-Law",
+    "Daughter-in-Law",
   ],
   Gender: ["Male", "Female", "Other"],
   "Marital Status": [
@@ -69,7 +74,6 @@ const SELECT_OPTIONS = {
     "Separated",
     "Unknown",
   ],
-  "Baptism Status": ["Unknown", "Baptised", "Not Baptised"],
   Role: ["Head", "Member"],
   "Membership Status": ["Active", "Inactive", "Closed"],
 };
@@ -96,8 +100,6 @@ const FIELD_SECTIONS = [
       "Marital Status",
       "Married To",
       "Date of Marriage",
-      "Baptism Status",
-      "Date of Baptism",
       "Occupation",
       "Role",
     ],
@@ -110,10 +112,14 @@ const FIELD_SECTIONS = [
     title: "Household address",
     fields: [
       "Door Number",
+      "Floor Number",
+      "Apartment / House Name",
+      "Block Number",
       "Street Name",
       "Area",
       "City",
       "Pincode",
+      "Google Maps Link",
       "Landmark",
       "Primary Phone Number",
       "Alternate Phone Number",
@@ -154,6 +160,9 @@ function FieldEditor({ field, value, onChange, issues, disabled }) {
           className={inputClass}
         >
           <option value="">Select...</option>
+          {value && !options.includes(value) && (
+            <option value={value}>{value} (Unrecognised value)</option>
+          )}
           {options.map((option) => (
             <option key={option} value={option}>
               {option}
@@ -167,9 +176,11 @@ function FieldEditor({ field, value, onChange, issues, disabled }) {
               ? "date"
               : field === "Email" || field === "Membership Email"
                 ? "email"
-                : field.includes("Phone")
-                  ? "tel"
-                  : "text"
+                : field === "Google Maps Link"
+                  ? "url"
+                  : field.includes("Phone")
+                    ? "tel"
+                    : "text"
           }
           value={value ?? ""}
           disabled={disabled}
@@ -199,9 +210,9 @@ function SummaryCard({ label, value, tone = "neutral" }) {
   }[tone];
 
   return (
-    <div className="rounded-xl border border-[#e8e9ee] bg-white px-3 py-2.5">
-      <p className="text-[10px] font-medium text-[#858792]">{label}</p>
-      <p className={`mt-1 text-lg font-bold ${toneClass}`}>{value}</p>
+    <div className="flex min-w-[88px] items-center justify-between gap-2 rounded-lg border border-[#e8e9ee] bg-[#fafbfc] px-2.5 py-1.5">
+      <p className="text-[9px] font-medium leading-tight text-[#858792]">{label}</p>
+      <p className={`text-sm font-bold tabular-nums ${toneClass}`}>{value}</p>
     </div>
   );
 }
@@ -952,7 +963,7 @@ export default function MembershipImportModal({ onClose }) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="membership-import-title"
-        className="flex max-h-[97vh] w-full max-w-[1700px] flex-col overflow-hidden rounded-2xl border border-[#e6e7eb] bg-[#f8f9fb] shadow-2xl"
+        className="flex h-[97vh] max-h-[97vh] w-full max-w-[1900px] flex-col overflow-hidden rounded-2xl border border-[#e6e7eb] bg-[#f8f9fb] shadow-2xl"
       >
         <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[#e8e9ee] bg-white px-5 py-4 sm:px-7">
           <div className="flex min-w-0 items-center gap-3">
@@ -984,7 +995,7 @@ export default function MembershipImportModal({ onClose }) {
           </button>
         </header>
 
-        <div className="flex flex-wrap items-center gap-2 border-b border-[#e8e9ee] bg-white px-4 py-3 sm:px-6">
+        <div className="flex flex-wrap items-center gap-2 border-b border-[#e8e9ee] bg-white px-3 py-2.5 sm:px-4">
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
@@ -1032,11 +1043,22 @@ export default function MembershipImportModal({ onClose }) {
             Export reviewed Excel
           </button>
 
+          <div className="flex flex-wrap items-center gap-1.5">
+            <SummaryCard label="Rows" value={rows.length} />
+            <SummaryCard label="Errors" value={errorCount} tone="error" />
+            <SummaryCard label="Warnings" value={warningCount} tone="warning" />
+            <SummaryCard
+              label="Ready"
+              value={rows.length > 0 && canImport ? "Yes" : "No"}
+              tone={rows.length > 0 && canImport ? "success" : "neutral"}
+            />
+          </div>
+
           <button
             type="button"
             onClick={resetPreview}
             disabled={!rows.length || busy}
-            className="ml-auto rounded-xl px-3 py-2.5 text-xs font-semibold text-[#777984] hover:bg-[#f1f2f5] disabled:opacity-40"
+            className="rounded-xl px-3 py-2.5 text-xs font-semibold text-[#777984] hover:bg-[#f1f2f5] disabled:opacity-40"
           >
             Clear preview
           </button>
@@ -1049,21 +1071,6 @@ export default function MembershipImportModal({ onClose }) {
             {rows.length} data rows
           </div>
         )}
-
-        <div className="grid grid-cols-2 gap-2 border-b border-[#e8e9ee] px-4 py-3 sm:grid-cols-4 sm:px-6">
-          <SummaryCard label="Total rows" value={rows.length} />
-          <SummaryCard label="Errors" value={errorCount} tone="error" />
-          <SummaryCard
-            label="Warnings"
-            value={warningCount}
-            tone="warning"
-          />
-          <SummaryCard
-            label="Ready to import"
-            value={rows.length > 0 && canImport ? "Yes" : "Not yet"}
-            tone={rows.length > 0 && canImport ? "success" : "neutral"}
-          />
-        </div>
 
         {(error || message || groupsError) && (
           <div
@@ -1078,9 +1085,10 @@ export default function MembershipImportModal({ onClose }) {
           </div>
         )}
 
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          <div className="border-b border-[#e8e9ee] bg-white">
-            <div className="flex flex-wrap items-center gap-2 border-b border-[#e8e9ee] px-4 py-3 sm:px-6">
+        <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 overflow-hidden p-3 2xl:grid-cols-[minmax(0,1.7fr)_minmax(380px,0.9fr)]">
+          <section className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-[#e5e6eb] bg-white">
+            <div className="min-h-0 flex-1 overflow-auto">
+            <div className="sticky top-0 z-20 flex flex-wrap items-center gap-2 border-b border-[#e8e9ee] bg-white px-3 py-2.5">
               <div className="relative min-w-[200px] flex-1">
                 <Search
                   size={15}
@@ -1106,8 +1114,8 @@ export default function MembershipImportModal({ onClose }) {
                 <option value="clean">No issues</option>
               </select>
 
-              <p className="text-[11px] text-[#858792]">
-                Select a row to edit its complete details below.
+              <p className="text-[10px] text-[#858792]">
+                Select a row to edit it →
               </p>
             </div>
 
@@ -1131,7 +1139,7 @@ export default function MembershipImportModal({ onClose }) {
                 </button>
               </div>
             ) : (
-              <div className="max-h-[42vh] overflow-auto">
+              <div>
                 <table className="w-full min-w-[1650px] border-collapse text-left text-xs">
                   <thead className="sticky top-0 z-10 bg-[#f1f2f5] text-[10px] uppercase tracking-wide text-[#737681]">
                     <tr>
@@ -1219,42 +1227,46 @@ export default function MembershipImportModal({ onClose }) {
                                 className="border-b border-r border-[#ececf0] p-1.5"
                               >
                                 {field === "Fellowship / Groups" ? (
-  <div className="min-w-[240px]">
-    <textarea
-      rows={2}
-      value={row[field] ?? ""}
-      disabled={busy}
-      placeholder="Enter Fellowship / Group names"
-      aria-label={`Fellowship / Groups, row ${index + 1}`}
-      onClick={(event) => {
-        event.stopPropagation();
-        setSelectedIndex(index);
-      }}
-      onFocus={() => setSelectedIndex(index)}
-      onChange={(event) =>
-        updateCell(index, "Fellowship / Groups", event.target.value)
-      }
-      onBlur={(event) =>
-        updateCell(
-          index,
-          "Fellowship / Groups",
-          formatGroupNames(event.target.value),
-        )
-      }
-      className={`w-full min-h-[48px] resize-y rounded-md border px-2 py-2 text-xs outline-none transition focus:ring-2 focus:ring-[#9aa8ed]/30 ${
-        fieldError
-          ? "border-red-300 bg-red-50 text-red-700"
-          : "border-[#e5e6eb] bg-white text-[#41434d]"
-      }`}
-    />
+                                  <div className="min-w-[240px]">
+                                    <textarea
+                                      rows={2}
+                                      value={row[field] ?? ""}
+                                      disabled={busy}
+                                      placeholder="Enter Fellowship / Group names"
+                                      aria-label={`Fellowship / Groups, row ${index + 1}`}
+                                      onClick={(event) => {
+                                        event.stopPropagation();
+                                        setSelectedIndex(index);
+                                      }}
+                                      onFocus={() => setSelectedIndex(index)}
+                                      onChange={(event) =>
+                                        updateCell(
+                                          index,
+                                          "Fellowship / Groups",
+                                          event.target.value,
+                                        )
+                                      }
+                                      onBlur={(event) =>
+                                        updateCell(
+                                          index,
+                                          "Fellowship / Groups",
+                                          formatGroupNames(event.target.value),
+                                        )
+                                      }
+                                      className={`w-full min-h-[48px] resize-y rounded-md border px-2 py-2 text-xs outline-none transition focus:ring-2 focus:ring-[#9aa8ed]/30 ${
+                                        fieldError
+                                          ? "border-red-300 bg-red-50 text-red-700"
+                                          : "border-[#e5e6eb] bg-white text-[#41434d]"
+                                      }`}
+                                    />
 
-    {fieldError && (
-      <span className="mt-1 block text-[10px] font-semibold text-red-600">
-        Correct this value
-      </span>
-    )}
-  </div>
-) : SELECT_OPTIONS[field] ? (
+                                    {fieldError && (
+                                      <span className="mt-1 block text-[10px] font-semibold text-red-600">
+                                        Correct this value
+                                      </span>
+                                    )}
+                                  </div>
+                                ) : SELECT_OPTIONS[field] ? (
                                   <select
                                     value={row[field] ?? ""}
                                     aria-label={`${field}, row ${index + 1}`}
@@ -1274,7 +1286,13 @@ export default function MembershipImportModal({ onClose }) {
                                         : "border-transparent"
                                     }`}
                                   >
-                                    <option value="">—</option>
+                                    <option value="">Select...</option>
+                                    {row[field] &&
+                                      !SELECT_OPTIONS[field].includes(row[field]) && (
+                                        <option value={row[field]}>
+                                          {row[field]} (Unrecognised value)
+                                        </option>
+                                      )}
                                     {SELECT_OPTIONS[field].map((option) => (
                                       <option key={option} value={option}>
                                         {option}
@@ -1382,16 +1400,18 @@ export default function MembershipImportModal({ onClose }) {
                 corresponding row.
               </div>
             )}
-          </div>
+            </div>
+          </section>
 
-          {selectedRow && (
-            <section className="space-y-5 px-4 py-5 sm:px-6">
+          <aside className="min-h-0 min-w-0 overflow-y-auto rounded-xl border border-[#e5e6eb] bg-[#f8f9fb]">
+          {selectedRow ? (
+            <section className="space-y-4 p-3">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#697bd0]">
-                    Full-width record editor
+                    EDIT SELECTED ROW
                   </p>
-                  <h3 className="mt-1 text-lg font-bold text-[#202127]">
+                  <h3 className="mt-1 break-words text-base font-bold text-[#202127]">
                     {selectedRow.Name || "Unnamed member"}
                   </h3>
                   <p className="mt-1 text-xs text-[#858792]">
@@ -1463,13 +1483,13 @@ export default function MembershipImportModal({ onClose }) {
               {FIELD_SECTIONS.map((section) => (
                 <section
                   key={section.title}
-                  className="rounded-xl border border-[#e5e6eb] bg-white p-4 sm:p-5"
+                  className="rounded-xl border border-[#e5e6eb] bg-white p-3"
                 >
                   <h4 className="mb-4 border-b border-[#e6e7ec] pb-3 text-sm font-bold text-[#41434d]">
                     {section.title}
                   </h4>
 
-                  <div className="grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  <div className="grid grid-cols-1 gap-x-3 gap-y-3 2xl:grid-cols-2">
                     {section.fields.map((field) => (
                       <FieldEditor
                         key={field}
@@ -1486,9 +1506,20 @@ export default function MembershipImportModal({ onClose }) {
                 </section>
               ))}
 
-              <GroupEditor />
+              {GroupEditor()}
             </section>
+          ) : (
+            <div className="flex min-h-[260px] flex-col items-center justify-center px-5 py-8 text-center">
+              <FileSpreadsheet size={28} className="text-[#a1a4b0]" />
+              <p className="mt-3 text-sm font-semibold text-[#444651]">
+                Select a row to edit
+              </p>
+              <p className="mt-1 max-w-xs text-xs leading-5 text-[#858792]">
+                Click any membership in the table. Its complete details and validation issues will appear here.
+              </p>
+            </div>
           )}
+          </aside>
         </div>
 
         <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-[#e8e9ee] bg-white px-4 py-3 sm:px-6">

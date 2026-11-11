@@ -1,5 +1,6 @@
 import { supabase } from "../../lib/supabase";
 import { getChurchGroups } from "./groupService";
+
 import {
   parseGroupNames,
   formatTitleCase,
@@ -11,7 +12,9 @@ function clean(value) {
 }
 
 function normalizeGroupName(value) {
-  return clean(value).replace(/\s+/g, " ").toLocaleLowerCase();
+  return clean(value)
+    .replace(/\s+/g, " ")
+    .toLocaleLowerCase();
 }
 
 // These fields are standardised both on Excel upload and immediately
@@ -30,7 +33,9 @@ function normalizeMembershipRow(row) {
   const normalized = { ...row };
 
   for (const field of TITLE_CASE_FIELDS) {
-    normalized[field] = formatTitleCase(normalized[field]);
+    normalized[field] = formatTitleCase(
+      normalized[field],
+    );
   }
 
   normalized["Marital Status"] = normalizeMaritalStatus(
@@ -44,7 +49,9 @@ function normalizeMembershipRow(row) {
  * Fetch all groups, including inactive ones, for import validation.
  */
 export async function getMembershipImportGroupCatalog() {
-  const groups = await getChurchGroups({ activeOnly: false });
+  const groups = await getChurchGroups({
+    activeOnly: false,
+  });
 
   return (groups ?? []).map((group) => ({
     id: group.id,
@@ -66,7 +73,10 @@ export async function importMembershipRows(rows) {
     throw new Error("There are no rows to import.");
   }
 
-  const groups = await getChurchGroups({ activeOnly: true });
+  const groups = await getChurchGroups({
+    activeOnly: true,
+  });
+
   const groupsByName = new Map();
 
   for (const group of groups ?? []) {
@@ -93,7 +103,9 @@ export async function importMembershipRows(rows) {
     const unknownNames = [];
 
     for (const name of groupNames) {
-      const group = groupsByName.get(normalizeGroupName(name));
+      const group = groupsByName.get(
+        normalizeGroupName(name),
+      );
 
       if (!group) {
         unknownNames.push(name);
@@ -104,7 +116,9 @@ export async function importMembershipRows(rows) {
 
     if (unknownNames.length > 0) {
       const rowNumber = row.__sourceRow ?? index + 2;
-      const memberName = clean(normalizedRow.Name) || "unnamed member";
+
+      const memberName =
+        clean(normalizedRow.Name) || "unnamed member";
 
       throw new Error(
         `Row ${rowNumber} (${memberName}): unregistered or inactive Fellowship / Group name(s): ${unknownNames.join(", ")}. Correct them in the preview and try again.`,
@@ -113,10 +127,14 @@ export async function importMembershipRows(rows) {
 
     const payload = {
       ...normalizedRow,
-      "Marital Status": normalizedRow["Marital Status"] || null,
+
+      "Marital Status":
+        normalizedRow["Marital Status"] || null,
+
       "Year Joined": clean(normalizedRow["Year Joined"])
         ? Number(clean(normalizedRow["Year Joined"]))
         : null,
+
       group_ids: groupIds,
     };
 
@@ -126,7 +144,7 @@ export async function importMembershipRows(rows) {
   });
 
   const { data, error } = await supabase.rpc(
-    "import_memberships_transactional",
+    "import_memberships_transactional_v2",
     {
       p_rows: payloadRows,
     },

@@ -1,4 +1,3 @@
-
 import { supabase } from '../../lib/supabase'
 import {
   MEMBERSHIP_FIELDS,
@@ -132,7 +131,7 @@ export async function getMembershipDirectory() {
 
       return {
         ...branch,
-        display_number: `${membership.membership_number ?? '—'}${branch.suffix}`,
+        display_number: `${membership.membership_number ?? 'â€”'}${branch.suffix}`,
         member_count: branchMembers.length,
         head_name: branchHead?.name ?? 'Branch head not recorded',
         head_person_id: branchHead?.person_id ?? null,
@@ -338,7 +337,7 @@ export async function createMembershipWithHead({ head, membership }) {
   }
 
   return unwrap(
-    await supabase.rpc('create_membership_with_head', {
+    await supabase.rpc('create_membership_with_head_v2', {
       p_head: cleanObject(head),
       p_membership: cleanObject(membership),
     }),
@@ -355,7 +354,7 @@ export async function updateMembership(membershipRowId, patch) {
   }
 
   return unwrap(
-    await supabase.rpc('update_membership', {
+    await supabase.rpc('update_membership_v2', {
       p_membership_row_id: membershipRowId,
       p_patch: patch,
     }),
@@ -462,7 +461,7 @@ export async function createBranchFromExistingMember({
 
   if (!suffix) {
     throw new Error(
-      'All branch suffixes A–Z are in use for this membership.',
+      'All branch suffixes Aâ€“Z are in use for this membership.',
     )
   }
 

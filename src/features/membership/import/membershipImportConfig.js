@@ -22,6 +22,9 @@ export const MEMBERSHIP_HEADERS = [
   "Email",
   "Fellowship / Groups",
   "Door Number",
+  "Floor Number",
+  "Apartment / House Name",
+  "Block Number",
   "Street Name",
   "Area",
   "City",
@@ -35,20 +38,22 @@ export const MEMBERSHIP_HEADERS = [
   "Membership Status",
 ];
 
-export const DATE_HEADERS = [
-  "Date of Birth",
-  "Date of Marriage",
-];
+export const DATE_HEADERS = ["Date of Birth", "Date of Marriage"];
 
 const RELATIONSHIPS = [
   "Spouse",
-  "Parent",
-  "Child",
-  "Sibling",
+  "Son",
+  "Daughter",
+  "Father",
+  "Mother",
+  "Grand Son",
+  "Grand daughter",
   "Guardian",
-  "Other",
+  "Brother",
+  "Sister",
+  "Son-in-Law",
+  "Daughter-in-Law",
 ];
-
 const GENDERS = ["Male", "Female", "Other"];
 
 export const MARITAL_STATUSES = [
@@ -62,7 +67,6 @@ export const MARITAL_STATUSES = [
 
 export function normalizeMaritalStatus(value) {
   const clean = String(value ?? "").trim();
-
   if (!clean) return "";
 
   const aliases = {
@@ -100,11 +104,15 @@ export const MEMBERSHIP_EXAMPLE_ROWS = [
     Email: "rajesh@example.com",
     "Fellowship / Groups": "Men's Fellowship; Choir",
     "Door Number": "12A",
+    "Floor Number": "",
+    "Apartment / House Name": "",
+    "Block Number": "",
     "Street Name": "Church Street",
     Area: "Anna Nagar",
     City: "Chennai",
     Pincode: "600040",
-    "Google Maps Link": "https://maps.google.com/?q=12A+Church+Street,+Anna+Nagar,+Chennai",
+    "Google Maps Link":
+      "https://maps.google.com/?q=12A+Church+Street,+Anna+Nagar,+Chennai",
     Landmark: "Near park",
     "Primary Phone Number": "9876543210",
     "Alternate Phone Number": "",
@@ -130,11 +138,15 @@ export const MEMBERSHIP_EXAMPLE_ROWS = [
     Email: "priya@example.com",
     "Fellowship / Groups": "Women's Fellowship; Young Couples",
     "Door Number": "12A",
+    "Floor Number": "",
+    "Apartment / House Name": "",
+    "Block Number": "",
     "Street Name": "Church Street",
     Area: "Anna Nagar",
     City: "Chennai",
     Pincode: "600040",
-    "Google Maps Link": "https://maps.google.com/?q=12A+Church+Street,+Anna+Nagar,+Chennai",
+    "Google Maps Link":
+      "https://maps.google.com/?q=12A+Church+Street,+Anna+Nagar,+Chennai",
     Landmark: "Near park",
     "Primary Phone Number": "9876543210",
     "Alternate Phone Number": "",
@@ -160,11 +172,15 @@ export const MEMBERSHIP_EXAMPLE_ROWS = [
     Email: "arun@example.com",
     "Fellowship / Groups": "Youth Fellowship; Media Team",
     "Door Number": "12A",
+    "Floor Number": "",
+    "Apartment / House Name": "",
+    "Block Number": "",
     "Street Name": "Church Street",
     Area: "Anna Nagar",
     City: "Chennai",
     Pincode: "600040",
-    "Google Maps Link": "https://maps.google.com/?q=12A+Church+Street,+Anna+Nagar,+Chennai",
+    "Google Maps Link":
+      "https://maps.google.com/?q=12A+Church+Street,+Anna+Nagar,+Chennai",
     Landmark: "Near park",
     "Primary Phone Number": "9876543210",
     "Alternate Phone Number": "",
@@ -190,11 +206,15 @@ export const MEMBERSHIP_EXAMPLE_ROWS = [
     Email: "ananya@example.com",
     "Fellowship / Groups": "Sunday School",
     "Door Number": "12A",
+    "Floor Number": "",
+    "Apartment / House Name": "",
+    "Block Number": "",
     "Street Name": "Church Street",
     Area: "Anna Nagar",
     City: "Chennai",
     Pincode: "600040",
-    "Google Maps Link": "https://maps.google.com/?q=12A+Church+Street,+Anna+Nagar,+Chennai",
+    "Google Maps Link":
+      "https://maps.google.com/?q=12A+Church+Street,+Anna+Nagar,+Chennai",
     Landmark: "Near park",
     "Primary Phone Number": "9876543210",
     "Alternate Phone Number": "",
@@ -220,11 +240,15 @@ export const MEMBERSHIP_EXAMPLE_ROWS = [
     Email: "",
     "Fellowship / Groups": "Women's Fellowship; Prayer Group",
     "Door Number": "12A",
+    "Floor Number": "",
+    "Apartment / House Name": "",
+    "Block Number": "",
     "Street Name": "Church Street",
     Area: "Anna Nagar",
     City: "Chennai",
     Pincode: "600040",
-    "Google Maps Link": "https://maps.google.com/?q=12A+Church+Street,+Anna+Nagar,+Chennai",
+    "Google Maps Link":
+      "https://maps.google.com/?q=12A+Church+Street,+Anna+Nagar,+Chennai",
     Landmark: "Near park",
     "Primary Phone Number": "9876543210",
     "Alternate Phone Number": "",
@@ -250,11 +274,15 @@ export const MEMBERSHIP_EXAMPLE_ROWS = [
     Email: "joseph@example.com",
     "Fellowship / Groups": "Men's Fellowship; Choir",
     "Door Number": "24B",
+    "Floor Number": "",
+    "Apartment / House Name": "",
+    "Block Number": "",
     "Street Name": "Church Street",
     Area: "Anna Nagar",
     City: "Chennai",
     Pincode: "600040",
-    "Google Maps Link": "https://maps.google.com/?q=12A+Church+Street,+Anna+Nagar,+Chennai",
+    "Google Maps Link":
+      "https://maps.google.com/?q=12A+Church+Street,+Anna+Nagar,+Chennai",
     Landmark: "Near park",
     "Primary Phone Number": "9876543215",
     "Alternate Phone Number": "",
@@ -264,19 +292,11 @@ export const MEMBERSHIP_EXAMPLE_ROWS = [
   },
 ];
 
-/**
- * Converts Excel group values into a normalized, de-duplicated list.
- *
- * Supported separators: semicolon, comma, and newline.
- * Use semicolons in the workbook to separate multiple group names.
- */
 export function parseGroupNames(value) {
   const values = Array.isArray(value) ? value : [value];
-
   const names = values.flatMap((item) =>
     String(item ?? "").split(/[;,\n\r]+/),
   );
-
   const seen = new Set();
 
   return names
@@ -284,17 +304,12 @@ export function parseGroupNames(value) {
     .filter(Boolean)
     .filter((name) => {
       const key = name.toLocaleLowerCase();
-
       if (seen.has(key)) return false;
-
       seen.add(key);
       return true;
     });
 }
 
-/**
- * Canonical spreadsheet representation for groups.
- */
 export function formatGroupNames(value) {
   return parseGroupNames(value).join("; ");
 }
@@ -314,6 +329,37 @@ export function formatTitleCase(value) {
     });
 }
 
+export function normalizeAddressCell(value) {
+  const text = cleanCell(value).replace(/\s+/g, " ");
+  if (!text) return "";
+
+  if (
+    /^(?:\.|-+|—|–|n\/?a|na|null|none|not applicable)$/i.test(text)
+  ) {
+    return "";
+  }
+
+  return text;
+}
+
+function looksLikeWholeAddress(value) {
+  const text = normalizeAddressCell(value);
+  if (!text) return false;
+
+  const commaParts = text
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  return (
+    commaParts.length >= 3 ||
+    (/\b(?:street|st\.?|road|rd\.?|nagar|colony|layout|cross|main road|avenue)\b/i.test(
+      text,
+    ) &&
+      text.length > 45)
+  );
+}
+
 export function prepareImportedRows(rows) {
   const normalized = normalizeRows(rows, MEMBERSHIP_HEADERS);
 
@@ -325,12 +371,12 @@ export function prepareImportedRows(rows) {
     "Area",
     "City",
     "Landmark",
+    "Apartment / House Name",
   ];
 
   return normalized.map((row, index) => {
     const prepared = { ...row };
 
-    // Standardise dates.
     for (const header of DATE_HEADERS) {
       const value = cleanCell(prepared[header]);
 
@@ -343,49 +389,61 @@ export function prepareImportedRows(rows) {
       prepared[header] = parsed ?? value;
     }
 
-    // Clean all spreadsheet values.
     for (const header of MEMBERSHIP_HEADERS) {
       if (DATE_HEADERS.includes(header)) continue;
       prepared[header] = cleanCell(prepared[header]);
     }
 
-    // Standardise names and address-related text.
+    for (const field of [
+      "Door Number",
+      "Floor Number",
+      "Apartment / House Name",
+      "Block Number",
+      "Pincode",
+      "Google Maps Link",
+    ]) {
+      prepared[field] = normalizeAddressCell(prepared[field]);
+    }
+
     for (const field of titleCaseFields) {
       prepared[field] = formatTitleCase(prepared[field]);
     }
 
-    // Convert legacy Single values to the canonical Unmarried value.
     prepared["Marital Status"] = normalizeMaritalStatus(
       prepared["Marital Status"],
     );
 
-    // Preserve membership numbers.
-    prepared["Membership Number"] =
-      prepared["Membership Number"].replace(/\s+/g, "");
+    prepared["Membership Number"] = prepared[
+      "Membership Number"
+    ].replace(/\s+/g, "");
 
-    prepared["Record Type"] =
-      prepared["Record Type"].trim();
-
-    prepared["Branch Suffix"] =
-      prepared["Branch Suffix"].toUpperCase();
-
+    prepared["Record Type"] = prepared["Record Type"].trim();
+    prepared["Branch Suffix"] = prepared["Branch Suffix"].toUpperCase();
     prepared["Is Head"] =
       prepared["Is Head"].toLowerCase() === "yes" ? "Yes" : "No";
 
-    // Standardise relationship values.
+    // Normalize relationship with the membership head.
     const relationship = prepared["Relationship to Head"]
       .trim()
       .toLocaleLowerCase();
 
     const relationshipAliases = {
-      son: "Child",
-      daughter: "Child",
-      child: "Child",
       spouse: "Spouse",
-      parent: "Parent",
-      sibling: "Sibling",
+      son: "Son",
+      daughter: "Daughter",
+      father: "Father",
+      mother: "Mother",
+      "grand son": "Grand Son",
+      grandson: "Grand Son",
+      "grand daughter": "Grand daughter",
+      granddaughter: "Grand daughter",
       guardian: "Guardian",
-      other: "Other",
+      brother: "Brother",
+      sister: "Sister",
+      "son-in-law": "Son-in-Law",
+      "son in law": "Son-in-Law",
+      "daughter-in-law": "Daughter-in-Law",
+      "daughter in law": "Daughter-in-Law",
     };
 
     if (relationship) {
@@ -393,13 +451,26 @@ export function prepareImportedRows(rows) {
         relationshipAliases[relationship] ??
         formatTitleCase(prepared["Relationship to Head"]);
     }
-
-    // Keep group names unchanged so they match registered Church Desk names.
     prepared["Fellowship / Groups"] = formatGroupNames(
       prepared["Fellowship / Groups"],
     );
 
-    // Preserve original Excel row number.
+    prepared["Marital Status"] = normalizeMaritalStatus(
+      prepared["Marital Status"],
+    );
+
+    if (!prepared["Marital Status"]) {
+      const hasMarriageDate = Boolean(
+        cleanCell(prepared["Date of Marriage"]),
+      );
+
+      const isSpouse =
+        prepared["Relationship to Head"] === "Spouse";
+
+      prepared["Marital Status"] =
+        hasMarriageDate || isSpouse ? "Married" : "Unmarried";
+    }
+
     prepared.__sourceRow = row.__sourceRow ?? index + 2;
 
     return prepared;
@@ -426,6 +497,19 @@ function addIssue(collection, type, rows, index, field, message) {
 export function validateMembershipRows(rows) {
   const errors = [];
   const warnings = [];
+
+  rows.forEach((row, index) => {
+    if (looksLikeWholeAddress(row["Door Number"])) {
+      addIssue(
+        warnings,
+        "warning",
+        rows,
+        index,
+        "Door Number",
+        "This looks like a full address rather than a door/house number. Move each component into its own column before importing.",
+      );
+    }
+  });
 
   const addError = (index, field, message) =>
     addIssue(errors, "error", rows, index, field, message);
@@ -454,7 +538,6 @@ export function validateMembershipRows(rows) {
     const marriageDate = cleanCell(row["Date of Marriage"]);
     const yearJoined = cleanCell(row["Year Joined"]);
 
-    // Membership number format.
     if (!number) {
       addError(index, "Membership Number", "Membership number is required.");
     } else {
@@ -474,7 +557,6 @@ export function validateMembershipRows(rows) {
       membershipNumberRows.set(normalizedNumber, numberIndexes);
     }
 
-    // Person name.
     if (!name) {
       addError(index, "Name", "Member name is required.");
     } else {
@@ -485,7 +567,6 @@ export function validateMembershipRows(rows) {
       nameRows.set(normalizedName, nameIndexes);
     }
 
-    // Membership type and branch suffix.
     if (!RECORD_TYPES.includes(type)) {
       addError(index, "Record Type", "Choose Membership or Branch.");
     }
@@ -514,7 +595,6 @@ export function validateMembershipRows(rows) {
       addError(index, "Branch Suffix", "A branch head needs a branch suffix.");
     }
 
-    // Relationship validation.
     if (relationship && !RELATIONSHIPS.includes(relationship)) {
       addError(
         index,
@@ -523,8 +603,6 @@ export function validateMembershipRows(rows) {
       );
     }
 
-    // Main membership heads have no relationship to themselves.
-    // Branch heads must specify their relationship to the original membership head.
     if (type === "Membership" && head === "Yes" && relationship) {
       addWarning(
         index,
@@ -549,12 +627,11 @@ export function validateMembershipRows(rows) {
       );
     }
 
-    // Personal information.
     if (gender && !GENDERS.includes(gender)) {
       addError(index, "Gender", `Use ${GENDERS.join(", ")}.`);
     }
 
-    if (maritalStatus && !MARITAL_STATUSES.includes(maritalStatus)) {
+            if (maritalStatus && !MARITAL_STATUSES.includes(maritalStatus)) {
       addError(
         index,
         "Marital Status",
@@ -593,35 +670,22 @@ export function validateMembershipRows(rows) {
       );
     }
 
-    if (marriageDate && maritalStatus && maritalStatus !== "Married") {
-      addWarning(
-        index,
-        "Marital Status",
-        "A marriage date is present but marital status is not Married.",
-      );
-    }
-
-    // A spouse relationship must have Married status.
-    if (relationship === "Spouse" && maritalStatus !== "Married") {
+    // Explicit Unmarried conflicts with a marriage date or Spouse relationship.
+    if (
+      maritalStatus === "Unmarried" &&
+      (Boolean(marriageDate) || relationship === "Spouse")
+    ) {
       addError(
         index,
         "Marital Status",
-        "A spouse relationship must have marital status Married.",
+        "This member has a marriage date or Spouse relationship. Change the marital status from Unmarried.",
       );
     }
 
-    // Year joined is optional.
-    // Validate only when a value is provided.
     if (yearJoined && !/^\d{4}$/.test(yearJoined)) {
-      addError(
-        index,
-        "Year Joined",
-        "Enter a four-digit year.",
-      );
+      addError(index, "Year Joined", "Enter a four-digit year.");
     }
 
-    // Validate household composition using membership number AND suffix.
-    // Repeated membership numbers within the same household are expected.
     if (
       number &&
       type &&
@@ -635,16 +699,11 @@ export function validateMembershipRows(rows) {
     }
   });
 
-  // Each household/branch must contain exactly one head.
-  // Main memberships can contain multiple people.
-  // Branch memberships must contain exactly one person.
   for (const [key, indexes] of householdRows) {
     if (!key || key.startsWith("::")) continue;
 
     const types = new Set(
-      indexes.map((index) =>
-        cleanCell(rows[index]["Record Type"]),
-      ),
+      indexes.map((index) => cleanCell(rows[index]["Record Type"])),
     );
 
     const isBranch = types.has("Branch");
@@ -696,10 +755,6 @@ export function validateMembershipRows(rows) {
     }
   }
 
-  // Duplicate membership number checking:
-  // Multiple rows with the same number and suffix are members of one household,
-  // not duplicate memberships. Warn only when the same number is used for
-  // different household/branch keys.
   for (const [number, indexes] of membershipNumberRows) {
     if (indexes.length < 2) continue;
 
@@ -727,7 +782,6 @@ export function validateMembershipRows(rows) {
     }
   }
 
-  // Repeated names are a warning, not an automatic failure.
   for (const indexes of nameRows.values()) {
     if (indexes.length < 2) continue;
 
@@ -740,7 +794,6 @@ export function validateMembershipRows(rows) {
     });
   }
 
-  // Marriage consistency checks between the household head and spouse.
   for (const indexes of householdRows.values()) {
     const headIndex = indexes.find(
       (index) => cleanCell(rows[index]["Is Head"]) === "Yes",

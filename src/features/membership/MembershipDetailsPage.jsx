@@ -1,4 +1,3 @@
-
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   useLocation,
@@ -304,10 +303,13 @@ export default function MembershipDetailsPage() {
       ? [{ ...head, is_head: true, branch_id: null }]
       : [];
 
-  const branchDisplayNumber = `${membership?.membership_number || "—"}${selectedBranch?.suffix || ""}`;
+  const branchDisplayNumber = `${membership?.membership_number || "â€”"}${selectedBranch?.suffix || ""}`;
 
   const address = [
     membership?.door_number,
+    membership?.floor_number,
+    membership?.apartment_name,
+    membership?.block_number,
     membership?.street_name,
     membership?.area,
     // membership?.landmark ? `Near ${membership.landmark}` : null,
@@ -776,7 +778,7 @@ export default function MembershipDetailsPage() {
 
                 {eligibleHeads.map((member) => (
                   <option key={member.id} value={member.id}>
-                    {member.name} · {member.person_id}
+                    {member.name} Â· {member.person_id}
                   </option>
                 ))}
               </select>
@@ -842,7 +844,7 @@ export default function MembershipDetailsPage() {
 
                 {allMembers.map((member) => (
                   <option key={member.id} value={member.id}>
-                    {member.name} · {member.person_id}
+                    {member.name} Â· {member.person_id}
                   </option>
                 ))}
               </select>
@@ -865,7 +867,7 @@ export default function MembershipDetailsPage() {
 
                 {allMembers.map((member) => (
                   <option key={member.id} value={member.id}>
-                    {member.name} · {member.person_id}
+                    {member.name} Â· {member.person_id}
                   </option>
                 ))}
               </select>
