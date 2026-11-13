@@ -720,22 +720,17 @@ export function validateMembershipRows(rows) {
       }
 
       indexes.forEach((index) => {
-        if (cleanCell(rows[index]["Is Head"]) !== "Yes") {
-          addError(
-            index,
-            "Is Head",
-            "The single person in a branch must be marked as its head.",
-          );
-        }
+  // Is Head = Yes explicitly designates the branch member as its head.
+  // Is Head = No is also valid. Branches do not require a separate head.
 
-        if (!cleanCell(rows[index]["Relationship to Head"])) {
-          addError(
-            index,
-            "Relationship to Head",
-            "A branch member must specify their relationship to the original membership head.",
-          );
-        }
-      });
+  if (!cleanCell(rows[index]["Relationship to Head"])) {
+    addError(
+      index,
+      "Relationship to Head",
+      "A branch member must specify their relationship to the original membership head.",
+    );
+  }
+});
 
       continue;
     }

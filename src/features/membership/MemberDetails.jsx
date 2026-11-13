@@ -141,10 +141,7 @@ function EditMemberModal({ member, onClose, onSaved }) {
 
     setForm((current) => ({
       ...current,
-      [name]:
-        name === "marital_status"
-          ? normalizeMaritalStatus(value)
-          : value,
+      [name]: name === "marital_status" ? normalizeMaritalStatus(value) : value,
     }));
 
     setError("");
@@ -169,8 +166,7 @@ function EditMemberModal({ member, onClose, onSaved }) {
         gender: form.gender || null,
         date_of_birth: form.date_of_birth || null,
         marital_status: normalizeMaritalStatus(form.marital_status),
-        occupation_or_studying:
-          form.occupation_or_studying.trim() || null,
+        occupation_or_studying: form.occupation_or_studying.trim() || null,
         phone_number: form.phone_number.trim() || null,
         email: form.email.trim() || null,
         status: form.status || null,
@@ -545,7 +541,7 @@ export default function MemberDetails() {
             <Detail label="Permanent Person ID" value={member.person_id} />
 
             <Detail
-              label="Relationship to Household Head"
+              label="Legacy structural assignment label"
               value={member.relationship_to_head}
             />
 

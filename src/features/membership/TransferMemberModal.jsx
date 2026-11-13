@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { ArrowRightLeft, RefreshCw, X } from "lucide-react";
 import {
@@ -9,14 +8,11 @@ import {
 const inputClass =
   "mt-1.5 min-h-[42px] w-full rounded-[10px] border border-[#e5e5e7] bg-white px-3 py-2 text-[12px] text-[#25262c] outline-none focus:border-[#9b9da5] disabled:cursor-not-allowed disabled:bg-[#f4f4f5]";
 
-const labelClass =
-  "block text-[11.5px] font-semibold text-[#53555e]";
+const labelClass = "block text-[11.5px] font-semibold text-[#53555e]";
 
 function getToday() {
   const now = new Date();
-  const localDate = new Date(
-    now.getTime() - now.getTimezoneOffset() * 60000,
-  );
+  const localDate = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
 
   return localDate.toISOString().slice(0, 10);
 }
@@ -77,9 +73,7 @@ export default function TransferMemberModal({
         setMemberships(destinations);
       } catch (err) {
         if (!cancelled) {
-          setError(
-            err.message || "Could not load destination memberships.",
-          );
+          setError(err.message || "Could not load destination memberships.");
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -113,9 +107,7 @@ export default function TransferMemberModal({
     setError("");
 
     if (member.is_head) {
-      setError(
-        "This person is the membership head. Use Change Head first.",
-      );
+      setError("This person is the membership head. Use Change Head first.");
       return;
     }
 
@@ -134,10 +126,7 @@ export default function TransferMemberModal({
       return;
     }
 
-    if (
-      form.relationshipToHead === "Spouse" &&
-      !member.date_of_marriage
-    ) {
+    if (form.relationshipToHead === "Spouse" && !member.date_of_marriage) {
       // The existing marriage relationship and date are preserved.
       // This transfer form does not create or rewrite spouse relationships.
     }
@@ -192,8 +181,8 @@ export default function TransferMemberModal({
             </h2>
 
             <p className="mt-1 text-[12px] text-[#777984]">
-              Move this person to another membership while retaining
-              their permanent person record.
+              Move this person to another membership while retaining their
+              permanent person record.
             </p>
           </div>
 
@@ -211,9 +200,8 @@ export default function TransferMemberModal({
         {member.is_head ? (
           <div className="space-y-4 p-5 sm:p-7">
             <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[12px] leading-5 text-amber-800">
-              This person is the head of their current membership.
-              Use the existing Change Head workflow before transferring
-              them.
+              This person is the head of their current membership. Use the
+              existing Change Head workflow before transferring them.
             </p>
 
             <button
@@ -227,8 +215,7 @@ export default function TransferMemberModal({
         ) : !member.membership_row_id ? (
           <div className="space-y-4 p-5 sm:p-7">
             <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[12px] leading-5 text-amber-800">
-              This person has no current membership assignment to
-              transfer.
+              This person has no current membership assignment to transfer.
             </p>
 
             <button
@@ -278,7 +265,6 @@ export default function TransferMemberModal({
             <label className={labelClass}>
               Destination Membership
               <span className="ml-1 text-red-500">*</span>
-
               <select
                 name="destinationMembershipId"
                 value={form.destinationMembershipId}
@@ -304,16 +290,20 @@ export default function TransferMemberModal({
 
             {!loading && memberships.length === 0 && (
               <p className="text-[11.5px] leading-5 text-[#777984]">
-                No other active main memberships are available.
-                Branch memberships are not supported by this transfer
-                workflow.
+                No other active main memberships are available. Branch
+                memberships are not supported by this transfer workflow.
               </p>
             )}
 
             <label className={labelClass}>
-              Relationship to Destination Head
+              Legacy structural assignment label
               <span className="ml-1 text-red-500">*</span>
-
+              <p className="mt-1 text-[10.5px] font-normal leading-5 text-[#777984]">
+                This field is retained for the current transfer workflow. It is
+                not the person-to-person family relationship graph. Use Add
+                Relationship to record spouse, parent, child, and other family
+                relationships.
+              </p>
               <select
                 name="relationshipToHead"
                 value={form.relationshipToHead}
@@ -341,7 +331,6 @@ export default function TransferMemberModal({
             <label className={labelClass}>
               Effective Date
               <span className="ml-1 text-red-500">*</span>
-
               <input
                 type="date"
                 name="effectiveDate"
@@ -357,7 +346,6 @@ export default function TransferMemberModal({
             <label className={labelClass}>
               Reason for Transfer
               <span className="ml-1 text-red-500">*</span>
-
               <textarea
                 name="reason"
                 value={form.reason}
@@ -378,10 +366,10 @@ export default function TransferMemberModal({
               </p>
 
               <p className="mt-1 text-[11.5px] leading-5 text-amber-800">
-                The transfer should close the old assignment and create
-                the new assignment without deleting the person's record
-                or existing spouse relationships. Confirm the destination
-                and effective date carefully.
+                The transfer should close the old assignment and create the new
+                assignment without deleting the person's record or existing
+                spouse relationships. Confirm the destination and effective date
+                carefully.
               </p>
             </section>
 

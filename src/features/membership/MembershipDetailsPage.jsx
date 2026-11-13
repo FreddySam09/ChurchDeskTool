@@ -20,6 +20,7 @@ import {
 
 import {
   changeMembershipHead,
+  convertBranchToIndependent,
   getMembershipDetails,
   recordMemberRelationship,
 } from "../../services/membershipService";
@@ -28,9 +29,8 @@ import MembershipHistory from "./MembershipHistory";
 import AddMemberModal from "./AddMemberModal";
 import EditMembershipModal from "./EditMembershipModal";
 import CreateBranchFromMemberModal from "./CreateBranchFromMemberModal";
-import {
-  getMembershipHeadPhotoUrl,
-} from "../../services/membership/membershipPhotoService";
+import { getMembershipHeadPhotoUrl } from "../../services/membership/membershipPhotoService";
+import MembershipStructure from "./MembershipStructure";
 
 function formatDate(value) {
   if (!value) return "Not recorded";
@@ -73,9 +73,7 @@ function Panel({ title, subtitle, action, children }) {
     <section className="overflow-hidden rounded-[18px] border border-[#ececed] bg-white shadow-[0_1px_2px_rgba(15,15,20,0.04)]">
       <header className="flex flex-wrap items-start justify-between gap-3 border-b border-[#f2f2f3] px-5 py-4">
         <div>
-          <h2 className="text-[14px] font-extrabold text-[#131418]">
-            {title}
-          </h2>
+          <h2 className="text-[14px] font-extrabold text-[#131418]">{title}</h2>
 
           {subtitle && (
             <p className="mt-1 text-[11.5px] leading-5 text-[#888a93]">
@@ -253,6 +251,10 @@ export default function MembershipDetailsPage() {
   const [savingHeadChange, setSavingHeadChange] = useState(false);
   const [headChangeError, setHeadChangeError] = useState("");
   const [createBranchOpen, setCreateBranchOpen] = useState(false);
+  const [convertBranchOpen, setConvertBranchOpen] = useState(false);
+  const [conversionReason, setConversionReason] = useState("");
+  const [convertingBranch, setConvertingBranch] = useState(false);
+  const [conversionError, setConversionError] = useState("");
 
   const [relationshipForm, setRelationshipForm] = useState({
     member_id: "",
@@ -303,7 +305,16 @@ export default function MembershipDetailsPage() {
       ? [{ ...head, is_head: true, branch_id: null }]
       : [];
 
+  const people = details?.people || allMembers;
+  const mainMembers =
+    details?.mainMembers || members.filter((member) => !member.branch_id);
+
+  const displayedRelationships =
+    details?.displayedRelationships || relationships;
+
   const branchDisplayNumber = `${membership?.membership_number || "â€”"}${selectedBranch?.suffix || ""}`;
+
+  const allBranches = details?.allBranches || branches;
 
   const address = [
     membership?.door_number,
@@ -318,36 +329,32 @@ export default function MembershipDetailsPage() {
   ]
     .filter(
       (part) =>
-        part !== null &&
-        part !== undefined &&
-        String(part).trim() !== "",
+        part !== null && part !== undefined && String(part).trim() !== "",
     )
     .join(", ");
 
   function navigateToAddress() {
-  const mapsLink = membership?.google_maps_link?.trim();
+    const mapsLink = membership?.google_maps_link?.trim();
 
-  if (!mapsLink) {
-    window.alert(
-      "Google Maps link has not been provided for this membership.",
-    );
-    return;
-  }
-
-  try {
-    const url = new URL(mapsLink);
-
-    if (url.protocol !== "https:" && url.protocol !== "http:") {
-      throw new Error("Invalid URL protocol");
+    if (!mapsLink) {
+      window.alert(
+        "Google Maps link has not been provided for this membership.",
+      );
+      return;
     }
 
-    window.open(url.href, "_blank", "noopener,noreferrer");
-  } catch {
-    window.alert(
-      "The Google Maps link for this membership is invalid.",
-    );
+    try {
+      const url = new URL(mapsLink);
+
+      if (url.protocol !== "https:" && url.protocol !== "http:") {
+        throw new Error("Invalid URL protocol");
+      }
+
+      window.open(url.href, "_blank", "noopener,noreferrer");
+    } catch {
+      window.alert("The Google Maps link for this membership is invalid.");
+    }
   }
-}
 
   const eligibleHeads = useMemo(
     () =>
@@ -357,6 +364,10 @@ export default function MembershipDetailsPage() {
       ),
     [allMembers, membership?.head_member_id],
   );
+
+  const membershipHeadName =
+    details?.membershipHead?.name ||
+    (membership?.head_member_id === head?.id ? head?.name : null);
 
   async function handleSaveRelationship(event) {
     event.preventDefault();
@@ -434,6 +445,41 @@ export default function MembershipDetailsPage() {
       setHeadChangeError(err.message || "Could not change membership head.");
     } finally {
       setSavingHeadChange(false);
+    }
+  }
+
+  async function handleConvertBranch(event) {
+    event.preventDefault();
+    setConversionError("");
+
+    if (!selectedBranch?.id) {
+      setConversionError("The branch record could not be identified.");
+      return;
+    }
+
+    setConvertingBranch(true);
+
+    try {
+      const result = await convertBranchToIndependent({
+        branchId: selectedBranch.id,
+        reason: conversionReason.trim() || null,
+      });
+
+      if (!result?.membership_row_id) {
+        throw new Error(
+          "The conversion completed without returning the new membership ID.",
+        );
+      }
+
+      // The RPC returns the newly created independent membership.
+      // Open that membership immediately.
+      navigate(`/memberships/${result.membership_row_id}`, {
+        replace: true,
+      });
+    } catch (err) {
+      setConversionError(err.message || "Could not convert this branch.");
+    } finally {
+      setConvertingBranch(false);
     }
   }
 
@@ -551,7 +597,7 @@ export default function MembershipDetailsPage() {
             {loading ? "Refreshing..." : "Refresh"}
           </ActionButton>
 
-          {!isBranchView && (
+          {!isBranchView ? (
             <>
               <ActionButton primary onClick={navigateToAddress}>
                 <MapPin size={15} />
@@ -563,6 +609,18 @@ export default function MembershipDetailsPage() {
                 Branch
               </ActionButton>
             </>
+          ) : (
+            <ActionButton
+              primary
+              onClick={() => {
+                setConversionError("");
+                setConversionReason("");
+                setConvertBranchOpen(true);
+              }}
+            >
+              <GitBranch size={14} />
+              Convert to independent membership
+            </ActionButton>
           )}
         </div>
       </header>
@@ -617,11 +675,15 @@ export default function MembershipDetailsPage() {
               />
 
               <DetailField
-                label="Head of membership"
+                label={
+                  isBranchView
+                    ? "Person assigned to branch"
+                    : "Head of membership"
+                }
                 value={
-                  membership.head_member_id === head?.id
-                    ? head?.name
-                    : details.head?.name || head?.name
+                  isBranchView
+                    ? selectedBranch?.member?.name || head?.name
+                    : membershipHeadName
                 }
               />
 
@@ -660,12 +722,12 @@ export default function MembershipDetailsPage() {
           <Panel
             title={
               isBranchView
-                ? `Branch members (${allMembers.length})`
+                ? `Branch assignment (${allMembers.length})`
                 : `Members (${allMembers.length})`
             }
             subtitle={
               isBranchView
-                ? "Only people assigned to this branch are shown."
+                ? "The person currently assigned to this branch."
                 : "Select a member to view their full details."
             }
             action={
@@ -715,17 +777,91 @@ export default function MembershipDetailsPage() {
           </Panel>
         </div>
       </div>
-
-
       {!isBranchView && (
-        <MembershipHistory membershipRowId={membershipRowId} />
+        <MembershipStructure
+          membership={membership}
+          membershipRowId={membershipRowId}
+          head={details?.membershipHead || head}
+          mainMembers={mainMembers}
+          branches={branches}
+        />
       )}
+
+      <Panel
+        title="Family relationships"
+        subtitle="Person-to-person relationships. These are independent of membership and branch assignments."
+        action={
+          <button
+            type="button"
+            onClick={() => {
+              setRelationshipError("");
+              setRelationshipForm({
+                member_id: "",
+                related_member_id: "",
+                relationship_type: "Spouse",
+                date_of_marriage: "",
+                notes: "",
+              });
+              setRelationshipOpen(true);
+            }}
+            className="rounded-lg border border-[#e5e5e7] bg-white px-3 py-2 text-[11px] font-semibold text-[#53555e] hover:bg-[#f7f7f8]"
+          >
+            Add relationship
+          </button>
+        }
+      >
+        {displayedRelationships.length === 0 ? (
+          <p className="text-[12px] text-[#92939b]">
+            No family relationships are recorded for the people shown here.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {displayedRelationships.map((relationship) => (
+              <div
+                key={relationship.id}
+                className="flex flex-col gap-2 rounded-xl border border-[#ececed] bg-white px-3.5 py-3 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div className="min-w-0">
+                  <p className="break-words text-[12px] font-semibold text-[#25262c]">
+                    {relationship.member_name}
+                    <span className="mx-2 text-[#92939b]">↔</span>
+                    {relationship.related_member_name}
+                  </p>
+
+                  <p className="mt-1 text-[11px] text-[#777984]">
+                    {relationship.relationship_type || "Relationship"}
+                    {relationship.date_of_marriage
+                      ? ` · Married ${formatDate(relationship.date_of_marriage)}`
+                      : ""}
+                  </p>
+                </div>
+
+                <div className="flex shrink-0 flex-wrap gap-1.5">
+                  {relationship.member_person_id && (
+                    <span className="rounded-full bg-[#f3f3f4] px-2 py-1 font-mono text-[10px] text-[#777984]">
+                      {relationship.member_person_id}
+                    </span>
+                  )}
+
+                  {relationship.related_member_person_id && (
+                    <span className="rounded-full bg-[#f3f3f4] px-2 py-1 font-mono text-[10px] text-[#777984]">
+                      {relationship.related_member_person_id}
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Panel>
+      {!isBranchView && <MembershipHistory membershipRowId={membershipRowId} />}
       {addMemberOpen && !isBranchView && (
         <AddMemberModal
           membership={membership}
           membershipRowId={membership.id}
           branches={branches}
           relationships={relationships}
+          headMarriageDate={head?.date_of_marriage || ""}
           onClose={() => setAddMemberOpen(false)}
           onCreated={async () => {
             await loadDetails();
@@ -749,7 +885,7 @@ export default function MembershipDetailsPage() {
         <CreateBranchFromMemberModal
           membership={membership}
           members={allMembers}
-          branches={branches}
+          branches={allBranches}
           onClose={() => setCreateBranchOpen(false)}
           onCreated={async () => {
             setCreateBranchOpen(false);
@@ -794,6 +930,12 @@ export default function MembershipDetailsPage() {
               />
             </label>
 
+            <p className="rounded-lg border border-[#e5e5e7] bg-[#f8f8f9] p-3 text-[11px] leading-5 text-[#777984]">
+              Changing the membership head updates the household structure only.
+              It does not change spouse, parent, child, or other family
+              relationships.
+            </p>
+
             {headChangeError && (
               <p
                 role="alert"
@@ -819,7 +961,7 @@ export default function MembershipDetailsPage() {
         </Dialog>
       )}
 
-      {relationshipOpen && !isBranchView && (
+      {relationshipOpen && (
         <Dialog
           title="Add relationship"
           onClose={() => {
@@ -842,7 +984,7 @@ export default function MembershipDetailsPage() {
               >
                 <option value="">Select member</option>
 
-                {allMembers.map((member) => (
+                {people.map((member) => (
                   <option key={member.id} value={member.id}>
                     {member.name} Â· {member.person_id}
                   </option>
@@ -865,9 +1007,12 @@ export default function MembershipDetailsPage() {
               >
                 <option value="">Select member</option>
 
-                {allMembers.map((member) => (
+                {people.map((member) => (
                   <option key={member.id} value={member.id}>
-                    {member.name} Â· {member.person_id}
+                    {member.name} · {member.person_id || "No Person ID"}
+                    {member.membership_number
+                      ? ` · Membership ${member.display_membership_number || member.membership_number}`
+                      : ""}
                   </option>
                 ))}
               </select>
@@ -956,6 +1101,97 @@ export default function MembershipDetailsPage() {
 
               <ActionButton type="submit" primary disabled={savingRelationship}>
                 {savingRelationship ? "Saving..." : "Save relationship"}
+              </ActionButton>
+            </div>
+          </form>
+        </Dialog>
+      )}
+      {convertBranchOpen && isBranchView && selectedBranch && (
+        <Dialog
+          title="Convert branch to independent membership"
+          onClose={() => {
+            if (!convertingBranch) {
+              setConvertBranchOpen(false);
+            }
+          }}
+        >
+          <form onSubmit={handleConvertBranch} className="space-y-4">
+            <div className="rounded-xl border border-[#ececed] bg-[#fafafa] p-4">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-[#92939b]">
+                Branch being converted
+              </p>
+
+              <p className="mt-1 text-[15px] font-bold text-[#131418]">
+                {selectedBranch.branch_name ||
+                  `Branch ${selectedBranch.suffix}`}
+              </p>
+
+              <p className="mt-1 text-[12px] text-[#777984]">
+                Membership number: {branchDisplayNumber}
+              </p>
+
+              <p className="mt-2 text-[12px] text-[#53555e]">
+                Person:{" "}
+                {selectedBranch.member?.name || head?.name || "Not recorded"}
+              </p>
+
+              <p className="mt-1 text-[11px] text-[#777984]">
+                Person ID:{" "}
+                {selectedBranch.member?.person_id ||
+                  head?.person_id ||
+                  "Not recorded"}
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-[#dce8df] bg-[#f5faf6] p-4">
+              <p className="text-[12px] font-bold text-[#245b37]">
+                What this conversion does
+              </p>
+
+              <ul className="mt-2 list-disc space-y-1 pl-4 text-[11.5px] leading-5 text-[#41634b]">
+                <li>Creates a new independent membership.</li>
+                <li>Retains the existing permanent Person ID.</li>
+                <li>Uses the existing person as the new membership head.</li>
+                <li>Preserves person-to-person family relationships.</li>
+                <li>
+                  Closes the old branch assignment through the database
+                  workflow.
+                </li>
+              </ul>
+            </div>
+
+            <label className="block text-[12px] font-semibold text-[#53555e]">
+              Reason for conversion (optional)
+              <textarea
+                rows={3}
+                maxLength={1000}
+                value={conversionReason}
+                onChange={(event) => setConversionReason(event.target.value)}
+                disabled={convertingBranch}
+                placeholder="Enter the reason for creating an independent membership."
+                className="mt-1.5 w-full rounded-[10px] border border-[#e5e5e7] bg-white px-3 py-2.5 text-[13px] outline-none focus:border-[#9b9da5]"
+              />
+            </label>
+
+            {conversionError && (
+              <p
+                role="alert"
+                className="rounded-lg border border-red-200 bg-red-50 p-3 text-[12px] leading-5 text-red-700"
+              >
+                {conversionError}
+              </p>
+            )}
+
+            <div className="flex flex-col-reverse gap-2 border-t border-[#ececed] pt-4 sm:flex-row sm:justify-end">
+              <ActionButton
+                onClick={() => setConvertBranchOpen(false)}
+                disabled={convertingBranch}
+              >
+                Cancel
+              </ActionButton>
+
+              <ActionButton type="submit" primary disabled={convertingBranch}>
+                {convertingBranch ? "Converting..." : "Confirm conversion"}
               </ActionButton>
             </div>
           </form>

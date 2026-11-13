@@ -3,6 +3,7 @@ import { supabase } from "../../lib/supabase";
 
 const BUCKET = "ChurchDeskBucket";
 const FOLDER = "membership-photos";
+
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
 const ALLOWED_TYPES = new Set([
@@ -21,9 +22,6 @@ function getExtension(file) {
   return extensions[file.type];
 }
 
-/**
- * Validate an uploaded head photo before sending it to Supabase.
- */
 export function validateMembershipHeadPhoto(file) {
   if (!file) return;
 
@@ -32,14 +30,10 @@ export function validateMembershipHeadPhoto(file) {
   }
 
   if (file.size > MAX_FILE_SIZE) {
-    throw new Error("The image must be 1 MB or smaller.");
+    throw new Error("The image must be 5 MB or smaller.");
   }
 }
 
-/**
- * Convert a stored Storage path into a public image URL.
- * Also supports existing full URLs for backward compatibility.
- */
 export function getMembershipHeadPhotoUrl(path) {
   if (!path) return null;
 
@@ -54,10 +48,6 @@ export function getMembershipHeadPhotoUrl(path) {
   return data.publicUrl || null;
 }
 
-/**
- * Upload a membership head photo.
- * Returns the Storage path, NOT the public URL.
- */
 export async function uploadMembershipHeadPhoto(file, membershipId) {
   if (!file) return null;
 
@@ -65,13 +55,12 @@ export async function uploadMembershipHeadPhoto(file, membershipId) {
 
   if (!membershipId) {
     throw new Error(
-      "A saved membership ID is required before uploading its photo."
+      "A saved membership database ID is required before uploading its photo.",
     );
   }
 
-  // Use a unique filename so the browser does not keep showing
-  // a cached version of a previously uploaded image.
   const extension = getExtension(file);
+
   const filePath =
     `${FOLDER}/${membershipId}-${crypto.randomUUID()}.${extension}`;
 
@@ -83,26 +72,25 @@ export async function uploadMembershipHeadPhoto(file, membershipId) {
       upsert: false,
     });
 
-  if (error) throw error;
+  if (error) {
+    throw new Error(error.message || "Could not upload the membership photo.");
+  }
 
   return filePath;
 }
 
-/**
- * Delete a stored photo by its Storage path.
- */
 export async function deleteMembershipHeadPhoto(path) {
   if (!path) return;
 
   if (/^https?:\/\//i.test(path)) {
-    throw new Error(
-      "A public URL was provided instead of a Storage path."
-    );
+    throw new Error("A Storage path is required to delete this photo.");
   }
 
   const { error } = await supabase.storage
     .from(BUCKET)
     .remove([path]);
 
-  if (error) throw error;
+  if (error) {
+    throw new Error(error.message || "Could not delete the membership photo.");
+  }
 }

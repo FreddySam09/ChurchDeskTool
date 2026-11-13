@@ -7,24 +7,31 @@ const inputClass =
 
 export default function CreateBranchFromMemberModal({
   membership,
-  members,
-  branches,
+  members = [],
+  branches = [],
   onClose,
   onCreated,
 }) {
   const eligibleMembers = useMemo(
     () =>
-      (members || [])
-        .filter((member) => !member.branch_id && !member.is_head)
+      members
+        .filter(
+          (member) =>
+            !member.branch_id &&
+            member.id !== membership?.head_member_id &&
+            !member.is_head,
+        )
         .sort((a, b) => (a.name || "").localeCompare(b.name || "")),
-    [members],
+    [members, membership?.head_member_id],
   );
 
   const usedSuffixes = useMemo(
     () =>
       new Set(
-        (branches || []).map((branch) =>
-          String(branch.suffix || "").toUpperCase(),
+        branches.map((branch) =>
+          String(branch.suffix || "")
+            .trim()
+            .toUpperCase(),
         ),
       ),
     [branches],
@@ -32,9 +39,13 @@ export default function CreateBranchFromMemberModal({
 
   const firstAvailableSuffix = useMemo(() => {
     for (let code = 65; code <= 90; code += 1) {
-      const suffix = String.fromCharCode(code);
-      if (!usedSuffixes.has(suffix)) return suffix;
+      const candidate = String.fromCharCode(code);
+
+      if (!usedSuffixes.has(candidate)) {
+        return candidate;
+      }
     }
+
     return "";
   }, [usedSuffixes]);
 
@@ -48,8 +59,13 @@ export default function CreateBranchFromMemberModal({
     event.preventDefault();
     setError("");
 
+    if (!membership?.id) {
+      setError("Membership record ID is missing.");
+      return;
+    }
+
     if (!memberId) {
-      setError("Choose the existing member who will head the branch.");
+      setError("Select the person to move into the branch.");
       return;
     }
 
@@ -59,7 +75,20 @@ export default function CreateBranchFromMemberModal({
     }
 
     if (usedSuffixes.has(suffix)) {
-      setError(`Branch ${suffix} already exists for this membership.`);
+      setError(
+        `Branch suffix ${suffix} has already been used for this membership.`,
+      );
+      return;
+    }
+
+    const selectedMember = eligibleMembers.find(
+      (member) => member.id === memberId,
+    );
+
+    if (!selectedMember) {
+      setError(
+        "This person is no longer eligible. Refresh the membership and try again.",
+      );
       return;
     }
 
@@ -73,7 +102,7 @@ export default function CreateBranchFromMemberModal({
         branchName: branchName.trim() || null,
       });
 
-      await onCreated();
+      await onCreated?.();
     } catch (err) {
       setError(err.message || "Could not create the branch.");
     } finally {
@@ -85,7 +114,9 @@ export default function CreateBranchFromMemberModal({
     <div
       className="fixed inset-0 z-[120] flex items-center justify-center overflow-y-auto bg-black/45 p-4 backdrop-blur-[2px]"
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget && !saving) onClose();
+        if (event.target === event.currentTarget && !saving) {
+          onClose();
+        }
       }}
     >
       <section
@@ -105,12 +136,13 @@ export default function CreateBranchFromMemberModal({
                 id="create-branch-title"
                 className="text-[16px] font-bold text-[#131418]"
               >
-                Create branch from existing member
+                Create branch
               </h2>
 
               <p className="mt-1 text-[12px] leading-5 text-[#777984]">
-                Select a person already in this membership. They will become the
-                branch head and be moved into the new branch.
+                Move one existing person from the main membership into a new
+                branch. Their permanent Person ID and family relationships will
+                be retained.
               </p>
             </div>
           </div>
@@ -133,24 +165,25 @@ export default function CreateBranchFromMemberModal({
             </p>
 
             <p className="mt-1 text-[15px] font-bold text-[#131418]">
-              {membership.membership_number || "Number not assigned"}
+              {membership?.membership_number || "Number not assigned"}
             </p>
 
             <p className="mt-1 text-[11px] text-[#777984]">
-              New branch number: {membership.membership_number || "—"}
+              New branch number: {membership?.membership_number || "—"}
               {suffix || "?"}
             </p>
           </div>
 
           <label className="block text-[12px] font-semibold text-[#53555e]">
-            Existing member / branch head *
+            Person to move into the branch *
             <select
               required
               value={memberId}
               onChange={(event) => setMemberId(event.target.value)}
+              disabled={saving || eligibleMembers.length === 0}
               className={inputClass}
             >
-              <option value="">Select a main-membership member</option>
+              <option value="">Select a main-membership person</option>
 
               {eligibleMembers.map((member) => (
                 <option key={member.id} value={member.id}>
@@ -163,9 +196,8 @@ export default function CreateBranchFromMemberModal({
             </select>
             {eligibleMembers.length === 0 && (
               <span className="mt-1.5 block font-normal leading-5 text-[#aa382d]">
-                No eligible main-membership members are available. The
-                membership head and members already assigned to a branch are
-                excluded.
+                No eligible people are available. The current membership head
+                and people already assigned to branches are excluded.
               </span>
             )}
           </label>
@@ -177,6 +209,7 @@ export default function CreateBranchFromMemberModal({
                 required
                 value={suffix}
                 onChange={(event) => setSuffix(event.target.value)}
+                disabled={saving}
                 className={inputClass}
               >
                 <option value="">Choose suffix</option>
@@ -200,6 +233,7 @@ export default function CreateBranchFromMemberModal({
                 value={branchName}
                 onChange={(event) => setBranchName(event.target.value)}
                 maxLength={100}
+                disabled={saving}
                 placeholder="e.g. Joseph family"
                 className={inputClass}
               />
@@ -207,9 +241,9 @@ export default function CreateBranchFromMemberModal({
           </div>
 
           <div className="rounded-xl border border-[#f3dfad] bg-[#fffaf0] p-3 text-[11px] leading-5 text-[#805d17]">
-            This operation keeps the person's permanent Person ID and the parent
-            membership's permanent Membership ID. It changes the person's
-            current structure assignment to the new branch.
+            This changes only the person's structural assignment. It does not
+            create a new person, change the family relationship graph, or create
+            a separate membership.
           </div>
 
           {error && (
@@ -238,8 +272,7 @@ export default function CreateBranchFromMemberModal({
               }
               className="inline-flex items-center justify-center gap-2 rounded-[10px] bg-[#191a1f] px-4 py-2.5 text-[12px] font-semibold text-white hover:bg-black disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <GitBranch size={15} />
-              {saving ? "Creating branch…" : "Create branch"}
+              {saving ? "Creating branch..." : "Create branch"}
             </button>
           </footer>
         </form>

@@ -108,6 +108,7 @@ export default function AddMemberModal({
   membership,
   branches = [],
   relationships = [],
+  headMarriageDate: savedHeadMarriageDate = "",
   onClose,
   onCreated,
 }) {
@@ -115,18 +116,22 @@ export default function AddMemberModal({
   const headMemberId = membership?.head_member_id ?? null;
 
   const headWeddingDate = useMemo(() => {
-    if (!headMemberId) return "";
+  if (!headMemberId) return savedHeadMarriageDate || "";
 
-    const relationship = relationships.find(
-      (item) =>
-        item.relationship_type === "Spouse" &&
-        item.date_of_marriage &&
-        (item.member_id === headMemberId ||
-          item.related_member_id === headMemberId),
-    );
+  const relationship = relationships.find(
+    (item) =>
+      item.relationship_type === "Spouse" &&
+      item.date_of_marriage &&
+      (item.member_id === headMemberId ||
+        item.related_member_id === headMemberId),
+  );
 
-    return relationship?.date_of_marriage ?? "";
-  }, [relationships, headMemberId]);
+  return (
+    relationship?.date_of_marriage ||
+    savedHeadMarriageDate ||
+    ""
+  );
+}, [relationships, headMemberId, savedHeadMarriageDate]);
 
   const [form, setForm] = useState(() => ({
     ...initialForm,

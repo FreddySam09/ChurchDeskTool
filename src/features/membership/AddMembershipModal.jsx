@@ -1,7 +1,9 @@
 import { X, UserRound, MapPin, Phone, Hash } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import {
   createMembershipWithHead,
   getNextMembershipNumber,
+  updateMembership,
 } from "../../services/membershipService";
 
 import {
@@ -16,6 +18,7 @@ const initialForm = {
   gender: "",
   date_of_birth: "",
   marital_status: "Unmarried",
+  date_of_marriage: "",
   baptism_status: "Unknown",
   date_of_baptism: "",
   occupation_or_studying: "",
@@ -178,85 +181,112 @@ export default function AddMembershipModal({ onClose, onCreated }) {
     }));
   }
 
-  async function handleSubmit(event) {
-    event.preventDefault();
-    setError("");
-    setSaving(true);
+  
+async function handleSubmit(event) {
+  event.preventDefault();
+  if (
+  form.marital_status === "Married" &&
+  !form.date_of_marriage
+) {
+  setError("Enter the wedding date for the head of membership.");
+  return;
+}
 
-    try {
-      const result = await createMembershipWithHead({
-        head: {
-          name: form.name,
-          gender: form.gender,
-          date_of_birth: form.date_of_birth,
-          marital_status: form.marital_status,
-          occupation_or_studying: form.occupation_or_studying,
-          phone_number: form.phone_number,
-          email: form.email,
-        },
-        membership: {
-          membership_number: form.membership_number.trim(),
-          door_number: form.door_number,
-          floor_number: form.floor_number,
-          apartment_name: form.apartment_name,
-          block_number: form.block_number,
-          street_name: form.street_name,
-          area: form.area,
-          city: form.city,
-          pincode: form.pincode,
-          landmark: form.landmark,
-          primary_phone_number:
-            form.primary_phone_number || form.phone_number,
-          alternate_phone_number: form.alternate_phone_number,
-          email: form.household_email || form.email,
-          year_joined: form.year_joined.trim()
-            ? Number(form.year_joined)
-            : null,
-        },
-      });
+  if (saving) return;
 
-      let savedPhotoPath = null;
+  setError("");
+  setSaving(true);
 
-      if (headPhotoFile) {
-        const membershipRecordId =
-          result?.id ??
-          result?.membership?.id ??
-          result?.membership_record?.id ??
-          result?.membership_id;
+  let uploadedPhotoPath = null;
 
-        if (!membershipRecordId) {
-          throw new Error(
-            "Membership was created, but its record ID was not returned. The photo could not be uploaded.",
-          );
-        }
+  try {
+    const result = await createMembershipWithHead({
+      head: {
+        name: form.name,
+        gender: form.gender,
+        date_of_birth: form.date_of_birth,
+        marital_status: form.marital_status,
+        date_of_marriage: form.marital_status === "Married"
+    ? form.date_of_marriage || null
+    : null,
+        baptism_status: form.baptism_status,
+        date_of_baptism: form.date_of_baptism,
+        occupation_or_studying: form.occupation_or_studying,
+        phone_number: form.phone_number,
+        email: form.email,
+      },
 
-        savedPhotoPath = await uploadMembershipHeadPhoto(
-          headPhotoFile,
-          membershipRecordId,
+      membership: {
+        membership_number: form.membership_number.trim(),
+        door_number: form.door_number,
+        floor_number: form.floor_number,
+        apartment_name: form.apartment_name,
+        block_number: form.block_number,
+        street_name: form.street_name,
+        area: form.area,
+        city: form.city,
+        pincode: form.pincode,
+        landmark: form.landmark,
+
+        primary_phone_number:
+          form.primary_phone_number || form.phone_number,
+
+        alternate_phone_number: form.alternate_phone_number,
+
+        email: form.household_email || form.email,
+
+        year_joined: form.year_joined.trim()
+          ? Number(form.year_joined)
+          : null,
+      },
+    });
+
+    const membershipRowId = result?.membership_row_id;
+
+    if (!membershipRowId) {
+      throw new Error(
+        "Membership was created, but its database record ID is missing.",
+      );
+    }
+
+    // Upload the photo using the actual memberships.id UUID.
+    if (headPhotoFile) {
+      uploadedPhotoPath = await uploadMembershipHeadPhoto(
+        headPhotoFile,
+        membershipRowId,
+      );
+
+      try {
+        await updateMembership(membershipRowId, {
+          head_photo_path: uploadedPhotoPath,
+        });
+      } catch (photoSaveError) {
+        await deleteMembershipHeadPhoto(uploadedPhotoPath).catch(
+          (deleteError) => {
+            console.error(
+              "Could not remove the failed photo upload:",
+              deleteError,
+            );
+          },
         );
 
-        try {
-          const { updateMembership } = await import(
-            "../../services/membershipService"
-          );
-
-          await updateMembership(membershipRecordId, {
-            head_photo_path: savedPhotoPath,
-          });
-        } catch (photoSaveError) {
-          await deleteMembershipHeadPhoto(savedPhotoPath).catch(() => {});
-          throw photoSaveError;
-        }
+        uploadedPhotoPath = null;
+        throw photoSaveError;
       }
-
-      setCreated(result);
-      await onCreated?.();
-    } catch (err) {
-      setError(err.message || "Could not create this membership.");
-    } finally {
-      setSaving(false);
     }
+
+    setCreated(result);
+
+    await onCreated?.();
+  } catch (err) {
+    setError(
+      err.message || "Could not create this membership.",
+    );
+  } finally {
+    setSaving(false);
   }
+}
+
 
   function handleHeadPhotoChange(event) {
     const file = event.target.files?.[0];
@@ -473,6 +503,20 @@ export default function AddMembershipModal({ onClose, onCreated }) {
                   { value: "Unknown", label: "Unknown" },
                 ]}
               />
+
+              {form.marital_status === "Married" && (
+  <div className="sm:col-span-2">
+    <Field
+      label="Date of Marriage"
+      name="date_of_marriage"
+      form={form}
+      onChange={handleChange}
+      type="date"
+      required
+      hint="This date will be suggested automatically when you add the spouse."
+    />
+  </div>
+)}
 
               <Field
                 label="Occupation / studying"
