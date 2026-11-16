@@ -9,6 +9,18 @@ import {
 } from "react";
 import { supabase } from "../../lib/supabase";
 
+import {
+  canAccessWorkspace,
+  canWriteWorkspace,
+  isReadOnlyWorkspace,
+  getWorkspaceAccess,
+  canAccessAssignedGroups,
+  canManageUsers as roleCanManageUsers,
+  canCreateSuperAdmin,
+  canManageCustomRoles,
+  canManageOtherUsers,
+} from "./permissions";
+
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
@@ -233,12 +245,25 @@ export function AuthProvider({ children }) {
     setLoading(false);
   }
 
-  const role = profile?.role?.name ?? null;
+  
+const role = profile?.role?.name ?? null;
 
-  const canManageUsers =
-    role === "Super Admin" || role === "Admin";
+const canManageUsers = roleCanManageUsers(role);
+const isSuperAdmin = role === "Super Admin";
 
-  const isSuperAdmin = role === "Super Admin";
+const permissions = {
+  getAccess: (workspace) => getWorkspaceAccess(role, workspace),
+  canAccess: (workspace) => canAccessWorkspace(role, workspace),
+  canWrite: (workspace) => canWriteWorkspace(role, workspace),
+  isReadOnly: (workspace) => isReadOnlyWorkspace(role, workspace),
+  canAccessAssignedGroups: (workspace) =>
+    canAccessAssignedGroups(role, workspace),
+  canCreateSuperAdmin: () => canCreateSuperAdmin(role),
+  canManageCustomRoles: () => canManageCustomRoles(role),
+  canManageOtherUsers: (targetRole) =>
+    canManageOtherUsers(role, targetRole),
+};
+
 
   return (
     <AuthContext.Provider
@@ -247,6 +272,7 @@ export function AuthProvider({ children }) {
         user: session?.user ?? null,
         profile,
         role,
+        permissions,
         canManageUsers,
         isSuperAdmin,
         loading,

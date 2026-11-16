@@ -1,30 +1,31 @@
 
-import { useState } from 'react'
-import { Outlet, useNavigate } from 'react-router-dom'
-import { useAuth } from '../../features/auth/AuthContext'
-import Sidebar from './Sidebar'
-import Topbar from './Topbar'
+import { useState } from "react";
+import { Outlet, useNavigate } from "react-router-dom";
+import { useAuth } from "../../features/auth/AuthContext";
+import Sidebar from "./Sidebar";
+import Topbar from "./Topbar";
 
 export default function AppLayout() {
-  const { user, signOut } = useAuth()
-  const navigate = useNavigate()
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [searchValue, setSearchValue] = useState('')
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
+
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [searchValue, setSearchValue] = useState("");
 
   async function handleSignOut() {
-    await signOut()
-    setSidebarOpen(false)
-    navigate('/login', { replace: true })
+    await signOut();
+    setSidebarOpen(false);
+    navigate("/login", { replace: true });
   }
 
   return (
-    <div className="flex min-h-screen bg-[#f4f4f5] text-[#131418]">
+    <div className="grid min-h-screen w-full min-w-0 grid-cols-1 bg-[#f4f4f5] text-[#131418] lg:grid-cols-[264px_minmax(0,1fr)]">
       <Sidebar
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
       />
 
-      <div className="flex min-h-screen min-w-0 flex-1 flex-col">
+      <div className="flex min-h-screen min-w-0 flex-col">
         <Topbar
           searchValue={searchValue}
           onSearchChange={setSearchValue}
@@ -34,10 +35,12 @@ export default function AppLayout() {
         />
 
         <main className="w-full min-w-0 flex-1 px-4 py-6 sm:px-6 sm:py-7 lg:px-8 lg:py-7">
-          <Outlet context={{ searchValue, setSearchValue }} />
+          <div className="w-full min-w-0">
+            <Outlet context={{ searchValue, setSearchValue }} />
+          </div>
         </main>
 
-        <footer className="border-t border-[#e5e5e7] bg-white px-5 py-3.5 sm:px-8">
+        <footer className="w-full min-w-0 border-t border-[#e5e5e7] bg-white px-5 py-3.5 sm:px-8">
           <p className="text-[11px] text-[#9b9da5]">
             Church Desk <span className="px-1.5">·</span>
             ECI St. Stephen's Church
@@ -45,5 +48,5 @@ export default function AppLayout() {
         </footer>
       </div>
     </div>
-  )
+  );
 }

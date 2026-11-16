@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
@@ -8,15 +9,23 @@ import {
   Users,
   X,
   MessageCircle,
-  Crown,
   ChartNoAxesCombined,
   ShieldCheck,
+  Network,
+  UsersRound,
 } from "lucide-react";
 import { useAuth } from "../../features/auth/AuthContext";
 
 export default function Sidebar({ open = false, onClose }) {
   const location = useLocation();
-  const { canManageUsers } = useAuth();
+  const { canManageUsers, permissions } = useAuth();
+
+  const canSee = (workspace) => permissions.canAccess(workspace);
+
+  const membershipAccess = permissions.getAccess("membership");
+  const canSeeFullMembership =
+    membershipAccess === "full" || membershipAccess === "read";
+
   const [membershipExpanded, setMembershipExpanded] = useState(true);
   const [eventsExpanded, setEventsExpanded] = useState(() =>
     location.pathname.startsWith("/events"),
@@ -35,6 +44,13 @@ export default function Sidebar({ open = false, onClose }) {
         : "border-transparent text-white/60 hover:bg-white/[0.05] hover:text-white"
     }`;
 
+  const standaloneLinkClass = ({ isActive }) =>
+    `flex items-center gap-3 rounded-[10px] px-3 py-[11px] text-[13px] transition ${
+      isActive
+        ? "bg-white/[0.08] font-medium text-white"
+        : "text-white/60 hover:bg-white/[0.05] hover:text-white"
+    }`;
+
   return (
     <>
       {open && (
@@ -47,10 +63,11 @@ export default function Sidebar({ open = false, onClose }) {
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex h-screen w-[264px] shrink-0 flex-col overflow-y-auto bg-gradient-to-b from-[#131418] to-[#0b0c0f] text-[#eef3ee] shadow-xl transition-transform duration-200 lg:sticky lg:top-0 lg:z-40 lg:translate-x-0 lg:shadow-none ${
-          open ? "translate-x-0" : "-translate-x-full"
-        }`}
+        className={`fixed inset-y-0 left-0 z-50 flex h-screen w-[264px] shrink-0 flex-col overflow-y-auto bg-gradient-to-b from-[#131418] to-[#0b0c0f] text-[#eef3ee] shadow-xl transition-transform duration-200 lg:sticky lg:top-0 lg:z-40 lg:col-start-1 lg:row-start-1 lg:translate-x-0 lg:self-start lg:shadow-none ${
+  open ? "translate-x-0" : "-translate-x-full"
+}`}
       >
+        {/* Header */}
         <div className="flex items-center gap-3 border-b border-white/[0.08] px-[22px] pb-5 pt-[26px]">
           <div className="h-11 w-11 shrink-0 overflow-hidden rounded-[10px]">
             <img
@@ -84,175 +101,195 @@ export default function Sidebar({ open = false, onClose }) {
             Workspace
           </p>
 
-          {/* Existing Membership navigation */}
-          <div className="mb-1">
-            <button
-              type="button"
-              onClick={() => setMembershipExpanded((value) => !value)}
-              aria-expanded={membershipExpanded}
-              className="flex w-full items-center gap-3 rounded-[10px] bg-white/[0.10] px-3 py-[11px] text-left text-[14px] font-medium text-white transition hover:bg-white/[0.13]"
-            >
-              <Users size={19} strokeWidth={1.8} />
+          {/* Membership */}
+          {canSeeFullMembership && (
+            <div className="mb-1">
+              <button
+                type="button"
+                onClick={() =>
+                  setMembershipExpanded((value) => !value)
+                }
+                aria-expanded={membershipExpanded}
+                className="flex w-full items-center gap-3 rounded-[10px] bg-white/[0.10] px-3 py-[11px] text-left text-[14px] font-medium text-white transition hover:bg-white/[0.13]"
+              >
+                <Users size={19} strokeWidth={1.8} />
 
-              <span className="flex-1">Membership</span>
+                <span className="flex-1">Membership</span>
 
-              <ChevronRight
-                size={15}
-                className={`text-white/60 transition-transform ${
-                  membershipExpanded ? "rotate-90" : ""
+                <ChevronRight
+                  size={15}
+                  className={`text-white/60 transition-transform ${
+                    membershipExpanded ? "rotate-90" : ""
+                  }`}
+                />
+              </button>
+
+              <div
+                className={`grid transition-[grid-template-rows] duration-200 ${
+                  membershipExpanded
+                    ? "grid-rows-[1fr]"
+                    : "grid-rows-[0fr]"
                 }`}
-              />
-            </button>
+              >
+                <div className="overflow-hidden">
+                  <div className="ml-[22px] mt-1 space-y-0.5 border-l border-white/[0.10] pl-2">
+                    <NavLink
+                      to="/"
+                      end
+                      onClick={onClose}
+                      className={linkClass}
+                    >
+                      Memberships
+                    </NavLink>
 
-            <div
-              className={`grid transition-[grid-template-rows] duration-200 ${
-                membershipExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
-              }`}
-            >
-              <div className="overflow-hidden">
-                <div className="ml-[22px] mt-1 space-y-0.5 border-l border-white/[0.10] pl-2">
-                  <NavLink to="/" end onClick={onClose} className={linkClass}>
-                    Memberships
-                  </NavLink>
+                    <NavLink
+                      to="/members"
+                      onClick={onClose}
+                      className={linkClass}
+                    >
+                      Members
+                    </NavLink>
 
-                  <NavLink
-                    to="/members"
-                    onClick={onClose}
-                    className={linkClass}
-                  >
-                    Members
-                  </NavLink>
-
-                  <NavLink
-                    to="/annual-register"
-                    onClick={onClose}
-                    className={linkClass}
-                  >
-                    Annual Membership Register
-                  </NavLink>
-
-                  <NavLink to="/groups" onClick={onClose} className={linkClass}>
-                    Fellowships &amp; Groups
-                  </NavLink>
-
-                  <NavLink
-                    to="/leadership"
-                    onClick={onClose}
-                    className={linkClass}
-                  >
-                    Leadership
-                  </NavLink>
+                    <NavLink
+                      to="/annual-register"
+                      onClick={onClose}
+                      className={linkClass}
+                    >
+                      Annual Membership Register
+                    </NavLink>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          )}
 
-          {/* New Events navigation */}
-          <div className="mb-1">
-            <button
-              type="button"
-              onClick={() => setEventsExpanded((value) => !value)}
-              aria-expanded={eventsExpanded}
-              className="flex w-full items-center gap-3 rounded-[10px] px-3 py-[11px] text-left text-[14px] font-medium text-white/90 transition hover:bg-white/[0.07]"
+          {/* Groups - independent of Membership */}
+          {canSee("groups") && (
+            <NavLink
+              to="/groups"
+              onClick={onClose}
+              className={standaloneLinkClass}
             >
-              <CalendarDays
-                size={19}
-                strokeWidth={1.8}
-                className="text-white/70"
-              />
+              <UsersRound size={18} />
+              <span>Fellowships &amp; Groups</span>
+            </NavLink>
+          )}
 
-              <span className="flex-1">Events</span>
+          {/* Leadership - independent of Membership */}
+          {canSee("leadership") && (
+            <NavLink
+              to="/leadership"
+              onClick={onClose}
+              className={standaloneLinkClass}
+            >
+              <Network size={18} />
+              <span>Leadership</span>
+            </NavLink>
+          )}
 
-              <ChevronRight
-                size={15}
-                className={`text-white/60 transition-transform ${
-                  eventsExpanded ? "rotate-90" : ""
+          {/* Events */}
+          {canSee("events") && (
+            <div className="mb-1">
+              <button
+                type="button"
+                onClick={() =>
+                  setEventsExpanded((value) => !value)
+                }
+                aria-expanded={eventsExpanded}
+                className="flex w-full items-center gap-3 rounded-[10px] px-3 py-[11px] text-left text-[14px] font-medium text-white/90 transition hover:bg-white/[0.07]"
+              >
+                <CalendarDays
+                  size={19}
+                  strokeWidth={1.8}
+                  className="text-white/70"
+                />
+
+                <span className="flex-1">Events</span>
+
+                <ChevronRight
+                  size={15}
+                  className={`text-white/60 transition-transform ${
+                    eventsExpanded ? "rotate-90" : ""
+                  }`}
+                />
+              </button>
+
+              <div
+                className={`grid transition-[grid-template-rows] duration-200 ${
+                  eventsExpanded
+                    ? "grid-rows-[1fr]"
+                    : "grid-rows-[0fr]"
                 }`}
-              />
-            </button>
+              >
+                <div className="overflow-hidden">
+                  <div className="ml-[22px] mt-1 space-y-0.5 border-l border-white/[0.10] pl-2">
+                    <NavLink
+                      to="/events/church-calendar"
+                      onClick={onClose}
+                      className={linkClass}
+                    >
+                      Church Calendar
+                    </NavLink>
 
-            <div
-              className={`grid transition-[grid-template-rows] duration-200 ${
-                eventsExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
-              }`}
-            >
-              <div className="overflow-hidden">
-                <div className="ml-[22px] mt-1 space-y-0.5 border-l border-white/[0.10] pl-2">
-                  <NavLink
-                    to="/events/church-calendar"
-                    onClick={onClose}
-                    className={linkClass}
-                  >
-                    Church Calendar
-                  </NavLink>
+                    <NavLink
+                      to="/events/christmas-carols"
+                      onClick={onClose}
+                      className={linkClass}
+                    >
+                      Christmas Carols
+                    </NavLink>
 
-                  <NavLink
-                    to="/events/christmas-carols"
-                    onClick={onClose}
-                    className={linkClass}
-                  >
-                    Christmas Carols
-                  </NavLink>
-
-                  <NavLink
-                    to="/events/special-events"
-                    onClick={onClose}
-                    className={linkClass}
-                  >
-                    Special Events
-                  </NavLink>
+                    <NavLink
+                      to="/events/special-events"
+                      onClick={onClose}
+                      className={linkClass}
+                    >
+                      Special Events
+                    </NavLink>
+                  </div>
                 </div>
               </div>
-
-              <NavLink
-                to="/communications"
-                onClick={onClose}
-                className={({ isActive }) =>
-                  `flex items-center gap-3 rounded-[10px] px-3 py-[11px] text-[13px] transition ${
-                    isActive
-                      ? "bg-white/[0.08] font-medium text-white"
-                      : "text-white/60 hover:bg-white/[0.05] hover:text-white"
-                  }`
-                }
-              >
-                <MessageCircle size={17} />
-                <span>Communications</span>
-              </NavLink>
-              <NavLink
-                to="/reports"
-                onClick={onClose}
-                className={({ isActive }) =>
-                  `flex items-center gap-3 rounded-[10px] px-3 py-[11px] text-[13px] transition ${
-                    isActive
-                      ? "bg-white/[0.08] font-medium text-white"
-                      : "text-white/60 hover:bg-white/[0.05] hover:text-white"
-                  }`
-                }
-              >
-                <ChartNoAxesCombined size={17} />
-                <span>Reports</span>
-              </NavLink>
-              {canManageUsers && (
-                <NavLink
-                  to="/users"
-                  onClick={onClose}
-                  className={({ isActive }) =>
-                    `flex items-center gap-3 rounded-[10px] px-3 py-[11px] text-[13px] transition ${
-                      isActive
-                        ? "bg-white/[0.08] font-medium text-white"
-                        : "text-white/60 hover:bg-white/[0.05] hover:text-white"
-                    }`
-                  }
-                >
-                  <ShieldCheck size={17} />
-                  <span>Users</span>
-                </NavLink>
-              )}
             </div>
-          </div>
+          )}
+
+          {/* Communications */}
+          {canSee("communications") && (
+            <NavLink
+              to="/communications"
+              onClick={onClose}
+              className={standaloneLinkClass}
+            >
+              <MessageCircle size={17} />
+              <span>Communications</span>
+            </NavLink>
+          )}
+
+          {/* Reports */}
+          {canSee("reports") && (
+            <NavLink
+              to="/reports"
+              onClick={onClose}
+              className={standaloneLinkClass}
+            >
+              <ChartNoAxesCombined size={17} />
+              <span>Reports</span>
+            </NavLink>
+          )}
+
+          {/* User administration */}
+          {canManageUsers && (
+            <NavLink
+              to="/users"
+              onClick={onClose}
+              className={standaloneLinkClass}
+            >
+              <ShieldCheck size={17} />
+              <span>Users</span>
+            </NavLink>
+          )}
         </nav>
 
-        {/* Existing footer preserved */}
+        {/* Footer */}
         <div className="border-t border-white/[0.08] p-4">
           <div className="mb-3 rounded-xl border border-white/[0.08] bg-white/[0.04] p-3.5">
             <p className="text-xs font-medium text-white/80">
