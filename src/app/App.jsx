@@ -1,5 +1,9 @@
-
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import {
+  BrowserRouter,
+  Navigate,
+  Route,
+  Routes,
+} from "react-router-dom";
 
 import AnnualRegister from "../features/membership/annual-register/AnnualRegister";
 import { AuthProvider } from "../features/auth/AuthContext";
@@ -18,6 +22,41 @@ import ProtectedRoute from "./ProtectedRoute";
 import LeadershipPage from "../features/leadership/LeadershipPage";
 import ReportsPage from "../features/reports/ReportsPage";
 import UsersPage from "../features/users/UsersPage";
+
+function DashboardPage() {
+  return (
+    <div className="mx-auto w-full max-w-[1400px] p-5 sm:p-7 lg:p-9">
+      <div className="mb-8">
+        <p className="text-sm font-medium text-gray-500">
+          Church Desk / Overview
+        </p>
+
+        <h1 className="mt-2 text-2xl font-semibold tracking-tight text-gray-900 sm:text-3xl">
+          Dashboard
+        </h1>
+
+        <p className="mt-2 text-sm text-gray-500">
+          Welcome to Church Desk. Your workspace overview will appear here.
+        </p>
+      </div>
+
+      <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm sm:p-8">
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gray-100 text-xl">
+          <span>✦</span>
+        </div>
+
+        <h2 className="mt-5 text-lg font-semibold text-gray-900">
+          Your dashboard is getting ready
+        </h2>
+
+        <p className="mt-2 max-w-xl text-sm leading-6 text-gray-500">
+          This is the central dashboard for Church Desk. Updates, summaries,
+          and useful shortcuts will be added here.
+        </p>
+      </div>
+    </div>
+  );
+}
 
 function AccessDeniedPage() {
   return (
@@ -53,17 +92,28 @@ function AppRoutes() {
 
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}>
-          {/* Access denied - available to all authenticated users */}
           <Route
             path="/access-denied"
             element={<AccessDeniedPage />}
           />
 
-          {/* Membership */}
-          <Route element={<ProtectedRoute workspace="membership" />}>
-            <Route index element={<MembershipPage />} />
+          <Route index element={<DashboardPage />} />
 
-            <Route path="/members" element={<MemberList />} />
+          {/* General membership access: full and read-only roles */}
+          <Route
+            element={
+              <ProtectedRoute workspace="membership" />
+            }
+          >
+            <Route
+              path="/membership"
+              element={<MembershipPage />}
+            />
+
+            <Route
+              path="/members"
+              element={<MemberList />}
+            />
 
             <Route
               path="/members/:memberId"
@@ -81,13 +131,39 @@ function AppRoutes() {
             />
           </Route>
 
-          {/* Groups */}
-          <Route element={<ProtectedRoute workspace="groups" />}>
-            <Route path="/groups" element={<GroupsPage />} />
+          {/* Restricted membership directory for Others */}
+          <Route
+            element={
+              <ProtectedRoute
+                workspace="membership"
+                allowRestricted
+              />
+            }
+          >
+            <Route
+              path="/restricted-members"
+              element={<MemberList restrictedView />}
+            />
+          </Route>
+
+          {/* Fellowship Leaders and other permitted roles */}
+          <Route
+            element={
+              <ProtectedRoute workspace="groups" />
+            }
+          >
+            <Route
+              path="/groups"
+              element={<GroupsPage />}
+            />
           </Route>
 
           {/* Communications */}
-          <Route element={<ProtectedRoute workspace="communications" />}>
+          <Route
+            element={
+              <ProtectedRoute workspace="communications" />
+            }
+          >
             <Route
               path="/communications"
               element={<CommunicationsPage />}
@@ -95,7 +171,11 @@ function AppRoutes() {
           </Route>
 
           {/* Events */}
-          <Route element={<ProtectedRoute workspace="events" />}>
+          <Route
+            element={
+              <ProtectedRoute workspace="events" />
+            }
+          >
             <Route
               path="/events"
               element={
@@ -128,7 +208,11 @@ function AppRoutes() {
           </Route>
 
           {/* Leadership */}
-          <Route element={<ProtectedRoute workspace="leadership" />}>
+          <Route
+            element={
+              <ProtectedRoute workspace="leadership" />
+            }
+          >
             <Route
               path="/leadership"
               element={<LeadershipPage />}
@@ -136,7 +220,11 @@ function AppRoutes() {
           </Route>
 
           {/* Reports */}
-          <Route element={<ProtectedRoute workspace="reports" />}>
+          <Route
+            element={
+              <ProtectedRoute workspace="reports" />
+            }
+          >
             <Route
               path="/reports"
               element={<ReportsPage />}
@@ -151,12 +239,18 @@ function AppRoutes() {
               />
             }
           >
-            <Route path="/users" element={<UsersPage />} />
+            <Route
+              path="/users"
+              element={<UsersPage />}
+            />
           </Route>
         </Route>
       </Route>
 
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route
+        path="*"
+        element={<Navigate to="/" replace />}
+      />
     </Routes>
   );
 }

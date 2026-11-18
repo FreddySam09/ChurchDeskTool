@@ -1,3 +1,4 @@
+
 import { useCallback, useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import {
@@ -13,6 +14,7 @@ import {
   updateMember,
   updateMemberGroups,
 } from "../../services/membershipService";
+import { useAuth } from "../auth/AuthContext";
 import GroupMultiSelect from "./GroupMultiSelect";
 import TransferMemberModal from "./TransferMemberModal";
 
@@ -374,6 +376,16 @@ export default function MemberDetails() {
   const navigate = useNavigate();
   const location = useLocation();
 
+  const {
+    role,
+    permissions,
+    assignedFellowshipIds = [],
+  } = useAuth();
+
+  const isFellowshipLeader = role === "Fellowship Leader";
+  const canEditMember =
+    !isFellowshipLeader && permissions.canWrite("membership");
+
   const [member, setMember] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -394,6 +406,26 @@ export default function MemberDetails() {
         return;
       }
 
+      // Fellowship Leaders can only view people assigned to one of
+      // their explicitly assigned fellowships.
+      if (isFellowshipLeader) {
+        const allowedGroupIds = new Set(
+          assignedFellowshipIds.map(String),
+        );
+
+        const belongsToAssignedFellowship = (found.groups ?? []).some(
+          (group) => allowedGroupIds.has(String(group.id)),
+        );
+
+        if (!belongsToAssignedFellowship) {
+          setMember(null);
+          setError(
+            "You do not have access to this member. The member is not assigned to one of your fellowships.",
+          );
+          return;
+        }
+      }
+
       setMember({
         ...found,
         marital_status: normalizeMaritalStatus(found.marital_status),
@@ -403,7 +435,7 @@ export default function MemberDetails() {
     } finally {
       setLoading(false);
     }
-  }, [memberId]);
+  }, [memberId, isFellowshipLeader, assignedFellowshipIds]);
 
   useEffect(() => {
     loadMember();
@@ -481,52 +513,68 @@ export default function MemberDetails() {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              if (member.membership_row_id) {
-                navigate(`/memberships/${member.membership_row_id}`);
+          {!isFellowshipLeader && (
+            <button
+              type="button"
+              onClick={() => {
+                if (member.membership_row_id) {
+                  navigate(`/memberships/${member.membership_row_id}`);
+                }
+              }}
+              disabled={!member.membership_row_id}
+              title={
+                member.membership_row_id
+                  ? "Open associated membership"
+                  : "No current membership is assigned"
               }
-            }}
-            disabled={!member.membership_row_id}
-            title={
-              member.membership_row_id
-                ? "Open associated membership"
-                : "No current membership is assigned"
-            }
-            className="inline-flex min-h-[40px] items-center gap-2 rounded-[10px] border border-[#e5e5e7] bg-white px-3.5 py-2 text-[12px] font-semibold text-[#25262c] hover:bg-[#f7f7f8] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <Users size={15} />
-            View Membership
-          </button>
+              className="inline-flex min-h-[40px] items-center gap-2 rounded-[10px] border border-[#e5e5e7] bg-white px-3.5 py-2 text-[12px] font-semibold text-[#25262c] hover:bg-[#f7f7f8] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Users size={15} />
+              View Membership
+            </button>
+          )}
 
-          <button
-            type="button"
-            onClick={() => setEditing(true)}
-            className="inline-flex min-h-[40px] items-center gap-2 rounded-[10px] bg-[#191a1f] px-3.5 py-2 text-[12px] font-semibold text-white hover:bg-black"
-          >
-            <Pencil size={15} />
-            Edit Member
-          </button>
+          {canEditMember && (
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              className="inline-flex min-h-[40px] items-center gap-2 rounded-[10px] bg-[#191a1f] px-3.5 py-2 text-[12px] font-semibold text-white hover:bg-black"
+            >
+              <Pencil size={15} />
+              Edit Member
+            </button>
+          )}
 
-          <button
-            type="button"
-            onClick={() => setTransferOpen(true)}
-            disabled={!member.membership_row_id || member.is_head}
-            title={
-              member.is_head
-                ? "Change the membership head before transferring this person."
-                : !member.membership_row_id
-                  ? "This person has no current membership assignment."
-                  : "Transfer this person to another membership"
-            }
-            className="inline-flex min-h-[40px] items-center gap-2 rounded-[10px] border border-[#e5e5e7] bg-white px-3.5 py-2 text-[12px] font-semibold text-[#25262c] hover:bg-[#f7f7f8] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <ArrowRightLeft size={15} />
-            Transfer Membership
-          </button>
+          {canEditMember && (
+            <button
+              type="button"
+              onClick={() => setTransferOpen(true)}
+              disabled={!member.membership_row_id || member.is_head}
+              title={
+                member.is_head
+                  ? "Change the membership head before transferring this person."
+                  : !member.membership_row_id
+                    ? "This person has no current membership assignment."
+                    : "Transfer this person to another membership"
+              }
+              className="inline-flex min-h-[40px] items-center gap-2 rounded-[10px] border border-[#e5e5e7] bg-white px-3.5 py-2 text-[12px] font-semibold text-[#25262c] hover:bg-[#f7f7f8] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <ArrowRightLeft size={15} />
+              Transfer Membership
+            </button>
+          )}
         </div>
       </header>
+
+      {isFellowshipLeader && (
+        <div className="rounded-xl border border-[#e5e5e7] bg-[#f8f8f9] px-4 py-3">
+          <p className="text-[11.5px] leading-5 text-[#53555e]">
+            You are viewing this member through your assigned fellowship.
+            Personal details and household membership records are read-only.
+            Fellowship assignments can be managed from the Groups workspace.
+          </p>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[1.5fr_1fr]">
         <section className="overflow-hidden rounded-[16px] border border-[#ececed] bg-white">
@@ -570,55 +618,57 @@ export default function MemberDetails() {
         </section>
 
         <div className="space-y-5">
-          <section className="overflow-hidden rounded-[16px] border border-[#ececed] bg-white">
-            <header className="flex items-center justify-between gap-3 border-b border-[#f2f2f3] px-5 py-4">
-              <h2 className="text-[13.5px] font-extrabold text-[#131418]">
-                Membership Information
-              </h2>
+          {!isFellowshipLeader && (
+            <section className="overflow-hidden rounded-[16px] border border-[#ececed] bg-white">
+              <header className="flex items-center justify-between gap-3 border-b border-[#f2f2f3] px-5 py-4">
+                <h2 className="text-[13.5px] font-extrabold text-[#131418]">
+                  Membership Information
+                </h2>
 
-              {member.membership_row_id && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    navigate(`/memberships/${member.membership_row_id}`)
-                  }
-                  className="text-[11px] font-semibold text-[#53555e] hover:text-[#131418]"
-                >
-                  Open
-                </button>
-              )}
-            </header>
+                {member.membership_row_id && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      navigate(`/memberships/${member.membership_row_id}`)
+                    }
+                    className="text-[11px] font-semibold text-[#53555e] hover:text-[#131418]"
+                  >
+                    Open
+                  </button>
+                )}
+              </header>
 
-            <div className="px-5">
-              <Detail
-                label="Membership Number"
-                value={member.display_membership_number}
-              />
+              <div className="px-5">
+                <Detail
+                  label="Membership Number"
+                  value={member.display_membership_number}
+                />
 
-              <Detail
-                label="Permanent Membership ID"
-                value={member.membership_id}
-              />
+                <Detail
+                  label="Permanent Membership ID"
+                  value={member.membership_id}
+                />
 
-              <Detail
-                label="Membership Status"
-                value={member.membership_status}
-              />
+                <Detail
+                  label="Membership Status"
+                  value={member.membership_status}
+                />
 
-              <Detail
-                label="Area"
-                value={[member.membership_area, member.membership_city]
-                  .filter(Boolean)
-                  .join(", ")}
-              />
+                <Detail
+                  label="Area"
+                  value={[member.membership_area, member.membership_city]
+                    .filter(Boolean)
+                    .join(", ")}
+                />
 
-              {!member.membership_row_id && (
-                <p className="py-3 text-[11.5px] text-[#888a93]">
-                  No current membership assignment is recorded.
-                </p>
-              )}
-            </div>
-          </section>
+                {!member.membership_row_id && (
+                  <p className="py-3 text-[11.5px] text-[#888a93]">
+                    No current membership assignment is recorded.
+                  </p>
+                )}
+              </div>
+            </section>
+          )}
 
           <section className="overflow-hidden rounded-[16px] border border-[#ececed] bg-white">
             <header className="border-b border-[#f2f2f3] px-5 py-4">
@@ -657,7 +707,7 @@ export default function MemberDetails() {
         </div>
       </div>
 
-      {editing && (
+      {editing && canEditMember && (
         <EditMemberModal
           member={member}
           onClose={() => setEditing(false)}
@@ -665,7 +715,7 @@ export default function MemberDetails() {
         />
       )}
 
-      {transferOpen && (
+      {transferOpen && canEditMember && (
         <TransferMemberModal
           member={member}
           onClose={() => setTransferOpen(false)}

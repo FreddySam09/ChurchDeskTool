@@ -24,6 +24,10 @@ import {
   canCreateSuperAdmin,
   canManageCustomRoles,
   canManageOtherUsers,
+  canManageOrganizations,
+  canManageLeadership,
+  canManageMembershipRecords,
+  canManageAdministration,
 } from "./permissions";
 
 const AuthContext = createContext(null);
@@ -34,19 +38,14 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState("");
 
-  // Keep the latest profile available to auth callbacks without
-  // recreating the Supabase subscription on every render.
   const profileRef = useRef(null);
-
-  // Prevent multiple simultaneous requests for the same profile.
   const profileRequestRef = useRef(null);
 
   // ---------------------------------------------------------
-  // PROFILE LOADING
+  // LOAD PROFILE AND FELLOWSHIP ASSIGNMENTS
   // ---------------------------------------------------------
 
   const loadProfile = useCallback(async () => {
-    // Reuse an existing request instead of making duplicate calls.
     if (profileRequestRef.current) {
       return profileRequestRef.current;
     }
@@ -69,11 +68,85 @@ export function AuthProvider({ children }) {
         );
       }
 
-      profileRef.current = data.profile;
-      setProfile(data.profile);
+      let loadedProfile = data.profile;
+
+      // Fellowship Leaders must receive their scope from
+      // user_group_access, not leadership appointments.
+      if (loadedProfile.role?.name === "Fellowship Leader") {
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser();
+
+        if (userError) throw userError;
+
+        if (!user?.id) {
+          throw new Error("Unable to identify the signed-in user.");
+        }
+
+        const today = new Date().toISOString().slice(0, 10);
+
+        const {
+          data: assignments,
+          error: assignmentError,
+        } = await supabase
+          .from("user_group_access")
+          .select(`
+            group_id,
+            valid_from,
+            valid_until,
+            fellowship:church_groups!inner (
+              id,
+              name,
+              group_type,
+              group_status
+            )
+          `)
+          .eq("auth_user_id", user.id)
+          .lte("valid_from", today)
+          .or(`valid_until.is.null,valid_until.gte.${today}`)
+          .eq("fellowship.group_type", "fellowship")
+          .eq("fellowship.group_status", "Active");
+
+        if (assignmentError) {
+          throw new Error(
+            assignmentError.message ||
+              "Unable to load your fellowship assignments.",
+          );
+        }
+
+        const assignedFellowships = (assignments ?? [])
+          .filter(
+            (item) =>
+              item.group_id &&
+              item.fellowship?.group_type === "fellowship" &&
+              item.fellowship?.group_status === "Active",
+          )
+          .map((item) => ({
+            id: item.group_id,
+            name: item.fellowship?.name ?? "",
+          }));
+
+        loadedProfile = {
+          ...loadedProfile,
+          assigned_fellowships: assignedFellowships,
+          assigned_fellowship_ids: assignedFellowships.map(
+            (item) => item.id,
+          ),
+        };
+      } else {
+        loadedProfile = {
+          ...loadedProfile,
+          assigned_fellowships: [],
+          assigned_fellowship_ids: [],
+        };
+      }
+
+      profileRef.current = loadedProfile;
+      setProfile(loadedProfile);
       setAuthError("");
 
-      return data.profile;
+      return loadedProfile;
     })();
 
     profileRequestRef.current = request;
@@ -136,10 +209,8 @@ export function AuthProvider({ children }) {
       (event, nextSession) => {
         if (!mounted) return;
 
-        // Always keep the session synchronised.
         setSession(nextSession);
 
-        // Handle logout or an expired session.
         if (event === "SIGNED_OUT" || !nextSession) {
           profileRef.current = null;
           setProfile(null);
@@ -148,8 +219,6 @@ export function AuthProvider({ children }) {
           return;
         }
 
-        // These events are normal and should not reload the profile.
-        // TOKEN_REFRESHED commonly happens when returning to a tab.
         if (
           event === "INITIAL_SESSION" ||
           event === "TOKEN_REFRESHED"
@@ -157,7 +226,6 @@ export function AuthProvider({ children }) {
           return;
         }
 
-        // Only respond to meaningful authentication events.
         if (
           event !== "SIGNED_IN" &&
           event !== "USER_UPDATED" &&
@@ -166,8 +234,6 @@ export function AuthProvider({ children }) {
           return;
         }
 
-        // SIGNED_IN can happen during the normal login process.
-        // If the profile is already loaded, there is nothing to do.
         if (
           event === "SIGNED_IN" &&
           profileRef.current
@@ -175,12 +241,10 @@ export function AuthProvider({ children }) {
           return;
         }
 
-        // Only display the full-screen loader when no profile exists.
         if (!profileRef.current) {
           setLoading(true);
         }
 
-        // Defer the request until the auth callback completes.
         Promise.resolve().then(async () => {
           if (!mounted) return;
 
@@ -262,6 +326,8 @@ export function AuthProvider({ children }) {
     if (error) throw error;
 
     profileRef.current = null;
+    profileRequestRef.current = null;
+
     setProfile(null);
     setSession(null);
     setAuthError("");
@@ -284,27 +350,15 @@ export function AuthProvider({ children }) {
   // FELLOWSHIP ASSIGNMENTS
   // ---------------------------------------------------------
 
-  /*
-   * These IDs will be populated by the user-creation
-   * complete-login response once the fellowship assignment
-   * mechanism is implemented.
-   *
-   * Until then, the array remains empty.
-   *
-   * Supported profile property names:
-   * - assigned_fellowship_ids
-   * - fellowship_ids
-   *
-   * The backend should eventually return assigned_fellowship_ids.
-   */
-
-  const assignedFellowshipIds = Array.isArray(
-    profile?.assigned_fellowship_ids,
+  const assignedFellowships = Array.isArray(
+    profile?.assigned_fellowships,
   )
-    ? profile.assigned_fellowship_ids
-    : Array.isArray(profile?.fellowship_ids)
-      ? profile.fellowship_ids
-      : [];
+    ? profile.assigned_fellowships
+    : [];
+
+  const assignedFellowshipIds = assignedFellowships
+    .map((item) => item.id)
+    .filter(Boolean);
 
   const hasAssignedFellowships =
     assignedFellowshipIds.length > 0;
@@ -314,32 +368,24 @@ export function AuthProvider({ children }) {
   // ---------------------------------------------------------
 
   const permissions = {
-    // Returns:
-    // full | read | assigned | restricted | none
     getAccess: (workspace) =>
       getWorkspaceAccess(role, workspace),
 
-    // Whether the user can open a workspace.
     canAccess: (workspace) =>
       canAccessWorkspace(role, workspace),
 
-    // Whether the user has general full write access.
     canWrite: (workspace) =>
       canWriteWorkspace(role, workspace),
 
-    // Whether the workspace is read-only/restricted.
     isReadOnly: (workspace) =>
       isReadOnlyWorkspace(role, workspace),
 
-    // Whether the user can download/export workspace data.
     canDownload: (workspace) =>
       canDownloadWorkspace(role, workspace),
 
-    // Whether the workspace is limited to assigned groups.
     canAccessAssignedGroups: (workspace) =>
       canAccessAssignedGroups(role, workspace),
 
-    // Fellowship Leader-specific permissions.
     canManageAssignedFellowshipMembers: (workspace) =>
       canManageAssignedFellowshipMembers(role, workspace),
 
@@ -349,7 +395,20 @@ export function AuthProvider({ children }) {
     canEditAssignedFellowshipMember: (workspace) =>
       canEditAssignedFellowshipMember(role, workspace),
 
-    // User and role administration.
+    // Always check the target group before allowing a
+    // Fellowship Leader to manage its members.
+    isAssignedFellowship: (groupId) =>
+      isFellowshipLeader &&
+      assignedFellowshipIds.includes(groupId),
+
+    canManageMembersInGroup: (group) =>
+      permissions.canWrite("groups") ||
+      (
+        isFellowshipLeader &&
+        group?.group_type === "fellowship" &&
+        assignedFellowshipIds.includes(group?.id)
+      ),
+
     canCreateSuperAdmin: () =>
       canCreateSuperAdmin(role),
 
@@ -358,6 +417,18 @@ export function AuthProvider({ children }) {
 
     canManageOtherUsers: (targetRole) =>
       canManageOtherUsers(role, targetRole),
+
+    canManageOrganizations: () =>
+      canManageOrganizations(role),
+
+    canManageLeadership: () =>
+      canManageLeadership(role),
+
+    canManageMembershipRecords: () =>
+      canManageMembershipRecords(role),
+
+    canManageAdministration: () =>
+      canManageAdministration(role),
   };
 
   // ---------------------------------------------------------
@@ -367,7 +438,6 @@ export function AuthProvider({ children }) {
   return (
     <AuthContext.Provider
       value={{
-        // Authentication
         session,
         user: session?.user ?? null,
         profile,
@@ -377,17 +447,15 @@ export function AuthProvider({ children }) {
         signOut,
         refreshProfile: loadProfile,
 
-        // Current role
         role,
         isSuperAdmin,
         isAdmin,
         isFellowshipLeader,
         canManageUsers,
 
-        // RBAC
         permissions,
 
-        // Fellowship scope
+        assignedFellowships,
         assignedFellowshipIds,
         hasAssignedFellowships,
       }}

@@ -1,5 +1,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useAuth } from "../auth/AuthContext"
 import { useOutletContext } from 'react-router-dom'
 import {
   Users,
@@ -408,6 +409,26 @@ function AssignmentModal({ group, members, assignedIds, onClose, onAssigned }) {
 }
 
 export default function GroupsPage() {
+  const {
+    role,
+    permissions,
+    assignedFellowshipIds = [],
+  } = useAuth()
+
+  const isFellowshipLeader = role === 'Fellowship Leader'
+
+  const assignedFellowshipIdSet = useMemo(
+    () => new Set(assignedFellowshipIds.map((id) => String(id))),
+    [assignedFellowshipIds],
+  )
+
+  const canManageOrganizations =
+    !isFellowshipLeader && permissions.canManageOrganizations()
+
+  const canManageGroupMembers =
+    permissions.canWrite('groups') ||
+    permissions.canManageAssignedFellowshipMembers('groups')
+
   const outletContext = useOutletContext() || {}
   const globalSearch = outletContext.searchValue || ''
 
@@ -428,8 +449,31 @@ export default function GroupsPage() {
   const [showArchived, setShowArchived] = useState(false)
   const [restoringGroupId, setRestoringGroupId] = useState('')
 
+  const scopedGroups = useMemo(() => {
+    if (!isFellowshipLeader) return groups
+
+    return groups.filter(
+      (group) =>
+        group.group_type === 'fellowship' &&
+        assignedFellowshipIdSet.has(String(group.id)),
+    )
+  }, [groups, isFellowshipLeader, assignedFellowshipIdSet])
+
   const selectedGroup =
-    groups.find((group) => group.id === selectedGroupId) ?? null
+    scopedGroups.find((group) => String(group.id) === String(selectedGroupId)) ??
+    null
+
+  const canManageSelectedGroupMembers =
+    canManageGroupMembers &&
+    !!selectedGroup &&
+    selectedGroup.group_status === 'Active' &&
+    (
+      !isFellowshipLeader ||
+      (
+        selectedGroup.group_type === 'fellowship' &&
+        assignedFellowshipIdSet.has(String(selectedGroup.id))
+      )
+    )
 
   const loadBase = useCallback(async () => {
     setLoading(true)
@@ -441,16 +485,27 @@ export default function GroupsPage() {
         getMembers(),
       ])
 
-      setGroups(groupRows)
-      setMembers(memberRows)
+      setGroups(groupRows || [])
+      setMembers(memberRows || [])
+
+      const allowedGroups = isFellowshipLeader
+        ? (groupRows || []).filter(
+            (group) =>
+              group.group_type === 'fellowship' &&
+              assignedFellowshipIdSet.has(String(group.id)),
+          )
+        : (groupRows || [])
 
       setSelectedGroupId((current) => {
-        if (current && groupRows.some((group) => group.id === current)) {
+        if (
+          current &&
+          allowedGroups.some((group) => String(group.id) === String(current))
+        ) {
           return current
         }
 
         return (
-          groupRows.find((group) => group.group_status === 'Active')?.id ??
+          allowedGroups.find((group) => group.group_status === 'Active')?.id ??
           ''
         )
       })
@@ -459,7 +514,7 @@ export default function GroupsPage() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [isFellowshipLeader, assignedFellowshipIdSet])
 
   const loadAssignments = useCallback(async (groupId) => {
     if (!groupId) {
@@ -471,7 +526,7 @@ export default function GroupsPage() {
 
     try {
       const rows = await getGroupAssignments(groupId)
-      setAssignments(rows)
+      setAssignments(rows || [])
     } catch (err) {
       setError(err.message || 'Unable to load assigned members.')
     } finally {
@@ -484,8 +539,13 @@ export default function GroupsPage() {
   }, [loadBase])
 
   useEffect(() => {
-    loadAssignments(selectedGroupId)
-  }, [selectedGroupId, loadAssignments])
+    if (!selectedGroup) {
+      setAssignments([])
+      return
+    }
+
+    loadAssignments(selectedGroup.id)
+  }, [selectedGroupId, selectedGroup, loadAssignments])
 
   const memberById = useMemo(
     () => new Map(members.map((member) => [member.id, member])),
@@ -500,9 +560,11 @@ export default function GroupsPage() {
   const filteredGroups = useMemo(() => {
     const query = `${groupSearch} ${globalSearch}`.trim().toLowerCase()
 
-    return groups.filter((group) => {
+    return scopedGroups.filter((group) => {
       const matchesType =
-        typeFilter === 'all' || group.group_type === typeFilter
+        isFellowshipLeader ||
+        typeFilter === 'all' ||
+        group.group_type === typeFilter
 
       const matchesQuery =
         !query ||
@@ -514,7 +576,13 @@ export default function GroupsPage() {
 
       return matchesType && matchesQuery
     })
-  }, [groups, groupSearch, globalSearch, typeFilter])
+  }, [
+    scopedGroups,
+    groupSearch,
+    globalSearch,
+    typeFilter,
+    isFellowshipLeader,
+  ])
 
   const visibleGroups = useMemo(
     () => filteredGroups.filter((group) => group.group_status === 'Active'),
@@ -558,12 +626,14 @@ export default function GroupsPage() {
     setNotice('')
     await loadBase()
 
-    if (selectedGroupId) {
-      await loadAssignments(selectedGroupId)
+    if (selectedGroup) {
+      await loadAssignments(selectedGroup.id)
     }
   }
 
   async function handleDeleteGroup(group) {
+    if (!canManageOrganizations) return
+
     if (group.group_status === 'Inactive') {
       setNotice(`"${group.name}" is already archived.`)
       return
@@ -586,8 +656,9 @@ export default function GroupsPage() {
         groupType: group.group_type || 'group',
       })
 
-      const nextActiveGroup = groups.find(
-        (item) => item.id !== group.id && item.group_status === 'Active',
+      const nextActiveGroup = scopedGroups.find(
+        (item) =>
+          item.id !== group.id && item.group_status === 'Active',
       )
 
       setSelectedGroupId(nextActiveGroup?.id ?? '')
@@ -599,6 +670,8 @@ export default function GroupsPage() {
   }
 
   async function handleRestoreGroup(group) {
+    if (!canManageOrganizations) return
+
     setRestoringGroupId(group.id)
     setError('')
     setNotice('')
@@ -623,6 +696,8 @@ export default function GroupsPage() {
   }
 
   async function handleEndAssignment(assignment) {
+    if (!canManageSelectedGroupMembers) return
+
     const member = memberById.get(assignment.member_id)
 
     const confirmed = window.confirm(
@@ -659,12 +734,12 @@ export default function GroupsPage() {
             Church directory
           </p>
           <h1 className="text-[25px] font-extrabold tracking-[-0.8px] text-[#131418] sm:text-[30px]">
-            Fellowships & Groups
+            {isFellowshipLeader ? 'My Fellowship' : 'Fellowships & Groups'}
           </h1>
           <p className="mt-2 max-w-[620px] text-[13px] leading-6 text-[#777984]">
-            Create and manage fellowships and church groups, and organise
-            existing members into them. People can belong to more than one
-            organisation.
+            {isFellowshipLeader
+              ? 'View and manage members belonging to your assigned fellowships.'
+              : 'Create and manage fellowships and church groups, and organise existing members into them. People can belong to more than one organisation.'}
           </p>
         </div>
 
@@ -679,14 +754,16 @@ export default function GroupsPage() {
             Refresh
           </button>
 
-          <button
-            type="button"
-            onClick={() => setGroupModal({ mode: 'create' })}
-            className="inline-flex min-h-[42px] items-center justify-center gap-2 rounded-[12px] bg-[#191a1f] px-4 text-[12px] font-semibold text-white hover:bg-black"
-          >
-            <Plus size={16} />
-            Create organisation
-          </button>
+          {canManageOrganizations && (
+            <button
+              type="button"
+              onClick={() => setGroupModal({ mode: 'create' })}
+              className="inline-flex min-h-[42px] items-center justify-center gap-2 rounded-[12px] bg-[#191a1f] px-4 text-[12px] font-semibold text-white hover:bg-black"
+            >
+              <Plus size={16} />
+              Create organisation
+            </button>
+          )}
         </div>
       </header>
 
@@ -705,17 +782,24 @@ export default function GroupsPage() {
         </div>
       )}
 
+      {isFellowshipLeader && assignedFellowshipIds.length === 0 && !loading && (
+        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[12px] leading-5 text-amber-800">
+          No fellowships have been assigned to your account yet. Please contact
+          an administrator.
+        </div>
+      )}
+
       <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[340px_minmax(0,1fr)]">
         <aside className="overflow-hidden rounded-[22px] border border-[#e9e9eb] bg-white">
           <div className="border-b border-[#f0f0f1] p-4">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-[13px] font-bold text-[#131418]">
-                  Fellowships & Groups
+                  {isFellowshipLeader ? 'Assigned fellowships' : 'Fellowships & Groups'}
                 </h2>
                 <p className="mt-1 text-[11px] text-[#92939b]">
                   {visibleGroups.length} active
-                  {archivedGroups.length > 0 &&
+                  {!isFellowshipLeader && archivedGroups.length > 0 &&
                     ` · ${archivedGroups.length} archived`}
                 </p>
               </div>
@@ -738,27 +822,29 @@ export default function GroupsPage() {
               />
             </div>
 
-            <div className="mt-3 grid grid-cols-3 gap-1 rounded-xl bg-[#f4f4f5] p-1">
-              {[
-                { value: 'all', label: 'All' },
-                { value: 'fellowship', label: 'Fellowships' },
-                { value: 'group', label: 'Groups' },
-              ].map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() => setTypeFilter(option.value)}
-                  aria-pressed={typeFilter === option.value}
-                  className={`rounded-lg px-2 py-2 text-[10.5px] font-semibold transition ${
-                    typeFilter === option.value
-                      ? 'bg-white text-[#25262c] shadow-sm'
-                      : 'text-[#777984] hover:text-[#25262c]'
-                  }`}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
+            {!isFellowshipLeader && (
+              <div className="mt-3 grid grid-cols-3 gap-1 rounded-xl bg-[#f4f4f5] p-1">
+                {[
+                  { value: 'all', label: 'All' },
+                  { value: 'fellowship', label: 'Fellowships' },
+                  { value: 'group', label: 'Groups' },
+                ].map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setTypeFilter(option.value)}
+                    aria-pressed={typeFilter === option.value}
+                    className={`rounded-lg px-2 py-2 text-[10.5px] font-semibold transition ${
+                      typeFilter === option.value
+                        ? 'bg-white text-[#25262c] shadow-sm'
+                        : 'text-[#777984] hover:text-[#25262c]'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="max-h-[620px] overflow-y-auto p-2">
@@ -768,7 +854,7 @@ export default function GroupsPage() {
               </p>
             ) : visibleGroups.length ? (
               visibleGroups.map((group) => {
-                const selected = group.id === selectedGroupId
+                const selected = String(group.id) === String(selectedGroupId)
 
                 return (
                   <div
@@ -813,15 +899,17 @@ export default function GroupsPage() {
                       <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
                     </button>
 
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteGroup(group)}
-                      aria-label={`Archive ${group.name}`}
-                      title="Archive organisation"
-                      className="mr-1 shrink-0 rounded-lg p-2 text-[#b64343] transition hover:bg-[#fff0f0]"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                    {canManageOrganizations && (
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteGroup(group)}
+                        aria-label={`Archive ${group.name}`}
+                        title="Archive organisation"
+                        className="mr-1 shrink-0 rounded-lg p-2 text-[#b64343] transition hover:bg-[#fff0f0]"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
                   </div>
                 )
               })
@@ -829,98 +917,105 @@ export default function GroupsPage() {
               <div className="px-4 py-10 text-center">
                 <FolderOpen size={25} className="mx-auto text-[#c2c3c9]" />
                 <p className="mt-3 text-[12px] font-semibold text-[#53555e]">
-                  No active organisations found
+                  {isFellowshipLeader
+                    ? 'No assigned active fellowships'
+                    : 'No active organisations found'}
                 </p>
                 <p className="mt-1 text-[11px] text-[#92939b]">
-                  Try another search or create a fellowship or group. Inactive
-                  organisations are kept in Archived below.
+                  {isFellowshipLeader
+                    ? 'Your assigned fellowships will appear here.'
+                    : 'Try another search or create a fellowship or group. Inactive organisations are kept in Archived below.'}
                 </p>
               </div>
             )}
           </div>
 
-          <div className="border-t border-[#f0f0f1] px-3 py-2">
-            <button
-              type="button"
-              onClick={() => setShowArchived((current) => !current)}
-              aria-expanded={showArchived}
-              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[11px] font-medium text-[#888a93] transition hover:bg-[#f8f8f9] hover:text-[#53555e]"
-            >
-              <Archive size={14} />
-              <span className="flex-1">Archived</span>
-              <span className="rounded-full bg-[#f0f0f1] px-2 py-0.5 text-[10px] tabular-nums">
-                {
-                  groups.filter((group) => group.group_status === 'Inactive')
-                    .length
-                }
-              </span>
-              <span className="text-[10px]">
-                {showArchived ? 'Hide' : 'Show'}
-              </span>
-            </button>
+          {!isFellowshipLeader && (
+            <div className="border-t border-[#f0f0f1] px-3 py-2">
+              <button
+                type="button"
+                onClick={() => setShowArchived((current) => !current)}
+                aria-expanded={showArchived}
+                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[11px] font-medium text-[#888a93] transition hover:bg-[#f8f8f9] hover:text-[#53555e]"
+              >
+                <Archive size={14} />
+                <span className="flex-1">Archived</span>
+                <span className="rounded-full bg-[#f0f0f1] px-2 py-0.5 text-[10px] tabular-nums">
+                  {
+                    groups.filter((group) => group.group_status === 'Inactive')
+                      .length
+                  }
+                </span>
+                <span className="text-[10px]">
+                  {showArchived ? 'Hide' : 'Show'}
+                </span>
+              </button>
 
-            {showArchived && (
-              <div className="mt-1 space-y-1 pb-1">
-                {archivedGroups.length === 0 ? (
-                  <p className="px-3 py-3 text-[11px] text-[#a0a1a8]">
-                    {groupSearch.trim() ||
-                    globalSearch.trim() ||
-                    typeFilter !== 'all'
-                      ? 'No archived organisations match these filters.'
-                      : 'No archived organisations.'}
-                  </p>
-                ) : (
-                  archivedGroups.map((group) => (
-                    <div
-                      key={group.id}
-                      className={`flex items-center gap-2 rounded-lg px-2.5 py-2 transition ${
-                        group.id === selectedGroupId
-                          ? 'bg-[#f2f4ff]'
-                          : 'hover:bg-[#f8f8f9]'
-                      }`}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedGroupId(group.id)
-                          setMemberSearch('')
-                          setError('')
-                          setNotice('')
-                        }}
-                        className="min-w-0 flex-1 text-left"
+              {showArchived && (
+                <div className="mt-1 space-y-1 pb-1">
+                  {archivedGroups.length === 0 ? (
+                    <p className="px-3 py-3 text-[11px] text-[#a0a1a8]">
+                      {groupSearch.trim() ||
+                      globalSearch.trim() ||
+                      typeFilter !== 'all'
+                        ? 'No archived organisations match these filters.'
+                        : 'No archived organisations.'}
+                    </p>
+                  ) : (
+                    archivedGroups.map((group) => (
+                      <div
+                        key={group.id}
+                        className={`flex items-center gap-2 rounded-lg px-2.5 py-2 transition ${
+                          String(group.id) === String(selectedGroupId)
+                            ? 'bg-[#f2f4ff]'
+                            : 'hover:bg-[#f8f8f9]'
+                        }`}
                       >
-                        <span className="block truncate text-[11px] font-medium text-[#777984]">
-                          {group.name}
-                        </span>
-                        <span className="block text-[10px] text-[#a0a1a8]">
-                          {group.group_type === 'fellowship'
-                            ? 'Fellowship'
-                            : 'Group'}{' '}
-                          · Inactive
-                        </span>
-                      </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedGroupId(group.id)
+                            setMemberSearch('')
+                            setError('')
+                            setNotice('')
+                          }}
+                          className="min-w-0 flex-1 text-left"
+                        >
+                          <span className="block truncate text-[11px] font-medium text-[#777984]">
+                            {group.name}
+                          </span>
+                          <span className="block text-[10px] text-[#a0a1a8]">
+                            {group.group_type === 'fellowship'
+                              ? 'Fellowship'
+                              : 'Group'}{' '}
+                            · Inactive
+                          </span>
+                        </button>
 
-                      <button
-                        type="button"
-                        title={`Restore ${group.name}`}
-                        aria-label={`Restore ${group.name}`}
-                        disabled={restoringGroupId === group.id}
-                        onClick={() => handleRestoreGroup(group)}
-                        className="shrink-0 rounded-md p-1.5 text-[#777984] transition hover:bg-white hover:text-emerald-700 disabled:opacity-50"
-                      >
-                        <RotateCcw
-                          size={13}
-                          className={
-                            restoringGroupId === group.id ? 'animate-spin' : ''
-                          }
-                        />
-                      </button>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-          </div>
+                        {canManageOrganizations && (
+                          <button
+                            type="button"
+                            title={`Restore ${group.name}`}
+                            aria-label={`Restore ${group.name}`}
+                            disabled={restoringGroupId === group.id}
+                            onClick={() => handleRestoreGroup(group)}
+                            className="shrink-0 rounded-md p-1.5 text-[#777984] transition hover:bg-white hover:text-emerald-700 disabled:opacity-50"
+                          >
+                            <RotateCcw
+                              size={13}
+                              className={
+                                restoringGroupId === group.id ? 'animate-spin' : ''
+                              }
+                            />
+                          </button>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </aside>
 
         <section className="min-w-0 overflow-hidden rounded-[22px] border border-[#e9e9eb] bg-white">
@@ -939,9 +1034,7 @@ export default function GroupsPage() {
                       </h2>
 
                       <span className="rounded-full bg-[#f1f3ff] px-2.5 py-1 text-[10px] font-semibold text-[#4058c9]">
-                        {selectedGroup.group_type === 'fellowship'
-                          ? 'Fellowship'
-                          : 'Group'}
+                        Fellowship
                       </span>
 
                       {selectedGroup.group_status === 'Inactive' && (
@@ -962,14 +1055,16 @@ export default function GroupsPage() {
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => setGroupModal(selectedGroup)}
-                  className="inline-flex min-h-[38px] shrink-0 items-center justify-center gap-2 self-start rounded-[10px] border border-[#e5e5e7] bg-white px-3.5 text-[11.5px] font-semibold text-[#53555e] hover:bg-[#f8f8f9]"
-                >
-                  <Pencil size={14} />
-                  Edit organisation
-                </button>
+                {canManageOrganizations && (
+                  <button
+                    type="button"
+                    onClick={() => setGroupModal(selectedGroup)}
+                    className="inline-flex min-h-[38px] shrink-0 items-center justify-center gap-2 self-start rounded-[10px] border border-[#e5e5e7] bg-white px-3.5 text-[11.5px] font-semibold text-[#53555e] hover:bg-[#f8f8f9]"
+                  >
+                    <Pencil size={14} />
+                    Edit organisation
+                  </button>
+                )}
               </header>
 
               <div className="p-4 sm:p-6">
@@ -983,15 +1078,17 @@ export default function GroupsPage() {
                     </p>
                   </div>
 
-                  <button
-                    type="button"
-                    disabled={selectedGroup.group_status !== 'Active'}
-                    onClick={() => setAssignmentModalOpen(true)}
-                    className="inline-flex min-h-[40px] items-center justify-center gap-2 rounded-[11px] bg-[#191a1f] px-4 text-[12px] font-semibold text-white hover:bg-black disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    <UserPlus size={15} />
-                    Add members
-                  </button>
+                  {canManageSelectedGroupMembers && (
+                    <button
+                      type="button"
+                      disabled={selectedGroup.group_status !== 'Active'}
+                      onClick={() => setAssignmentModalOpen(true)}
+                      className="inline-flex min-h-[40px] items-center justify-center gap-2 rounded-[11px] bg-[#191a1f] px-4 text-[12px] font-semibold text-white hover:bg-black disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <UserPlus size={15} />
+                      Add members
+                    </button>
+                  )}
                 </div>
 
                 {selectedGroup.group_status !== 'Active' && (
@@ -999,15 +1096,17 @@ export default function GroupsPage() {
                     <p className="text-[11px] text-[#6b6d76]">
                       This organisation is archived. Restore it to add new members.
                     </p>
-                    <button
-                      type="button"
-                      disabled={restoringGroupId === selectedGroup.id}
-                      onClick={() => handleRestoreGroup(selectedGroup)}
-                      className="inline-flex min-h-[32px] shrink-0 items-center justify-center gap-1.5 self-start rounded-lg border border-[#e5e5e7] bg-white px-3 text-[11px] font-semibold text-[#53555e] hover:bg-[#fafafa] disabled:opacity-50 sm:self-auto"
-                    >
-                      <RotateCcw size={12} />
-                      Restore
-                    </button>
+                    {canManageOrganizations && (
+                      <button
+                        type="button"
+                        disabled={restoringGroupId === selectedGroup.id}
+                        onClick={() => handleRestoreGroup(selectedGroup)}
+                        className="inline-flex min-h-[32px] shrink-0 items-center justify-center gap-1.5 self-start rounded-lg border border-[#e5e5e7] bg-white px-3 text-[11px] font-semibold text-[#53555e] hover:bg-[#fafafa] disabled:opacity-50 sm:self-auto"
+                      >
+                        <RotateCcw size={12} />
+                        Restore
+                      </button>
+                    )}
                   </div>
                 )}
 
@@ -1083,18 +1182,20 @@ export default function GroupsPage() {
                               </td>
 
                               <td className="px-4 py-3 text-right">
-                                <button
-                                  type="button"
-                                  title={`Remove ${member.name} from this organisation`}
-                                  disabled={endingAssignmentId === assignment.id}
-                                  onClick={() => handleEndAssignment(assignment)}
-                                  className="inline-flex min-h-[34px] items-center justify-center gap-1.5 rounded-lg border border-[#f0dada] px-2.5 text-[10.5px] font-semibold text-[#b64343] transition hover:bg-[#fff5f5] disabled:opacity-50"
-                                >
-                                  <UserMinus size={13} />
-                                  {endingAssignmentId === assignment.id
-                                    ? 'Removing…'
-                                    : 'Remove'}
-                                </button>
+                                {canManageSelectedGroupMembers && (
+                                  <button
+                                    type="button"
+                                    title={`Remove ${member.name} from this organisation`}
+                                    disabled={endingAssignmentId === assignment.id}
+                                    onClick={() => handleEndAssignment(assignment)}
+                                    className="inline-flex min-h-[34px] items-center justify-center gap-1.5 rounded-lg border border-[#f0dada] px-2.5 text-[10.5px] font-semibold text-[#b64343] transition hover:bg-[#fff5f5] disabled:opacity-50"
+                                  >
+                                    <UserMinus size={13} />
+                                    {endingAssignmentId === assignment.id
+                                      ? 'Removing…'
+                                      : 'Remove'}
+                                  </button>
+                                )}
                               </td>
                             </tr>
                           )
@@ -1128,17 +1229,21 @@ export default function GroupsPage() {
             <div className="px-6 py-16 text-center">
               <FolderOpen size={30} className="mx-auto text-[#c2c3c9]" />
               <h2 className="mt-3 text-[14px] font-bold text-[#25262c]">
-                Select an organisation
+                {isFellowshipLeader
+                  ? 'No fellowship selected'
+                  : 'Select an organisation'}
               </h2>
               <p className="mt-1 text-[12px] text-[#888a93]">
-                Choose an active organisation from the list or create a new one.
+                {isFellowshipLeader
+                  ? 'Select one of your assigned fellowships from the list.'
+                  : 'Choose an active organisation from the list or create a new one.'}
               </p>
             </div>
           )}
         </section>
       </div>
 
-      {groupModal && (
+      {groupModal && canManageOrganizations && (
         <GroupModal
           group={groupModal.mode === 'create' ? null : groupModal}
           onClose={() => setGroupModal(null)}
@@ -1154,18 +1259,20 @@ export default function GroupsPage() {
         />
       )}
 
-      {assignmentModalOpen && selectedGroup && (
-        <AssignmentModal
-          group={selectedGroup}
-          members={members.filter((member) => member.status === 'Active')}
-          assignedIds={assignedIds}
-          onClose={() => setAssignmentModalOpen(false)}
-          onAssigned={async () => {
-            await loadAssignments(selectedGroup.id)
-            setNotice('Member assigned successfully.')
-          }}
-        />
-      )}
+      {assignmentModalOpen &&
+        selectedGroup &&
+        canManageSelectedGroupMembers && (
+          <AssignmentModal
+            group={selectedGroup}
+            members={members.filter((member) => member.status === 'Active')}
+            assignedIds={assignedIds}
+            onClose={() => setAssignmentModalOpen(false)}
+            onAssigned={async () => {
+              await loadAssignments(selectedGroup.id)
+              setNotice('Member assigned successfully.')
+            }}
+          />
+        )}
     </div>
   )
 }

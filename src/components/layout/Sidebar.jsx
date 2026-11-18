@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
@@ -13,6 +12,7 @@ import {
   ShieldCheck,
   Network,
   UsersRound,
+  LayoutDashboard,
 } from "lucide-react";
 import { useAuth } from "../../features/auth/AuthContext";
 
@@ -25,6 +25,8 @@ export default function Sidebar({ open = false, onClose }) {
   const membershipAccess = permissions.getAccess("membership");
   const canSeeFullMembership =
     membershipAccess === "full" || membershipAccess === "read";
+
+  const canSeeAssignedMembers = membershipAccess === "assigned";
 
   const [membershipExpanded, setMembershipExpanded] = useState(true);
   const [eventsExpanded, setEventsExpanded] = useState(() =>
@@ -64,8 +66,8 @@ export default function Sidebar({ open = false, onClose }) {
 
       <aside
         className={`fixed inset-y-0 left-0 z-50 flex h-screen w-[264px] shrink-0 flex-col overflow-y-auto bg-gradient-to-b from-[#131418] to-[#0b0c0f] text-[#eef3ee] shadow-xl transition-transform duration-200 lg:sticky lg:top-0 lg:z-40 lg:col-start-1 lg:row-start-1 lg:translate-x-0 lg:self-start lg:shadow-none ${
-  open ? "translate-x-0" : "-translate-x-full"
-}`}
+          open ? "translate-x-0" : "-translate-x-full"
+        }`}
       >
         {/* Header */}
         <div className="flex items-center gap-3 border-b border-white/[0.08] px-[22px] pb-5 pt-[26px]">
@@ -101,68 +103,78 @@ export default function Sidebar({ open = false, onClose }) {
             Workspace
           </p>
 
+          <NavLink to="/" end onClick={onClose} className={standaloneLinkClass}>
+            <LayoutDashboard size={19} strokeWidth={1.8} />
+            <span>Dashboard</span>
+          </NavLink>
+
           {/* Membership */}
-          {canSeeFullMembership && (
+          {(canSeeFullMembership || canSeeAssignedMembers) && (
             <div className="mb-1">
-              <button
-                type="button"
-                onClick={() =>
-                  setMembershipExpanded((value) => !value)
-                }
-                aria-expanded={membershipExpanded}
-                className="flex w-full items-center gap-3 rounded-[10px] bg-white/[0.10] px-3 py-[11px] text-left text-[14px] font-medium text-white transition hover:bg-white/[0.13]"
-              >
-                <Users size={19} strokeWidth={1.8} />
+              {canSeeFullMembership ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setMembershipExpanded((value) => !value)}
+                    aria-expanded={membershipExpanded}
+                    className="flex w-full items-center gap-3 rounded-[10px] bg-white/[0.10] px-3 py-[11px] text-left text-[14px] font-medium text-white transition hover:bg-white/[0.13]"
+                  >
+                    <Users size={19} strokeWidth={1.8} />
+                    <span className="flex-1">Membership</span>
+                    <ChevronRight
+                      size={15}
+                      className={`text-white/60 transition-transform ${
+                        membershipExpanded ? "rotate-90" : ""
+                      }`}
+                    />
+                  </button>
 
-                <span className="flex-1">Membership</span>
+                  <div
+                    className={`grid transition-[grid-template-rows] duration-200 ${
+                      membershipExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+                    }`}
+                  >
+                    <div className="overflow-hidden">
+                      <div className="ml-[22px] mt-1 space-y-0.5 border-l border-white/[0.10] pl-2">
+                        <NavLink
+                          to="/membership"
+                          onClick={onClose}
+                          className={linkClass}
+                        >
+                          Memberships
+                        </NavLink>
 
-                <ChevronRight
-                  size={15}
-                  className={`text-white/60 transition-transform ${
-                    membershipExpanded ? "rotate-90" : ""
-                  }`}
-                />
-              </button>
+                        <NavLink
+                          to="/members"
+                          onClick={onClose}
+                          className={linkClass}
+                        >
+                          Members
+                        </NavLink>
 
-              <div
-                className={`grid transition-[grid-template-rows] duration-200 ${
-                  membershipExpanded
-                    ? "grid-rows-[1fr]"
-                    : "grid-rows-[0fr]"
-                }`}
-              >
-                <div className="overflow-hidden">
-                  <div className="ml-[22px] mt-1 space-y-0.5 border-l border-white/[0.10] pl-2">
-                    <NavLink
-                      to="/"
-                      end
-                      onClick={onClose}
-                      className={linkClass}
-                    >
-                      Memberships
-                    </NavLink>
-
-                    <NavLink
-                      to="/members"
-                      onClick={onClose}
-                      className={linkClass}
-                    >
-                      Members
-                    </NavLink>
-
-                    <NavLink
-                      to="/annual-register"
-                      onClick={onClose}
-                      className={linkClass}
-                    >
-                      Annual Membership Register
-                    </NavLink>
+                        <NavLink
+                          to="/annual-register"
+                          onClick={onClose}
+                          className={linkClass}
+                        >
+                          Annual Membership Register
+                        </NavLink>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
+                </>
+              ) : (
+                <NavLink
+                  to="/members"
+                  onClick={onClose}
+                  className={standaloneLinkClass}
+                >
+                  <Users size={18} />
+                  <span>My Fellowship Members</span>
+                </NavLink>
+              )}
             </div>
           )}
-
           {/* Groups - independent of Membership */}
           {canSee("groups") && (
             <NavLink
@@ -192,9 +204,7 @@ export default function Sidebar({ open = false, onClose }) {
             <div className="mb-1">
               <button
                 type="button"
-                onClick={() =>
-                  setEventsExpanded((value) => !value)
-                }
+                onClick={() => setEventsExpanded((value) => !value)}
                 aria-expanded={eventsExpanded}
                 className="flex w-full items-center gap-3 rounded-[10px] px-3 py-[11px] text-left text-[14px] font-medium text-white/90 transition hover:bg-white/[0.07]"
               >
@@ -216,9 +226,7 @@ export default function Sidebar({ open = false, onClose }) {
 
               <div
                 className={`grid transition-[grid-template-rows] duration-200 ${
-                  eventsExpanded
-                    ? "grid-rows-[1fr]"
-                    : "grid-rows-[0fr]"
+                  eventsExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
                 }`}
               >
                 <div className="overflow-hidden">

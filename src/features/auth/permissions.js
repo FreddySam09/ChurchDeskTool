@@ -1,4 +1,3 @@
-
 export const ROLES = {
   SUPER_ADMIN: "Super Admin",
   ADMIN: "Admin",
@@ -19,21 +18,6 @@ export const WORKSPACES = {
   FINANCE: "finance",
   ADMINISTRATION: "administration",
 };
-
-/*
- * Access levels:
- *
- * full       - View and perform all permitted workspace actions.
- * read       - View and use non-mutating actions only.
- * assigned   - Access only explicitly assigned fellowships.
- * restricted - Limited directory access.
- * none       - No access.
- *
- * Important:
- * These helpers control frontend visibility and interaction.
- * Supabase RLS and server-side authorization must enforce the same
- * permissions independently.
- */
 
 const ROLE_PERMISSIONS = {
   [ROLES.SUPER_ADMIN]: {
@@ -58,7 +42,6 @@ const ROLE_PERMISSIONS = {
     administration: "full",
   },
 
-  // Elder maps to Committee in the supplied permission matrix.
   [ROLES.ELDER]: {
     membership: "read",
     groups: "read",
@@ -93,7 +76,7 @@ const ROLE_PERMISSIONS = {
   },
 
   [ROLES.FELLOWSHIP_LEADER]: {
-    membership: "none",
+    membership: "assigned",
     groups: "assigned",
     leadership: "assigned",
     events: "none",
@@ -103,7 +86,6 @@ const ROLE_PERMISSIONS = {
     administration: "none",
   },
 
-  // Preserve the existing Others permissions.
   [ROLES.OTHERS]: {
     membership: "restricted",
     groups: "read",
@@ -141,22 +123,6 @@ export function canAccessAssignedGroups(role, workspace) {
   );
 }
 
-/*
- * Fellowship Leader permissions are intentionally narrow.
- *
- * They may:
- * - View their assigned fellowships.
- * - View members assigned to those fellowships.
- * - Add an existing member to an assigned fellowship.
- * - Edit the member's fellowship-specific assignment/details.
- *
- * They may not:
- * - Create or edit fellowship records.
- * - Create or edit leadership positions.
- * - Appoint or remove leaders.
- * - Modify general membership records.
- * - Access unassigned fellowships or regular groups.
- */
 export function canManageAssignedFellowshipMembers(role, workspace) {
   return (
     role === ROLES.FELLOWSHIP_LEADER &&
@@ -173,7 +139,7 @@ export function canEditAssignedFellowshipMember(role, workspace) {
 }
 
 export function canDownloadWorkspace(role, workspace) {
-  return canAccessWorkspace(role, workspace);
+  return canWriteWorkspace(role, workspace);
 }
 
 export function canManageUsers(role) {
@@ -196,4 +162,20 @@ export function canManageOtherUsers(role, targetRole) {
   }
 
   return false;
+}
+
+export function canManageOrganizations(role) {
+  return role === ROLES.SUPER_ADMIN || role === ROLES.ADMIN;
+}
+
+export function canManageLeadership(role) {
+  return role === ROLES.SUPER_ADMIN || role === ROLES.ADMIN;
+}
+
+export function canManageMembershipRecords(role) {
+  return role === ROLES.SUPER_ADMIN || role === ROLES.ADMIN;
+}
+
+export function canManageAdministration(role) {
+  return role === ROLES.SUPER_ADMIN || role === ROLES.ADMIN;
 }

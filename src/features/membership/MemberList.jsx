@@ -1,3 +1,4 @@
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -7,6 +8,7 @@ import {
   Users,
 } from "lucide-react";
 import { getMemberDirectory } from "../../services/membershipService";
+import { useAuth } from "../auth/AuthContext";
 
 const STATUS_OPTIONS = ["Active", "Inactive"];
 
@@ -43,6 +45,20 @@ function StatusBadge({ status }) {
 export default function MemberList() {
   const navigate = useNavigate();
 
+  const {
+    role,
+    permissions,
+    assignedFellowshipIds = [],
+  } = useAuth();
+
+  const isFellowshipLeader = role === "Fellowship Leader";
+  const canExport = permissions.canDownload("membership");
+
+  const assignedIdSet = useMemo(
+    () => new Set((assignedFellowshipIds || []).map(String)),
+    [assignedFellowshipIds],
+  );
+
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -70,10 +86,33 @@ export default function MemberList() {
     loadMembers();
   }, [loadMembers]);
 
+  /*
+   * Fellowship Leaders must only see members who have an
+   * assignment to at least one of their assigned fellowships.
+   *
+   * The member directory returns member.groups. We use the
+   * group IDs from that returned data and compare them with
+   * assignedFellowshipIds from AuthContext.
+   *
+   * If the assignment IDs are unavailable, do not fall back
+   * to showing the entire directory.
+   */
+  const scopedMembers = useMemo(() => {
+    if (!isFellowshipLeader) return members;
+
+    if (assignedIdSet.size === 0) return [];
+
+    return members.filter((member) =>
+      (member.groups ?? []).some((group) =>
+        assignedIdSet.has(String(group.id)),
+      ),
+    );
+  }, [members, isFellowshipLeader, assignedIdSet]);
+
   const membershipOptions = useMemo(() => {
     const options = new Map();
 
-    members.forEach((member) => {
+    scopedMembers.forEach((member) => {
       if (member.membership_row_id) {
         options.set(member.membership_row_id, {
           id: member.membership_row_id,
@@ -87,22 +126,29 @@ export default function MemberList() {
         numeric: true,
       }),
     );
-  }, [members]);
+  }, [scopedMembers]);
 
   const groupOptions = useMemo(() => {
     const names = new Set();
 
-    members.forEach((member) => {
-      (member.groups ?? []).forEach((group) => names.add(group.name));
+    scopedMembers.forEach((member) => {
+      (member.groups ?? []).forEach((group) => {
+        if (
+          !isFellowshipLeader ||
+          assignedIdSet.has(String(group.id))
+        ) {
+          names.add(group.name);
+        }
+      });
     });
 
     return [...names].sort((a, b) => a.localeCompare(b));
-  }, [members]);
+  }, [scopedMembers, isFellowshipLeader, assignedIdSet]);
 
   const filteredMembers = useMemo(() => {
     const query = search.trim().toLowerCase();
 
-    return members
+    return scopedMembers
       .filter((member) => {
         if (
           membershipFilter !== "All" &&
@@ -117,7 +163,12 @@ export default function MemberList() {
 
         if (
           groupFilter !== "All" &&
-          !(member.groups ?? []).some((group) => group.name === groupFilter)
+          !(member.groups ?? []).some(
+            (group) =>
+              group.name === groupFilter &&
+              (!isFellowshipLeader ||
+                assignedIdSet.has(String(group.id))),
+          )
         ) {
           return false;
         }
@@ -127,6 +178,12 @@ export default function MemberList() {
         }
 
         if (!query) return true;
+
+        const visibleGroups = (member.groups ?? []).filter(
+          (group) =>
+            !isFellowshipLeader ||
+            assignedIdSet.has(String(group.id)),
+        );
 
         const searchable = [
           member.name,
@@ -139,7 +196,7 @@ export default function MemberList() {
           member.phone_number,
           member.email,
           member.marital_status,
-          ...(member.groups ?? []).map((group) => group.name),
+          ...visibleGroups.map((group) => group.name),
         ]
           .filter(Boolean)
           .join(" ")
@@ -148,7 +205,6 @@ export default function MemberList() {
         return searchable.includes(query);
       })
       .sort((a, b) => {
-        // Active members first; all other statuses appear afterwards.
         const aInactive = a.status !== "Active";
         const bInactive = b.status !== "Active";
 
@@ -156,7 +212,6 @@ export default function MemberList() {
           return aInactive ? 1 : -1;
         }
 
-        // Preserve membership-number ordering within each status group.
         return (
           String(a.display_membership_number ?? "").localeCompare(
             String(b.display_membership_number ?? ""),
@@ -166,15 +221,19 @@ export default function MemberList() {
         );
       });
   }, [
-    members,
+    scopedMembers,
     search,
     membershipFilter,
     genderFilter,
     groupFilter,
     statusFilter,
+    isFellowshipLeader,
+    assignedIdSet,
   ]);
 
   function exportCsv() {
+    if (!canExport) return;
+
     const headers = [
       "Name",
       "Person ID",
@@ -190,22 +249,31 @@ export default function MemberList() {
       "Status",
     ];
 
-    const rows = filteredMembers.map((member) => [
-      member.name,
-      member.person_id,
-      member.display_membership_number,
-      member.membership_id,
-      member.relationship_to_head,
-      member.gender,
-      member.date_of_birth,
-      member.phone_number,
-      member.email,
-      member.marital_status,
-      (member.groups ?? []).map((group) => group.name).join("; "),
-      member.status,
-    ]);
+    const rows = filteredMembers.map((member) => {
+      const visibleGroups = (member.groups ?? []).filter(
+        (group) =>
+          !isFellowshipLeader ||
+          assignedIdSet.has(String(group.id)),
+      );
 
-    const escapeCsv = (value) => `"${String(value ?? "").replace(/"/g, '""')}"`;
+      return [
+        member.name,
+        member.person_id,
+        member.display_membership_number,
+        member.membership_id,
+        member.relationship_to_head,
+        member.gender,
+        member.date_of_birth,
+        member.phone_number,
+        member.email,
+        member.marital_status,
+        visibleGroups.map((group) => group.name).join("; "),
+        member.status,
+      ];
+    });
+
+    const escapeCsv = (value) =>
+      `"${String(value ?? "").replace(/"/g, '""')}"`;
 
     const csv = [headers, ...rows]
       .map((row) => row.map(escapeCsv).join(","))
@@ -223,6 +291,14 @@ export default function MemberList() {
     URL.revokeObjectURL(url);
   }
 
+  function clearFilters() {
+    setSearch("");
+    setMembershipFilter("All");
+    setGenderFilter("All");
+    setGroupFilter("All");
+    setStatusFilter("All");
+  }
+
   return (
     <div className="space-y-5">
       <header className="flex flex-wrap items-start justify-between gap-4">
@@ -230,21 +306,40 @@ export default function MemberList() {
           <h1 className="text-[26px] font-extrabold tracking-[-0.8px] text-[#131418]">
             Members
           </h1>
+
           <p className="mt-1 text-[12.5px] text-[#777984]">
-            Individual member directory · {members.length} members
+            Individual member directory · {scopedMembers.length} members
           </p>
+
+          {isFellowshipLeader && (
+            <p className="mt-1 text-[11px] text-[#777984]">
+              Showing members belonging to your assigned fellowships.
+            </p>
+          )}
         </div>
 
-        <button
-          type="button"
-          onClick={exportCsv}
-          disabled={loading || filteredMembers.length === 0}
-          className="inline-flex min-h-[42px] items-center gap-2 rounded-[11px] border border-[#e5e5e7] bg-white px-4 py-2.5 text-[12px] font-semibold text-[#25262c] hover:bg-[#f7f7f8] disabled:opacity-50"
-        >
-          <ArrowDownToLine size={16} />
-          Export CSV
-        </button>
+        {canExport && (
+          <button
+            type="button"
+            onClick={exportCsv}
+            disabled={loading || filteredMembers.length === 0}
+            className="inline-flex min-h-[42px] items-center gap-2 rounded-[11px] border border-[#e5e5e7] bg-white px-4 py-2.5 text-[12px] font-semibold text-[#25262c] hover:bg-[#f7f7f8] disabled:opacity-50"
+          >
+            <ArrowDownToLine size={16} />
+            Export CSV
+          </button>
+        )}
       </header>
+
+      {isFellowshipLeader && assignedIdSet.size === 0 && (
+        <section
+          role="status"
+          className="rounded-[12px] border border-amber-200 bg-amber-50 p-4 text-[12px] text-amber-800"
+        >
+          No fellowships have been assigned to your account. Contact an
+          administrator to get access.
+        </section>
+      )}
 
       <section className="rounded-[16px] border border-[#ececed] bg-white p-4 sm:p-5">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
@@ -313,18 +408,12 @@ export default function MemberList() {
 
         <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
           <p className="text-[11.5px] text-[#888a93]">
-            Showing {filteredMembers.length} of {members.length} members
+            Showing {filteredMembers.length} of {scopedMembers.length} members
           </p>
 
           <button
             type="button"
-            onClick={() => {
-              setSearch("");
-              setMembershipFilter("All");
-              setGenderFilter("All");
-              setGroupFilter("All");
-              setStatusFilter("All");
-            }}
+            onClick={clearFilters}
             className="text-[11.5px] font-semibold text-[#53555e] hover:text-[#131418]"
           >
             Clear filters
@@ -340,7 +429,11 @@ export default function MemberList() {
           <p className="text-[12px] font-semibold text-red-700">
             Could not load members
           </p>
-          <p className="mt-1 break-words text-[12px] text-red-600">{error}</p>
+
+          <p className="mt-1 break-words text-[12px] text-red-600">
+            {error}
+          </p>
+
           <button
             type="button"
             onClick={loadMembers}
@@ -360,6 +453,7 @@ export default function MemberList() {
               Member Directory
             </h2>
           </div>
+
           <span className="text-[11px] text-[#888a93]">
             Select a row to view details
           </span>
@@ -408,57 +502,73 @@ export default function MemberList() {
               </thead>
 
               <tbody>
-                {filteredMembers.map((member) => (
-                  <tr
-                    key={member.id}
-                    tabIndex={0}
-                    onClick={() => navigate(`/members/${member.id}`)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        navigate(`/members/${member.id}`);
-                      }
-                    }}
-                    className="cursor-pointer border-b border-[#f2f2f3] transition last:border-0 hover:bg-[#fafafd]"
-                  >
-                    <td className="px-4 py-3">
-                      <p className="whitespace-nowrap text-[11.5px] font-bold text-[#25262c]">
-                        {member.name}
-                      </p>
-                      <p className="mt-0.5 text-[10px] text-[#888a93]">
-                        {member.person_id || "No Person ID"}
-                      </p>
-                    </td>
-                    <td className="px-4 py-3 text-[11.5px] font-semibold text-[#25262c]">
-                      {displayValue(member.display_membership_number)}
-                    </td>
-                    <td className="px-4 py-3 text-[11.5px] text-[#53555e]">
-                      {displayValue(member.relationship_to_head)}
-                    </td>
-                    <td className="px-4 py-3 text-[11.5px] text-[#53555e]">
-                      {displayValue(member.gender)}
-                    </td>
-                    <td className="px-4 py-3 text-[11.5px] text-[#53555e]">
-                      {displayValue(member.date_of_birth)}
-                    </td>
-                    <td className="px-4 py-3 text-[11.5px] text-[#53555e]">
-                      {displayValue(member.phone_number)}
-                    </td>
-                    <td className="max-w-[190px] truncate px-4 py-3 text-[11.5px] text-[#53555e]">
-                      {displayValue(member.email)}
-                    </td>
-                    <td className="max-w-[230px] whitespace-normal px-4 py-3 text-[11.5px] text-[#53555e]">
-                      {(member.groups ?? [])
-                        .map((group) => group.name)
-                        .join(", ") || "Not Recorded"}
-                    </td>
-                    <td className="px-4 py-3">
-                      <StatusBadge status={member.status} />
-                    </td>
-                    <td className="px-4 py-3 text-[#9b9da5]">
-                      <ChevronRight size={15} />
-                    </td>
-                  </tr>
-                ))}
+                {filteredMembers.map((member) => {
+                  const visibleGroups = (member.groups ?? []).filter(
+                    (group) =>
+                      !isFellowshipLeader ||
+                      assignedIdSet.has(String(group.id)),
+                  );
+
+                  return (
+                    <tr
+                      key={member.id}
+                      tabIndex={0}
+                      onClick={() => navigate(`/members/${member.id}`)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          navigate(`/members/${member.id}`);
+                        }
+                      }}
+                      className="cursor-pointer border-b border-[#f2f2f3] transition last:border-0 hover:bg-[#fafafd]"
+                    >
+                      <td className="px-4 py-3">
+                        <p className="whitespace-nowrap text-[11.5px] font-bold text-[#25262c]">
+                          {member.name}
+                        </p>
+                        <p className="mt-0.5 text-[10px] text-[#888a93]">
+                          {member.person_id || "No Person ID"}
+                        </p>
+                      </td>
+
+                      <td className="px-4 py-3 text-[11.5px] font-semibold text-[#25262c]">
+                        {displayValue(member.display_membership_number)}
+                      </td>
+
+                      <td className="px-4 py-3 text-[11.5px] text-[#53555e]">
+                        {displayValue(member.relationship_to_head)}
+                      </td>
+
+                      <td className="px-4 py-3 text-[11.5px] text-[#53555e]">
+                        {displayValue(member.gender)}
+                      </td>
+
+                      <td className="px-4 py-3 text-[11.5px] text-[#53555e]">
+                        {displayValue(member.date_of_birth)}
+                      </td>
+
+                      <td className="px-4 py-3 text-[11.5px] text-[#53555e]">
+                        {displayValue(member.phone_number)}
+                      </td>
+
+                      <td className="max-w-[190px] truncate px-4 py-3 text-[11.5px] text-[#53555e]">
+                        {displayValue(member.email)}
+                      </td>
+
+                      <td className="max-w-[230px] whitespace-normal px-4 py-3 text-[11.5px] text-[#53555e]">
+                        {visibleGroups.map((group) => group.name).join(", ") ||
+                          "Not Recorded"}
+                      </td>
+
+                      <td className="px-4 py-3">
+                        <StatusBadge status={member.status} />
+                      </td>
+
+                      <td className="px-4 py-3 text-[#9b9da5]">
+                        <ChevronRight size={15} />
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

@@ -1,4 +1,3 @@
-
 import { Navigate, Outlet, useOutletContext } from "react-router-dom";
 import { useAuth } from "../features/auth/AuthContext";
 
@@ -6,10 +5,17 @@ export default function ProtectedRoute({
   allowedRoles,
   workspace,
   requireWrite = false,
+  allowRestricted = false,
 }) {
-  const { user, profile, loading, role, permissions } = useAuth();
+  const {
+    user,
+    profile,
+    loading,
+    role,
+    permissions,
+    hasAssignedFellowships,
+  } = useAuth();
 
-  // Preserve context provided by a parent route, such as AppLayout.
   const parentContext = useOutletContext();
 
   if (loading) {
@@ -37,16 +43,28 @@ export default function ProtectedRoute({
   if (workspace) {
     const access = permissions.getAccess(workspace);
 
-    // Restricted access requires a separate restricted interface.
-    if (access === "none" || access === "restricted") {
+    if (access === "none") {
       return <Navigate to="/access-denied" replace />;
     }
 
-    if (requireWrite && !permissions.canWrite(workspace)) {
+    if (access === "restricted" && !allowRestricted) {
+      return <Navigate to="/access-denied" replace />;
+    }
+
+    if (
+      access === "assigned" &&
+      !hasAssignedFellowships
+    ) {
+      return <Navigate to="/access-denied" replace />;
+    }
+
+    if (
+      requireWrite &&
+      !permissions.canWrite(workspace)
+    ) {
       return <Navigate to="/access-denied" replace />;
     }
   }
 
-  // Forward the parent's outlet context to nested routes.
   return <Outlet context={parentContext} />;
 }

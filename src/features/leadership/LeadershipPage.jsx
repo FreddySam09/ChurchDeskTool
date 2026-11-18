@@ -1,4 +1,6 @@
+
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useAuth } from "../auth/AuthContext";
 import {
   AlertCircle,
   CalendarDays,
@@ -97,9 +99,7 @@ function Field({ label, children, hint }) {
   return (
     <label className="block space-y-1.5">
       <span className="block text-sm font-medium text-slate-700">{label}</span>
-
       {children}
-
       {hint && <span className="block text-xs text-slate-500">{hint}</span>}
     </label>
   );
@@ -127,7 +127,6 @@ function EmptyState({ title, description }) {
       </div>
 
       <p className="text-sm font-semibold text-slate-800">{title}</p>
-
       <p className="mt-1 max-w-sm text-sm text-slate-500">{description}</p>
     </div>
   );
@@ -447,7 +446,7 @@ function PositionModal({ organization, position, onClose, onSave, saving }) {
   );
 }
 
-function AppointmentRow({ appointment, onEnd }) {
+function AppointmentRow({ appointment, onEnd, canManage }) {
   const member = appointment.member || {};
   const position = appointment.position || {};
   const active = !appointment.valid_until;
@@ -496,7 +495,7 @@ function AppointmentRow({ appointment, onEnd }) {
           {active ? "Current" : "Past term"}
         </span>
 
-        {active && (
+        {active && canManage && (
           <button
             type="button"
             onClick={() => onEnd(appointment)}
@@ -519,6 +518,7 @@ function PositionCard({
   onEnd,
   onShowHistory,
   historyExpanded,
+  canManage,
 }) {
   const current = appointments.filter(
     (appointment) =>
@@ -564,39 +564,41 @@ function PositionCard({
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            className={buttonSecondary}
-            onClick={() => onEdit(position)}
-          >
-            <Settings2 size={15} />
-            Edit role
-          </button>
+        {canManage && (
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              className={buttonSecondary}
+              onClick={() => onEdit(position)}
+            >
+              <Settings2 size={15} />
+              Edit role
+            </button>
 
-          <button
-            type="button"
-            className={buttonPrimary}
-            disabled={full}
-            title={
-              full ? "All available positions are filled" : "Appoint a leader"
-            }
-            onClick={() => onAppoint(position)}
-          >
-            <Plus size={16} />
-            {full ? "Full" : "Appoint"}
-          </button>
+            <button
+              type="button"
+              className={buttonPrimary}
+              disabled={full}
+              title={
+                full ? "All available positions are filled" : "Appoint a leader"
+              }
+              onClick={() => onAppoint(position)}
+            >
+              <Plus size={16} />
+              {full ? "Full" : "Appoint"}
+            </button>
 
-          <button
-            type="button"
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-rose-200 bg-white px-3.5 py-2.5 text-sm font-medium text-rose-700 transition hover:bg-rose-50"
-            onClick={() => onRemove(position)}
-            title="Remove this leadership role"
-          >
-            <X size={15} />
-            Remove role
-          </button>
-        </div>
+            <button
+              type="button"
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-rose-200 bg-white px-3.5 py-2.5 text-sm font-medium text-rose-700 transition hover:bg-rose-50"
+              onClick={() => onRemove(position)}
+              title="Remove this leadership role"
+            >
+              <X size={15} />
+              Remove role
+            </button>
+          </div>
+        )}
       </header>
 
       <div className="divide-y divide-slate-100">
@@ -606,6 +608,7 @@ function PositionCard({
               key={appointment.id}
               appointment={appointment}
               onEnd={onEnd}
+              canManage={canManage}
             />
           ))
         ) : (
@@ -639,6 +642,7 @@ function PositionCard({
                   key={appointment.id}
                   appointment={appointment}
                   onEnd={onEnd}
+                  canManage={canManage}
                 />
               ))}
             </div>
@@ -650,7 +654,24 @@ function PositionCard({
 }
 
 export default function LeadershipPage() {
-  const [tab, setTab] = useState("church_office");
+  const {
+    role,
+    permissions,
+    assignedFellowshipIds = [],
+  } = useAuth();
+
+  const isFellowshipLeader = role === "Fellowship Leader";
+
+  const assignedFellowshipIdSet = useMemo(
+    () => new Set(assignedFellowshipIds.map((id) => String(id))),
+    [assignedFellowshipIds],
+  );
+
+  const canManageAllLeadership = permissions.canManageLeadership();
+
+  const [tab, setTab] = useState(
+    isFellowshipLeader ? "fellowship" : "church_office",
+  );
 
   const [organizations, setOrganizations] = useState({
     officePositions: [],
@@ -669,6 +690,13 @@ export default function LeadershipPage() {
   const [search, setSearch] = useState("");
   const [historyExpanded, setHistoryExpanded] = useState({});
   const [modal, setModal] = useState(null);
+
+  // Keep Fellowship Leaders on their only permitted tab.
+  useEffect(() => {
+    if (isFellowshipLeader && tab !== "fellowship") {
+      setTab("fellowship");
+    }
+  }, [isFellowshipLeader, tab]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -703,8 +731,14 @@ export default function LeadershipPage() {
     loadData();
   }, [loadData]);
 
+  const availableTabs = isFellowshipLeader
+    ? TABS.filter((item) => item.id === "fellowship")
+    : TABS;
+
   const visibleOrganizations = useMemo(() => {
     if (tab === "church_office") {
+      if (isFellowshipLeader) return [];
+
       return [
         {
           id: "church-office",
@@ -721,18 +755,40 @@ export default function LeadershipPage() {
       ];
     }
 
-    const source =
-      tab === "fellowship" ? organizations.fellowships : organizations.groups;
+    if (tab === "fellowship") {
+      const fellowships = isFellowshipLeader
+        ? organizations.fellowships.filter((organization) =>
+            assignedFellowshipIdSet.has(String(organization.id)),
+          )
+        : organizations.fellowships;
 
-    return source.map((organization) => ({
-      ...organization,
-      type: tab,
-    }));
-  }, [tab, organizations]);
+      return fellowships.map((organization) => ({
+        ...organization,
+        type: "fellowship",
+      }));
+    }
+
+    if (tab === "group") {
+      if (isFellowshipLeader) return [];
+
+      return organizations.groups.map((organization) => ({
+        ...organization,
+        type: "group",
+      }));
+    }
+
+    return [];
+  }, [
+    tab,
+    organizations,
+    isFellowshipLeader,
+    assignedFellowshipIdSet,
+  ]);
 
   useEffect(() => {
     const exists = visibleOrganizations.some(
-      (organization) => organization.id === selectedOrganizationId,
+      (organization) =>
+        String(organization.id) === String(selectedOrganizationId),
     );
 
     if (!exists) {
@@ -741,8 +797,20 @@ export default function LeadershipPage() {
   }, [visibleOrganizations, selectedOrganizationId]);
 
   const selectedOrganization = visibleOrganizations.find(
-    (organization) => organization.id === selectedOrganizationId,
+    (organization) =>
+      String(organization.id) === String(selectedOrganizationId),
   );
+
+  const canManageSelectedOrganization =
+    !!selectedOrganization &&
+    (
+      canManageAllLeadership ||
+      (
+        isFellowshipLeader &&
+        selectedOrganization.type === "fellowship" &&
+        assignedFellowshipIdSet.has(String(selectedOrganization.id))
+      )
+    );
 
   const selectedPositions = useMemo(() => {
     const positions = selectedOrganization?.positions || [];
@@ -756,7 +824,7 @@ export default function LeadershipPage() {
       );
 
       return (
-        position.role_name.toLowerCase().includes(query) ||
+        (position.role_name || "").toLowerCase().includes(query) ||
         positionAppointments.some((appointment) =>
           `${appointment.member?.name || ""} ${
             appointment.member?.person_id || ""
@@ -769,6 +837,8 @@ export default function LeadershipPage() {
   }, [selectedOrganization, appointments, search]);
 
   function openAppointment(position) {
+    if (!canManageSelectedOrganization) return;
+
     setModal({
       type: "appointment",
       position: {
@@ -779,6 +849,10 @@ export default function LeadershipPage() {
   }
 
   async function saveAppointment(values) {
+    if (!canManageSelectedOrganization) {
+      throw new Error("You do not have permission to manage this fellowship.");
+    }
+
     setSaving(true);
     setError("");
 
@@ -796,6 +870,10 @@ export default function LeadershipPage() {
   }
 
   async function saveEndAppointment({ appointmentId, validUntil }) {
+    if (!canManageSelectedOrganization) {
+      throw new Error("You do not have permission to manage this fellowship.");
+    }
+
     setSaving(true);
     setError("");
 
@@ -813,6 +891,13 @@ export default function LeadershipPage() {
   }
 
   async function savePosition({ organization, position, roleName, capacity }) {
+    if (
+      !canManageSelectedOrganization ||
+      String(organization?.id) !== String(selectedOrganization?.id)
+    ) {
+      throw new Error("You do not have permission to manage this organisation.");
+    }
+
     setSaving(true);
     setError("");
 
@@ -847,6 +932,8 @@ export default function LeadershipPage() {
   }
 
   async function removePosition(position) {
+    if (!canManageSelectedOrganization) return;
+
     const confirmed = window.confirm(
       `Remove the "${position.role_name}" role?\n\n` +
         "The role will no longer appear in active leadership positions. " +
@@ -883,7 +970,6 @@ export default function LeadershipPage() {
   return (
     <main className="min-h-full bg-[#f7f7f8] px-4 py-5 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-[1440px] space-y-5">
-        {/* Page heading */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
@@ -891,16 +977,15 @@ export default function LeadershipPage() {
             </h1>
 
             <p className="mt-1.5 max-w-2xl text-sm text-slate-500">
-              Manage appointments, leadership capacities, and past terms without
-              changing membership or fellowship/group assignments. Create and
-              manage organisations from the Fellowships & Groups page.
+              {isFellowshipLeader
+                ? "Manage leadership positions and appointments for your assigned fellowships."
+                : "Manage appointments, leadership capacities, and past terms without changing membership or fellowship/group assignments. Create and manage organisations from the Fellowships & Groups page."}
             </p>
           </div>
         </div>
 
-        {/* Main tabs */}
         <div className="flex flex-wrap gap-1 rounded-xl border border-slate-200 bg-white p-1">
-          {TABS.map(({ id, label, icon: Icon }) => (
+          {availableTabs.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               type="button"
@@ -922,7 +1007,13 @@ export default function LeadershipPage() {
           ))}
         </div>
 
-        {/* Success message */}
+        {isFellowshipLeader && assignedFellowshipIds.length === 0 && !loading && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            No fellowships have been assigned to your account yet. Please
+            contact an administrator.
+          </div>
+        )}
+
         {notice && (
           <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
             <span className="flex items-center gap-2">
@@ -941,7 +1032,6 @@ export default function LeadershipPage() {
           </div>
         )}
 
-        {/* Error message */}
         {error && (
           <div className="flex items-start justify-between gap-3 rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-700">
             <span className="flex items-start gap-2">
@@ -959,7 +1049,6 @@ export default function LeadershipPage() {
           </div>
         )}
 
-        {/* Organization list and leadership positions */}
         <section className="grid grid-cols-1 gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
           <aside className="h-fit rounded-2xl border border-slate-200 bg-white p-3 shadow-sm shadow-slate-900/[0.02]">
             <div className="px-2 pb-3 pt-1">
@@ -981,7 +1070,8 @@ export default function LeadershipPage() {
 
             <div className="space-y-1">
               {visibleOrganizations.map((organization) => {
-                const selected = organization.id === selectedOrganizationId;
+                const selected =
+                  String(organization.id) === String(selectedOrganizationId);
                 const count = (organization.positions || []).length;
 
                 return (
@@ -1019,19 +1109,22 @@ export default function LeadershipPage() {
               })}
             </div>
 
-            {tab !== "church_office" && visibleOrganizations.length === 0 && (
+            {visibleOrganizations.length === 0 && (
               <div className="px-2 py-5 text-sm text-slate-500">
-                No {tab === "fellowship" ? "fellowships" : "groups"} found.
-                <p className="mt-1 text-xs text-slate-400">
-                  Create one from the Fellowships & Groups page before
-                  configuring its leadership.
-                </p>
+                {isFellowshipLeader
+                  ? "No assigned fellowships found."
+                  : `No ${tab === "fellowship" ? "fellowships" : tab === "group" ? "groups" : "office positions"} found.`}
+                {!isFellowshipLeader && tab !== "church_office" && (
+                  <p className="mt-1 text-xs text-slate-400">
+                    Create one from the Fellowships & Groups page before
+                    configuring its leadership.
+                  </p>
+                )}
               </div>
             )}
           </aside>
 
           <div className="min-w-0 space-y-4">
-            {/* Organization heading and controls */}
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="text-xl font-bold text-slate-900">
@@ -1072,26 +1165,27 @@ export default function LeadershipPage() {
                   Refresh
                 </button>
 
-                <button
-                  type="button"
-                  className={buttonSecondary}
-                  onClick={() => {
-                    setError("");
-                    setModal({
-                      type: "position",
-                      position: null,
-                      organization: selectedOrganization,
-                    });
-                  }}
-                  disabled={!selectedOrganization || saving}
-                >
-                  <Plus size={15} />
-                  Add position
-                </button>
+                {canManageSelectedOrganization && (
+                  <button
+                    type="button"
+                    className={buttonSecondary}
+                    onClick={() => {
+                      setError("");
+                      setModal({
+                        type: "position",
+                        position: null,
+                        organization: selectedOrganization,
+                      });
+                    }}
+                    disabled={!selectedOrganization || saving}
+                  >
+                    <Plus size={15} />
+                    Add position
+                  </button>
+                )}
               </div>
             </div>
 
-            {/* Position list */}
             {loading ? (
               <div className="flex items-center justify-center rounded-2xl border border-slate-200 bg-white py-16 text-sm text-slate-500">
                 <RefreshCw size={17} className="mr-2 animate-spin" />
@@ -1099,17 +1193,23 @@ export default function LeadershipPage() {
               </div>
             ) : !selectedOrganization ? (
               <EmptyState
-                title={`No ${
-                  tab === "fellowship"
-                    ? "fellowships"
-                    : tab === "group"
-                      ? "groups"
-                      : "office positions"
-                } selected`}
+                title={
+                  isFellowshipLeader
+                    ? "No assigned fellowship selected"
+                    : `No ${
+                        tab === "fellowship"
+                          ? "fellowships"
+                          : tab === "group"
+                            ? "groups"
+                            : "office positions"
+                      } selected`
+                }
                 description={
-                  tab === "church_office"
-                    ? "Select Church Office to manage its leadership positions."
-                    : "Create an organisation from the Fellowships & Groups page, then return here to configure its leadership."
+                  isFellowshipLeader
+                    ? "Your assigned fellowships will appear here once they are linked to your account."
+                    : tab === "church_office"
+                      ? "Select Church Office to manage its leadership positions."
+                      : "Create an organisation from the Fellowships & Groups page, then return here to configure its leadership."
                 }
               />
             ) : selectedPositions.length === 0 ? (
@@ -1122,7 +1222,9 @@ export default function LeadershipPage() {
                 description={
                   search
                     ? "Try another role name, member name, or person ID."
-                    : "Add a position to begin appointing leaders."
+                    : canManageSelectedOrganization
+                      ? "Add a position to begin appointing leaders."
+                      : "There are no leadership positions to display for this organisation."
                 }
               />
             ) : (
@@ -1132,8 +1234,11 @@ export default function LeadershipPage() {
                     key={position.id}
                     position={position}
                     appointments={appointments}
+                    canManage={canManageSelectedOrganization}
                     onAppoint={openAppointment}
                     onEdit={(item) => {
+                      if (!canManageSelectedOrganization) return;
+
                       setError("");
                       setModal({
                         type: "position",
@@ -1143,6 +1248,8 @@ export default function LeadershipPage() {
                     }}
                     onRemove={removePosition}
                     onEnd={(appointment) => {
+                      if (!canManageSelectedOrganization) return;
+
                       setError("");
                       setModal({ type: "endAppointment", appointment });
                     }}
@@ -1158,7 +1265,6 @@ export default function LeadershipPage() {
               </div>
             )}
 
-            {/* Neutral information banner */}
             <div className="flex items-start gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs leading-relaxed text-slate-600">
               <CalendarDays
                 size={16}
@@ -1176,8 +1282,7 @@ export default function LeadershipPage() {
         </section>
       </div>
 
-      {/* Modals */}
-      {modal?.type === "appointment" && (
+      {modal?.type === "appointment" && canManageSelectedOrganization && (
         <AppointmentModal
           position={modal.position}
           members={members}
@@ -1187,7 +1292,7 @@ export default function LeadershipPage() {
         />
       )}
 
-      {modal?.type === "endAppointment" && (
+      {modal?.type === "endAppointment" && canManageSelectedOrganization && (
         <EndAppointmentModal
           appointment={modal.appointment}
           saving={saving}
@@ -1196,7 +1301,7 @@ export default function LeadershipPage() {
         />
       )}
 
-      {modal?.type === "position" && (
+      {modal?.type === "position" && canManageSelectedOrganization && (
         <PositionModal
           organization={modal.organization}
           position={modal.position}
