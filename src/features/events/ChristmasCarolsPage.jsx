@@ -1,3 +1,4 @@
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
@@ -10,8 +11,9 @@ import {
   Trash2,
   X,
   Users,
-  Wallet,
 } from "lucide-react";
+
+import { useAuth } from "../auth/AuthContext";
 
 import {
   createCarolDay,
@@ -35,7 +37,8 @@ const TABS = [
   { label: "Special Events", path: "/events/special-events" },
 ];
 
-const activeTab = TABS.find((tab) => tab.path === location.pathname) || TABS[0];
+const activeTab =
+  TABS.find((tab) => tab.path === location.pathname) || TABS[0];
 
 function formatDate(value) {
   if (!value) return "Date not set";
@@ -87,8 +90,10 @@ function CarolDayModal({ initialValue, onClose, onSave, saving }) {
   const [form, setForm] = useState(() => ({
     ...EMPTY_FORM,
     ...(initialValue ?? {}),
-    start_time: initialValue?.start_time?.slice(0, 5) || EMPTY_FORM.start_time,
-    end_time: initialValue?.end_time?.slice(0, 5) || EMPTY_FORM.end_time,
+    start_time:
+      initialValue?.start_time?.slice(0, 5) || EMPTY_FORM.start_time,
+    end_time:
+      initialValue?.end_time?.slice(0, 5) || EMPTY_FORM.end_time,
   }));
 
   const [error, setError] = useState("");
@@ -129,6 +134,7 @@ function CarolDayModal({ initialValue, onClose, onSave, saving }) {
             >
               {initialValue ? "Edit Carol Day" : "Create Carol Day"}
             </h2>
+
             <p className="mt-1 text-sm text-gray-500">
               Set the date and timing for a family visit round.
             </p>
@@ -230,6 +236,7 @@ function CarolDayModal({ initialValue, onClose, onSave, saving }) {
             >
               Cancel
             </button>
+
             <button
               type="submit"
               disabled={saving}
@@ -252,6 +259,9 @@ export default function ChristmasCarolsPage() {
   const navigate = useNavigate();
   const location = useLocation();
 
+  const { permissions } = useAuth();
+  const canManageEvents = permissions.canWrite("events");
+
   const [days, setDays] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -263,6 +273,9 @@ export default function ChristmasCarolsPage() {
   const [selectedYear, setSelectedYear] = useState(
     String(new Date().getFullYear()),
   );
+
+  const activeTab =
+    TABS.find((tab) => tab.path === location.pathname) || TABS[0];
 
   const loadDays = useCallback(async () => {
     setLoading(true);
@@ -345,16 +358,24 @@ export default function ChristmasCarolsPage() {
   );
 
   function openCreate() {
+    if (!canManageEvents) return;
+
     setEditingDay(null);
     setModalOpen(true);
   }
 
   function openEdit(day) {
+    if (!canManageEvents) return;
+
     setEditingDay(day);
     setModalOpen(true);
   }
 
   async function saveDay(values) {
+    if (!canManageEvents) {
+      throw new Error("You do not have permission to manage Carol Days.");
+    }
+
     setSaving(true);
     setPageError("");
 
@@ -374,6 +395,8 @@ export default function ChristmasCarolsPage() {
   }
 
   async function removeDay(day) {
+    if (!canManageEvents) return;
+
     const confirmed = window.confirm(
       `Delete "${day.name}"? This cannot be undone.`,
     );
@@ -397,20 +420,23 @@ export default function ChristmasCarolsPage() {
           <h1 className="mt-2 text-2xl font-semibold tracking-tight text-gray-950 sm:text-3xl">
             Christmas Carols
           </h1>
+
           <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-500">
             Organise visit rounds, manage family assignments and keep offering
             records in one place.
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={openCreate}
-          className="inline-flex h-[41px] items-center gap-2 rounded-[11px] bg-[#202126] px-3.5 text-sm font-medium text-white hover:bg-[#35363d] sm:px-4"
-        >
-          <Plus size={16} />
-          Create Carol Day
-        </button>
+        {canManageEvents && (
+          <button
+            type="button"
+            onClick={openCreate}
+            className="inline-flex h-[41px] items-center gap-2 rounded-[11px] bg-[#202126] px-3.5 text-sm font-medium text-white hover:bg-[#35363d] sm:px-4"
+          >
+            <Plus size={16} />
+            Create Carol Day
+          </button>
+        )}
       </div>
 
       <div className="mb-7 border-b border-[#e8e8ea]">
@@ -440,26 +466,23 @@ export default function ChristmasCarolsPage() {
         </nav>
       </div>
 
-      {/* <nav className="flex gap-7 overflow-x-auto border-b border-[#e5e5e7] px-1">
-        {TABS.map((tab) => {
-          const active = location.pathname === tab.path;
+      {!canManageEvents && (
+        <div className="flex items-start gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3.5">
+          <div className="mt-0.5 rounded-lg bg-gray-100 p-2 text-gray-600">
+            <Users size={16} />
+          </div>
 
-          return (
-            <button
-              key={tab.path}
-              type="button"
-              onClick={() => navigate(tab.path)}
-              className={`-mb-px shrink-0 border-b-2 px-1 py-3 text-sm transition ${
-                active
-                  ? "border-[#1e1e1e] font-medium text-[#1e1e1e]"
-                  : "border-transparent text-[#85858c] hover:text-[#1e1e1e]"
-              }`}
-            >
-              {tab.label}
-            </button>
-          );
-        })}
-      </nav> */}
+          <div>
+            <p className="text-sm font-medium text-gray-800">
+              Read-only access
+            </p>
+            <p className="mt-1 text-xs leading-5 text-gray-500">
+              You can view Carol Days and their visit details. Only users with
+              event management permission can create, edit or delete Carol Days.
+            </p>
+          </div>
+        </div>
+      )}
 
       {pageError && (
         <div
@@ -467,6 +490,7 @@ export default function ChristmasCarolsPage() {
           className="flex items-start justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
         >
           <span>{pageError}</span>
+
           <button
             type="button"
             onClick={() => setPageError("")}
@@ -483,6 +507,7 @@ export default function ChristmasCarolsPage() {
             <h2 className="text-base font-semibold text-[#1e1e1e]">
               Carol Day register
             </h2>
+
             <p className="mt-1 text-xs text-[#85858c]">
               {filteredDays.length} Carol Days
               {selectedYear ? ` in ${selectedYear}` : ""}
@@ -509,7 +534,10 @@ export default function ChristmasCarolsPage() {
               disabled={loading}
               className="inline-flex items-center gap-2 rounded-lg border border-[#e3e3e6] px-3 py-2 text-sm text-[#454650] transition hover:bg-[#f7f7f8] disabled:opacity-50"
             >
-              <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+              <RefreshCw
+                size={14}
+                className={loading ? "animate-spin" : ""}
+              />
               Refresh
             </button>
           </div>
@@ -547,17 +575,20 @@ export default function ChristmasCarolsPage() {
             <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-gray-100 text-gray-500">
               <CalendarDays size={22} />
             </div>
+
             <h3 className="mt-4 font-semibold text-gray-900">
               {days.length === 0
                 ? "No Carol Days yet"
                 : "No matching Carol Days"}
             </h3>
+
             <p className="mx-auto mt-1 max-w-sm text-sm leading-6 text-gray-500">
               {days.length === 0
                 ? "Create your first Carol Day to start organising family visits."
                 : "Try changing the search text or status filter."}
             </p>
-            {days.length === 0 && (
+
+            {days.length === 0 && canManageEvents && (
               <button
                 type="button"
                 onClick={openCreate}
@@ -606,10 +637,15 @@ export default function ChristmasCarolsPage() {
                     </p>
 
                     <p className="flex items-center gap-2.5">
-                      <Clock3 size={16} className="shrink-0 text-gray-400" />
+                      <Clock3
+                        size={16}
+                        className="shrink-0 text-gray-400"
+                      />
                       <span>
                         {formatTime(day.start_time)}
-                        {day.end_time ? ` – ${formatTime(day.end_time)}` : ""}
+                        {day.end_time
+                          ? ` – ${formatTime(day.end_time)}`
+                          : ""}
                       </span>
                     </p>
                   </div>
@@ -633,26 +669,28 @@ export default function ChristmasCarolsPage() {
                     Manage Visits
                   </button>
 
-                  <div className="mt-2 grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => openEdit(day)}
-                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 px-3 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
-                    >
-                      <Pencil size={14} />
-                      Edit
-                    </button>
+                  {canManageEvents && (
+                    <div className="mt-2 grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => openEdit(day)}
+                        className="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 px-3 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+                      >
+                        <Pencil size={14} />
+                        Edit
+                      </button>
 
-                    <button
-                      type="button"
-                      onClick={() => removeDay(day)}
-                      aria-label={`Delete ${day.name}`}
-                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 px-3 py-2.5 text-sm font-medium text-gray-600 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700"
-                    >
-                      <Trash2 size={14} />
-                      Delete
-                    </button>
-                  </div>
+                      <button
+                        type="button"
+                        onClick={() => removeDay(day)}
+                        aria-label={`Delete ${day.name}`}
+                        className="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 px-3 py-2.5 text-sm font-medium text-gray-600 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700"
+                      >
+                        <Trash2 size={14} />
+                        Delete
+                      </button>
+                    </div>
+                  )}
                 </div>
               </article>
             ))}
@@ -662,12 +700,12 @@ export default function ChristmasCarolsPage() {
 
       <p className="flex items-start gap-2 text-xs leading-5 text-gray-500">
         <MapPin size={14} className="mt-0.5 shrink-0" />
-        Family assignments, visit tracking and offerings will be connected in
-        the next step. Deleting a day with assigned families is blocked to
-        protect their records.
+        Family assignments, visit tracking and offerings are managed through
+        the visit workspace. Deleting a day with assigned families is blocked
+        to protect their records.
       </p>
 
-      {modalOpen && (
+      {modalOpen && canManageEvents && (
         <CarolDayModal
           initialValue={editingDay}
           saving={saving}

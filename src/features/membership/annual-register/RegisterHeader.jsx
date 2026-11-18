@@ -1,3 +1,5 @@
+
+import { useAuth } from "../../auth/AuthContext";
 import { getRegisterSummary } from "./annualRegisterUtils";
 
 export default function RegisterHeader({
@@ -7,7 +9,13 @@ export default function RegisterHeader({
   onStatusChange,
   onFinalise,
 }) {
+  const { role, permissions } = useAuth();
+
   if (!register) return null;
+
+  const isFellowshipLeader = role === "Fellowship Leader";
+  const canManageRegister =
+    !isFellowshipLeader && permissions.canWrite("membership");
 
   const summary = getRegisterSummary(entries);
   const isFinalised = register.status === "Finalised";
@@ -42,40 +50,46 @@ export default function RegisterHeader({
           )}
         </div>
 
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
-          {register.status === "Draft" && (
-            <button
-              type="button"
-              disabled={working}
-              onClick={() => onStatusChange("Under Review")}
-              className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-800 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Submit for review
-            </button>
-          )}
+        {canManageRegister && !isFinalised && (
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            {register.status === "Draft" && (
+              <button
+                type="button"
+                disabled={working || !onStatusChange}
+                onClick={() => onStatusChange?.("Under Review")}
+                className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-800 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Submit for review
+              </button>
+            )}
 
-          {register.status === "Under Review" && (
-            <button
-              type="button"
-              disabled={working}
-              onClick={() => onStatusChange("Draft")}
-              className="rounded-lg border border-[#e5e5e7] bg-white px-4 py-2 text-sm font-medium text-[#25262c] transition hover:bg-[#f7f7f8] disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Return to draft
-            </button>
-          )}
+            {register.status === "Under Review" && (
+              <>
+                <button
+                  type="button"
+                  disabled={working || !onStatusChange}
+                  onClick={() => onStatusChange?.("Draft")}
+                  className="rounded-lg border border-[#e5e5e7] bg-white px-4 py-2 text-sm font-medium text-[#25262c] transition hover:bg-[#f7f7f8] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Return to draft
+                </button>
 
-          {register.status === "Under Review" && (
-            <button
-              type="button"
-              disabled={working || summary.entriesNeedingReview > 0}
-              onClick={onFinalise}
-              className="rounded-lg bg-[#1a1b20] px-4 py-2 text-sm font-semibold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {working ? "Finalising..." : "Finalise register"}
-            </button>
-          )}
-        </div>
+                <button
+                  type="button"
+                  disabled={
+                    working ||
+                    summary.entriesNeedingReview > 0 ||
+                    !onFinalise
+                  }
+                  onClick={onFinalise}
+                  className="rounded-lg bg-[#1a1b20] px-4 py-2 text-sm font-semibold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {working ? "Finalising..." : "Finalise register"}
+                </button>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="mt-6 grid grid-cols-2 gap-3 xl:grid-cols-4">
@@ -104,6 +118,12 @@ export default function RegisterHeader({
       {isFinalised && (
         <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
           This register is finalised and read-only.
+        </div>
+      )}
+
+      {!canManageRegister && !isFinalised && (
+        <div className="mt-4 rounded-xl border border-[#e9e9eb] bg-[#f8f8f9] p-3 text-sm text-[#777984]">
+          You have read-only access to this annual register.
         </div>
       )}
     </section>

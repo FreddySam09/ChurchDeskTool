@@ -1,5 +1,8 @@
 
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../auth/AuthContext";
+
 import RegisterSidebar from "./RegisterSidebar";
 import RegisterHeader from "./RegisterHeader";
 import RegisterEntries from "./RegisterEntries";
@@ -7,6 +10,13 @@ import RegisterHistory from "./RegisterHistory";
 import useAnnualRegister from "./useAnnualRegister";
 
 export default function AnnualRegister() {
+  const navigate = useNavigate();
+  const { role, permissions } = useAuth();
+
+  const isFellowshipLeader = role === "Fellowship Leader";
+  const canManageRegister =
+    !isFellowshipLeader && permissions.canWrite("membership");
+
   const {
     registers,
     selectedRegisterId,
@@ -41,10 +51,16 @@ export default function AnnualRegister() {
   );
   const [populateSnapshot, setPopulateSnapshot] = useState(true);
 
-  const readOnly = selectedRegister?.status === "Finalised";
+  // A register is read-only if it is finalised OR the current user
+  // does not have permission to write to the Membership workspace.
+  const readOnly =
+    !canManageRegister || selectedRegister?.status === "Finalised";
 
   async function handleCreateDraft(event) {
     event.preventDefault();
+
+    if (!canManageRegister || working) return;
+
     setError("");
 
     try {
@@ -70,6 +86,8 @@ export default function AnnualRegister() {
   }
 
   async function handleStatusChange(status) {
+    if (readOnly) return;
+
     try {
       await changeStatus(status);
     } catch {
@@ -78,6 +96,8 @@ export default function AnnualRegister() {
   }
 
   async function handleToggleIncluded(entry, included) {
+    if (readOnly) return;
+
     try {
       await toggleEntryIncluded(entry, included);
     } catch {
@@ -86,6 +106,8 @@ export default function AnnualRegister() {
   }
 
   async function handleDesignateHead(entry, memberId) {
+    if (readOnly) return;
+
     try {
       await designateHead(entry, memberId);
     } catch {
@@ -94,6 +116,8 @@ export default function AnnualRegister() {
   }
 
   async function handleSplitBranch(entry) {
+    if (readOnly) return;
+
     const confirmed = window.confirm(
       `Mark branch ${entry.membership_number} as an independent split in this draft? This does not create a new live membership.`,
     );
@@ -108,6 +132,8 @@ export default function AnnualRegister() {
   }
 
   async function handleReorder(nextEntries) {
+    if (readOnly) return;
+
     try {
       await reorderEntries(nextEntries);
     } catch {
@@ -116,6 +142,8 @@ export default function AnnualRegister() {
   }
 
   async function handleNumberChange(entry, value) {
+    if (readOnly) return;
+
     try {
       await updateEntryNumber(entry, value);
     } catch {
@@ -124,6 +152,8 @@ export default function AnnualRegister() {
   }
 
   async function handleUndoSplit(entry) {
+    if (readOnly) return;
+
     const confirmed = window.confirm(
       `Restore branch ${entry.membership_number} under its original parent membership?`,
     );
@@ -138,6 +168,8 @@ export default function AnnualRegister() {
   }
 
   async function handleResyncDraft() {
+    if (readOnly) return;
+
     setError("");
 
     try {
@@ -157,7 +189,14 @@ export default function AnnualRegister() {
   }
 
   async function handleDeleteRegisterDraft(register) {
-    if (!register || register.status !== "Draft") return;
+    if (
+      !canManageRegister ||
+      !register ||
+      register.status !== "Draft" ||
+      working
+    ) {
+      return;
+    }
 
     const confirmed = window.confirm(
       `Delete draft "${register.name}"?\n\n` +
@@ -171,33 +210,62 @@ export default function AnnualRegister() {
 
     try {
       await deleteDraft(register.id);
-    } catch (error) {
-      console.error("Failed to delete annual register draft:", error);
+    } catch (deleteError) {
+      console.error(
+        "Failed to delete annual register draft:",
+        deleteError,
+      );
       // useAnnualRegister sets the error displayed on the page.
     }
   }
 
   async function handleFinaliseRegister() {
-  if (!selectedRegister || selectedRegister.status !== "Under Review") {
-    setError("Select an Under Review register first.");
-    return;
+    if (!canManageRegister || working) return;
+
+    if (!selectedRegister || selectedRegister.status !== "Under Review") {
+      setError("Select an Under Review register first.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Finalise "${selectedRegister.name}" (${selectedRegister.register_year})?\n\n` +
+        "This operation permanently locks this register and applies its membership decisions. " +
+        "It cannot be undone from the application.",
+    );
+
+    if (!confirmed) return;
+
+    try {
+      await finaliseSelectedRegister();
+      await refresh();
+    } catch {
+      // The hook already stores and displays the database error.
+    }
   }
 
-  const confirmed = window.confirm(
-    `Finalise "${selectedRegister.name}" (${selectedRegister.register_year})?\n\n` +
-      "This operation permanently locks this register and applies its membership decisions. " +
-      "It cannot be undone from the application.",
-  );
+  if (isFellowshipLeader) {
+    return (
+      <section className="rounded-[16px] border border-[#ececed] bg-white p-6">
+        <h1 className="text-[20px] font-extrabold text-[#131418]">
+          Annual Register unavailable
+        </h1>
 
-  if (!confirmed) return;
+        <p className="mt-2 text-[13px] leading-6 text-[#777984]">
+          Annual household registers are not available to Fellowship Leaders.
+          You can manage members in your assigned fellowships through the
+          Groups workspace.
+        </p>
 
-  try {
-    await finaliseSelectedRegister();
-    await refresh();
-  } catch {
-    // The hook already stores and displays the database error.
+        <button
+          type="button"
+          onClick={() => navigate("/groups")}
+          className="mt-4 rounded-xl bg-[#191a1f] px-4 py-3 text-[12px] font-semibold text-white"
+        >
+          Open Groups
+        </button>
+      </section>
+    );
   }
-}
 
   return (
     <main className="min-h-screen bg-[#f4f4f5] p-4 text-[#131418] sm:p-6 lg:p-8">
@@ -230,6 +298,16 @@ export default function AnnualRegister() {
           </button>
         </div>
 
+        {!canManageRegister && (
+          <div className="mb-5 rounded-xl border border-[#e5e5e7] bg-white px-4 py-3">
+            <p className="text-[12px] leading-5 text-[#53555e]">
+              You have read-only access to the Annual Membership Register.
+              You can view register entries and activity history, but cannot
+              create or modify register records.
+            </p>
+          </div>
+        )}
+
         {/* Error alert */}
         {error && (
           <div
@@ -248,14 +326,22 @@ export default function AnnualRegister() {
           </div>
         )}
 
-        {/* Top area: register navigation and selected register summary */}
+        {/* Register navigation and selected register summary */}
         <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[300px_minmax(0,1fr)]">
           <RegisterSidebar
             registers={registers}
             selectedRegisterId={selectedRegisterId}
             onSelect={selectRegister}
-            onCreate={() => setCreateDialogOpen(true)}
-            onDelete={handleDeleteRegisterDraft}
+            onCreate={
+              canManageRegister
+                ? () => setCreateDialogOpen(true)
+                : undefined
+            }
+            onDelete={
+              canManageRegister
+                ? handleDeleteRegisterDraft
+                : undefined
+            }
             loading={loading}
             working={working}
           />
@@ -263,7 +349,7 @@ export default function AnnualRegister() {
           <div className="min-w-0 space-y-5">
             {loading && !selectedRegister ? (
               <div className="rounded-2xl border border-[#e9e9eb] bg-white p-10 text-center text-sm text-[#777984]">
-                Loading annual register…
+                Loading annual register...
               </div>
             ) : !selectedRegister ? (
               <section className="flex min-h-[244px] flex-col items-center justify-center rounded-2xl border border-dashed border-[#e9e9eb] bg-white px-6 py-10 text-center sm:px-10">
@@ -272,33 +358,35 @@ export default function AnnualRegister() {
                 </div>
 
                 <h2 className="mt-4 text-lg font-semibold text-[#131418]">
-                  Start an annual register
+                  {canManageRegister
+                    ? "Start an annual register"
+                    : "No annual register selected"}
                 </h2>
 
                 <p className="mt-2 max-w-lg text-sm leading-6 text-[#777984]">
-                  Create a draft and optionally copy the current membership
-                  structure into it.
+                  {canManageRegister
+                    ? "Create a draft and optionally copy the current membership structure into it."
+                    : "There are no annual registers available to display."}
                 </p>
 
-                <button
-                  type="button"
-                  onClick={() => setCreateDialogOpen(true)}
-                  className="mt-5 rounded-xl bg-[#191a1f] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#33343a]"
-                >
-                  Create first draft
-                </button>
+                {canManageRegister && (
+                  <button
+                    type="button"
+                    onClick={() => setCreateDialogOpen(true)}
+                    className="mt-5 rounded-xl bg-[#191a1f] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#33343a]"
+                  >
+                    Create first draft
+                  </button>
+                )}
               </section>
             ) : (
-              <>
-                <RegisterHeader
-                  register={selectedRegister}
-                  entries={entries}
-                  working={working}
-                  onStatusChange={handleStatusChange}
-                  onFinalise={handleFinaliseRegister}
-                />
-
-              </>
+              <RegisterHeader
+                register={selectedRegister}
+                entries={entries}
+                working={working}
+                onStatusChange={handleStatusChange}
+                onFinalise={handleFinaliseRegister}
+              />
             )}
           </div>
         </div>
@@ -320,14 +408,13 @@ export default function AnnualRegister() {
               onNumberChange={handleNumberChange}
             />
 
-            {/* Full-width activity history */}
             <RegisterHistory history={history} loading={loading} />
           </div>
         )}
       </div>
 
       {/* Create register dialog */}
-      {createDialogOpen && (
+      {createDialogOpen && canManageRegister && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/40 p-4 backdrop-blur-sm"
           onMouseDown={(event) => {
@@ -443,7 +530,7 @@ export default function AnnualRegister() {
                   disabled={working || !draftName.trim() || !draftYear}
                   className="rounded-xl bg-[#191a1f] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#33343a] disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {working ? "Creating…" : "Create draft"}
+                  {working ? "Creating..." : "Create draft"}
                 </button>
               </div>
             </form>

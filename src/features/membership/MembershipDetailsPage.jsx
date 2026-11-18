@@ -1,3 +1,4 @@
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   useLocation,
@@ -24,8 +25,8 @@ import {
   getMembershipDetails,
   recordMemberRelationship,
 } from "../../services/membershipService";
+import { useAuth } from "../auth/AuthContext";
 import MembershipHistory from "./MembershipHistory";
-
 import AddMemberModal from "./AddMemberModal";
 import EditMembershipModal from "./EditMembershipModal";
 import CreateBranchFromMemberModal from "./CreateBranchFromMemberModal";
@@ -73,7 +74,9 @@ function Panel({ title, subtitle, action, children }) {
     <section className="overflow-hidden rounded-[18px] border border-[#ececed] bg-white shadow-[0_1px_2px_rgba(15,15,20,0.04)]">
       <header className="flex flex-wrap items-start justify-between gap-3 border-b border-[#f2f2f3] px-5 py-4">
         <div>
-          <h2 className="text-[14px] font-extrabold text-[#131418]">{title}</h2>
+          <h2 className="text-[14px] font-extrabold text-[#131418]">
+            {title}
+          </h2>
 
           {subtitle && (
             <p className="mt-1 text-[11.5px] leading-5 text-[#888a93]">
@@ -208,10 +211,16 @@ function Dialog({ title, onClose, children }) {
       <section
         role="dialog"
         aria-modal="true"
+        aria-labelledby="membership-dialog-title"
         className="my-auto w-full max-w-lg rounded-2xl border border-[#ececed] bg-white p-5 shadow-2xl sm:p-6"
       >
         <header className="mb-5 flex items-center justify-between gap-3">
-          <h2 className="text-[17px] font-bold text-[#131418]">{title}</h2>
+          <h2
+            id="membership-dialog-title"
+            className="text-[17px] font-bold text-[#131418]"
+          >
+            {title}
+          </h2>
 
           <button
             type="button"
@@ -236,6 +245,12 @@ export default function MembershipDetailsPage() {
   const [searchParams] = useSearchParams();
   const branchId = searchParams.get("branchId");
 
+  const { role, permissions } = useAuth();
+
+  const isFellowshipLeader = role === "Fellowship Leader";
+  const canManageMembership =
+    !isFellowshipLeader && permissions.canWrite("membership");
+
   const [details, setDetails] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -250,6 +265,7 @@ export default function MembershipDetailsPage() {
   const [changeHeadOpen, setChangeHeadOpen] = useState(false);
   const [savingHeadChange, setSavingHeadChange] = useState(false);
   const [headChangeError, setHeadChangeError] = useState("");
+
   const [createBranchOpen, setCreateBranchOpen] = useState(false);
   const [convertBranchOpen, setConvertBranchOpen] = useState(false);
   const [conversionReason, setConversionReason] = useState("");
@@ -306,13 +322,16 @@ export default function MembershipDetailsPage() {
       : [];
 
   const people = details?.people || allMembers;
+
   const mainMembers =
     details?.mainMembers || members.filter((member) => !member.branch_id);
 
   const displayedRelationships =
     details?.displayedRelationships || relationships;
 
-  const branchDisplayNumber = `${membership?.membership_number || "â€”"}${selectedBranch?.suffix || ""}`;
+  const branchDisplayNumber = `${
+    membership?.membership_number || "—"
+  }${selectedBranch?.suffix || ""}`;
 
   const allBranches = details?.allBranches || branches;
 
@@ -323,7 +342,6 @@ export default function MembershipDetailsPage() {
     membership?.block_number,
     membership?.street_name,
     membership?.area,
-    // membership?.landmark ? `Near ${membership.landmark}` : null,
     membership?.city,
     membership?.pincode,
   ]
@@ -371,6 +389,8 @@ export default function MembershipDetailsPage() {
 
   async function handleSaveRelationship(event) {
     event.preventDefault();
+    if (!canManageMembership) return;
+
     setRelationshipError("");
 
     if (!relationshipForm.member_id || !relationshipForm.related_member_id) {
@@ -421,6 +441,8 @@ export default function MembershipDetailsPage() {
 
   async function handleChangeHead(event) {
     event.preventDefault();
+    if (!canManageMembership) return;
+
     setHeadChangeError("");
 
     if (!newHeadId) {
@@ -450,6 +472,8 @@ export default function MembershipDetailsPage() {
 
   async function handleConvertBranch(event) {
     event.preventDefault();
+    if (!canManageMembership) return;
+
     setConversionError("");
 
     if (!selectedBranch?.id) {
@@ -471,8 +495,6 @@ export default function MembershipDetailsPage() {
         );
       }
 
-      // The RPC returns the newly created independent membership.
-      // Open that membership immediately.
       navigate(`/memberships/${result.membership_row_id}`, {
         replace: true,
       });
@@ -481,6 +503,27 @@ export default function MembershipDetailsPage() {
     } finally {
       setConvertingBranch(false);
     }
+  }
+
+  if (isFellowshipLeader) {
+    return (
+      <section className="rounded-[16px] border border-[#ececed] bg-white p-6">
+        <h1 className="text-[20px] font-extrabold text-[#131418]">
+          Membership profile unavailable
+        </h1>
+        <p className="mt-2 text-[13px] leading-6 text-[#777984]">
+          Fellowship Leaders do not have access to household membership
+          profiles. You can view assigned members through the Members directory.
+        </p>
+        <button
+          type="button"
+          onClick={() => navigate("/members")}
+          className="mt-4 rounded-xl bg-[#191a1f] px-4 py-3 text-[12px] font-semibold text-white"
+        >
+          Open Members
+        </button>
+      </section>
+    );
   }
 
   if (loading && !details) {
@@ -502,7 +545,7 @@ export default function MembershipDetailsPage() {
         <p className="mt-2 text-sm text-red-700">{error}</p>
 
         <div className="mt-5 flex flex-wrap gap-2">
-          <ActionButton onClick={() => navigate("/")}>
+          <ActionButton onClick={() => navigate("/membership")}>
             <ArrowLeft size={15} />
             Back to memberships
           </ActionButton>
@@ -524,7 +567,7 @@ export default function MembershipDetailsPage() {
         type="button"
         onClick={() => {
           if (!isBranchView) {
-            navigate("/");
+            navigate("/membership");
             return;
           }
 
@@ -533,7 +576,7 @@ export default function MembershipDetailsPage() {
             return;
           }
 
-          navigate("/");
+          navigate("/membership");
         }}
         className="mb-5 inline-flex items-center gap-2 text-[12px] font-semibold text-[#6b6d76] hover:text-[#131418]"
       >
@@ -550,6 +593,16 @@ export default function MembershipDetailsPage() {
           className="mb-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"
         >
           {error}
+        </div>
+      )}
+
+      {!canManageMembership && (
+        <div className="mb-5 rounded-xl border border-[#e5e5e7] bg-[#f8f8f9] px-4 py-3">
+          <p className="text-[11.5px] leading-5 text-[#53555e]">
+            You are viewing this membership in read-only mode. Membership
+            details, member assignments, family relationships, and structure
+            cannot be changed with your current permissions.
+          </p>
         </div>
       )}
 
@@ -597,19 +650,21 @@ export default function MembershipDetailsPage() {
             {loading ? "Refreshing..." : "Refresh"}
           </ActionButton>
 
-          {!isBranchView ? (
-            <>
-              <ActionButton primary onClick={navigateToAddress}>
-                <MapPin size={15} />
-                Navigate
-              </ActionButton>
+          {!isBranchView && (
+            <ActionButton primary onClick={navigateToAddress}>
+              <MapPin size={15} />
+              Navigate
+            </ActionButton>
+          )}
 
-              <ActionButton onClick={() => setCreateBranchOpen(true)}>
-                <GitBranch size={14} />
-                Branch
-              </ActionButton>
-            </>
-          ) : (
+          {canManageMembership && !isBranchView && (
+            <ActionButton onClick={() => setCreateBranchOpen(true)}>
+              <GitBranch size={14} />
+              Branch
+            </ActionButton>
+          )}
+
+          {canManageMembership && isBranchView && (
             <ActionButton
               primary
               onClick={() => {
@@ -625,9 +680,7 @@ export default function MembershipDetailsPage() {
         </div>
       </header>
 
-      {/* Two panels only: wider membership details on the left, members on the right. */}
       <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.85fr)]">
-        {/* LEFT: Membership Details */}
         <div className="min-w-0">
           <Panel
             title={isBranchView ? "Parent membership" : "Membership details"}
@@ -637,6 +690,7 @@ export default function MembershipDetailsPage() {
                 : "Household information and contact details"
             }
             action={
+              canManageMembership &&
               !isBranchView && (
                 <button
                   type="button"
@@ -688,7 +742,6 @@ export default function MembershipDetailsPage() {
               />
 
               <DetailField label="Year joined" value={membership.year_joined} />
-
               <DetailField label="Address" value={address} />
 
               <DetailField
@@ -717,7 +770,6 @@ export default function MembershipDetailsPage() {
           </Panel>
         </div>
 
-        {/* RIGHT: Compact member cards */}
         <div className="min-w-0">
           <Panel
             title={
@@ -731,6 +783,7 @@ export default function MembershipDetailsPage() {
                 : "Select a member to view their full details."
             }
             action={
+              canManageMembership &&
               !isBranchView && (
                 <div className="flex flex-wrap items-center gap-2">
                   <button
@@ -777,6 +830,7 @@ export default function MembershipDetailsPage() {
           </Panel>
         </div>
       </div>
+
       {!isBranchView && (
         <MembershipStructure
           membership={membership}
@@ -791,23 +845,25 @@ export default function MembershipDetailsPage() {
         title="Family relationships"
         subtitle="Person-to-person relationships. These are independent of membership and branch assignments."
         action={
-          <button
-            type="button"
-            onClick={() => {
-              setRelationshipError("");
-              setRelationshipForm({
-                member_id: "",
-                related_member_id: "",
-                relationship_type: "Spouse",
-                date_of_marriage: "",
-                notes: "",
-              });
-              setRelationshipOpen(true);
-            }}
-            className="rounded-lg border border-[#e5e5e7] bg-white px-3 py-2 text-[11px] font-semibold text-[#53555e] hover:bg-[#f7f7f8]"
-          >
-            Add relationship
-          </button>
+          canManageMembership && (
+            <button
+              type="button"
+              onClick={() => {
+                setRelationshipError("");
+                setRelationshipForm({
+                  member_id: "",
+                  related_member_id: "",
+                  relationship_type: "Spouse",
+                  date_of_marriage: "",
+                  notes: "",
+                });
+                setRelationshipOpen(true);
+              }}
+              className="rounded-lg border border-[#e5e5e7] bg-white px-3 py-2 text-[11px] font-semibold text-[#53555e] hover:bg-[#f7f7f8]"
+            >
+              Add relationship
+            </button>
+          )
         }
       >
         {displayedRelationships.length === 0 ? (
@@ -854,8 +910,12 @@ export default function MembershipDetailsPage() {
           </div>
         )}
       </Panel>
-      {!isBranchView && <MembershipHistory membershipRowId={membershipRowId} />}
-      {addMemberOpen && !isBranchView && (
+
+      {!isBranchView && (
+        <MembershipHistory membershipRowId={membershipRowId} />
+      )}
+
+      {addMemberOpen && canManageMembership && !isBranchView && (
         <AddMemberModal
           membership={membership}
           membershipRowId={membership.id}
@@ -870,7 +930,7 @@ export default function MembershipDetailsPage() {
         />
       )}
 
-      {editMembershipOpen && !isBranchView && (
+      {editMembershipOpen && canManageMembership && !isBranchView && (
         <EditMembershipModal
           membership={membership}
           onClose={() => setEditMembershipOpen(false)}
@@ -881,7 +941,7 @@ export default function MembershipDetailsPage() {
         />
       )}
 
-      {createBranchOpen && !isBranchView && (
+      {createBranchOpen && canManageMembership && !isBranchView && (
         <CreateBranchFromMemberModal
           membership={membership}
           members={allMembers}
@@ -894,7 +954,7 @@ export default function MembershipDetailsPage() {
         />
       )}
 
-      {changeHeadOpen && !isBranchView && (
+      {changeHeadOpen && canManageMembership && !isBranchView && (
         <Dialog
           title="Change head of membership"
           onClose={() => {
@@ -914,7 +974,7 @@ export default function MembershipDetailsPage() {
 
                 {eligibleHeads.map((member) => (
                   <option key={member.id} value={member.id}>
-                    {member.name} Â· {member.person_id}
+                    {member.name} · {member.person_id}
                   </option>
                 ))}
               </select>
@@ -961,7 +1021,7 @@ export default function MembershipDetailsPage() {
         </Dialog>
       )}
 
-      {relationshipOpen && (
+      {relationshipOpen && canManageMembership && (
         <Dialog
           title="Add relationship"
           onClose={() => {
@@ -986,7 +1046,7 @@ export default function MembershipDetailsPage() {
 
                 {people.map((member) => (
                   <option key={member.id} value={member.id}>
-                    {member.name} Â· {member.person_id}
+                    {member.name} · {member.person_id}
                   </option>
                 ))}
               </select>
@@ -1099,104 +1159,116 @@ export default function MembershipDetailsPage() {
                 Cancel
               </ActionButton>
 
-              <ActionButton type="submit" primary disabled={savingRelationship}>
+              <ActionButton
+                type="submit"
+                primary
+                disabled={savingRelationship}
+              >
                 {savingRelationship ? "Saving..." : "Save relationship"}
               </ActionButton>
             </div>
           </form>
         </Dialog>
       )}
-      {convertBranchOpen && isBranchView && selectedBranch && (
-        <Dialog
-          title="Convert branch to independent membership"
-          onClose={() => {
-            if (!convertingBranch) {
-              setConvertBranchOpen(false);
-            }
-          }}
-        >
-          <form onSubmit={handleConvertBranch} className="space-y-4">
-            <div className="rounded-xl border border-[#ececed] bg-[#fafafa] p-4">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-[#92939b]">
-                Branch being converted
-              </p>
 
-              <p className="mt-1 text-[15px] font-bold text-[#131418]">
-                {selectedBranch.branch_name ||
-                  `Branch ${selectedBranch.suffix}`}
-              </p>
+      {convertBranchOpen &&
+        canManageMembership &&
+        isBranchView &&
+        selectedBranch && (
+          <Dialog
+            title="Convert branch to independent membership"
+            onClose={() => {
+              if (!convertingBranch) setConvertBranchOpen(false);
+            }}
+          >
+            <form onSubmit={handleConvertBranch} className="space-y-4">
+              <div className="rounded-xl border border-[#ececed] bg-[#fafafa] p-4">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-[#92939b]">
+                  Branch being converted
+                </p>
 
-              <p className="mt-1 text-[12px] text-[#777984]">
-                Membership number: {branchDisplayNumber}
-              </p>
+                <p className="mt-1 text-[15px] font-bold text-[#131418]">
+                  {selectedBranch.branch_name ||
+                    `Branch ${selectedBranch.suffix}`}
+                </p>
 
-              <p className="mt-2 text-[12px] text-[#53555e]">
-                Person:{" "}
-                {selectedBranch.member?.name || head?.name || "Not recorded"}
-              </p>
+                <p className="mt-1 text-[12px] text-[#777984]">
+                  Membership number: {branchDisplayNumber}
+                </p>
 
-              <p className="mt-1 text-[11px] text-[#777984]">
-                Person ID:{" "}
-                {selectedBranch.member?.person_id ||
-                  head?.person_id ||
-                  "Not recorded"}
-              </p>
-            </div>
+                <p className="mt-2 text-[12px] text-[#53555e]">
+                  Person:{" "}
+                  {selectedBranch.member?.name || head?.name || "Not recorded"}
+                </p>
 
-            <div className="rounded-xl border border-[#dce8df] bg-[#f5faf6] p-4">
-              <p className="text-[12px] font-bold text-[#245b37]">
-                What this conversion does
-              </p>
+                <p className="mt-1 text-[11px] text-[#777984]">
+                  Person ID:{" "}
+                  {selectedBranch.member?.person_id ||
+                    head?.person_id ||
+                    "Not recorded"}
+                </p>
+              </div>
 
-              <ul className="mt-2 list-disc space-y-1 pl-4 text-[11.5px] leading-5 text-[#41634b]">
-                <li>Creates a new independent membership.</li>
-                <li>Retains the existing permanent Person ID.</li>
-                <li>Uses the existing person as the new membership head.</li>
-                <li>Preserves person-to-person family relationships.</li>
-                <li>
-                  Closes the old branch assignment through the database
-                  workflow.
-                </li>
-              </ul>
-            </div>
+              <div className="rounded-xl border border-[#dce8df] bg-[#f5faf6] p-4">
+                <p className="text-[12px] font-bold text-[#245b37]">
+                  What this conversion does
+                </p>
 
-            <label className="block text-[12px] font-semibold text-[#53555e]">
-              Reason for conversion (optional)
-              <textarea
-                rows={3}
-                maxLength={1000}
-                value={conversionReason}
-                onChange={(event) => setConversionReason(event.target.value)}
-                disabled={convertingBranch}
-                placeholder="Enter the reason for creating an independent membership."
-                className="mt-1.5 w-full rounded-[10px] border border-[#e5e5e7] bg-white px-3 py-2.5 text-[13px] outline-none focus:border-[#9b9da5]"
-              />
-            </label>
+                <ul className="mt-2 list-disc space-y-1 pl-4 text-[11.5px] leading-5 text-[#41634b]">
+                  <li>Creates a new independent membership.</li>
+                  <li>Retains the existing permanent Person ID.</li>
+                  <li>Uses the existing person as the new membership head.</li>
+                  <li>Preserves person-to-person family relationships.</li>
+                  <li>
+                    Closes the old branch assignment through the database
+                    workflow.
+                  </li>
+                </ul>
+              </div>
 
-            {conversionError && (
-              <p
-                role="alert"
-                className="rounded-lg border border-red-200 bg-red-50 p-3 text-[12px] leading-5 text-red-700"
-              >
-                {conversionError}
-              </p>
-            )}
+              <label className="block text-[12px] font-semibold text-[#53555e]">
+                Reason for conversion (optional)
+                <textarea
+                  rows={3}
+                  maxLength={1000}
+                  value={conversionReason}
+                  onChange={(event) =>
+                    setConversionReason(event.target.value)
+                  }
+                  disabled={convertingBranch}
+                  placeholder="Enter the reason for creating an independent membership."
+                  className="mt-1.5 w-full rounded-[10px] border border-[#e5e5e7] bg-white px-3 py-2.5 text-[13px] outline-none focus:border-[#9b9da5]"
+                />
+              </label>
 
-            <div className="flex flex-col-reverse gap-2 border-t border-[#ececed] pt-4 sm:flex-row sm:justify-end">
-              <ActionButton
-                onClick={() => setConvertBranchOpen(false)}
-                disabled={convertingBranch}
-              >
-                Cancel
-              </ActionButton>
+              {conversionError && (
+                <p
+                  role="alert"
+                  className="rounded-lg border border-red-200 bg-red-50 p-3 text-[12px] leading-5 text-red-700"
+                >
+                  {conversionError}
+                </p>
+              )}
 
-              <ActionButton type="submit" primary disabled={convertingBranch}>
-                {convertingBranch ? "Converting..." : "Confirm conversion"}
-              </ActionButton>
-            </div>
-          </form>
-        </Dialog>
-      )}
+              <div className="flex flex-col-reverse gap-2 border-t border-[#ececed] pt-4 sm:flex-row sm:justify-end">
+                <ActionButton
+                  onClick={() => setConvertBranchOpen(false)}
+                  disabled={convertingBranch}
+                >
+                  Cancel
+                </ActionButton>
+
+                <ActionButton
+                  type="submit"
+                  primary
+                  disabled={convertingBranch}
+                >
+                  {convertingBranch ? "Converting..." : "Confirm conversion"}
+                </ActionButton>
+              </div>
+            </form>
+          </Dialog>
+        )}
     </div>
   );
 }

@@ -1,3 +1,4 @@
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useOutletContext } from "react-router-dom";
 import {
@@ -9,14 +10,12 @@ import {
   RefreshCw,
   Search,
   Users,
-  UserRound,
 } from "lucide-react";
 import { getMembershipDirectory } from "../../services/membershipService";
+import { useAuth } from "../auth/AuthContext";
 import AddMembershipModal from "./AddMembershipModal";
 import MembershipImportModal from "./import/MembershipImportModal";
-import {
-  getMembershipHeadPhotoUrl,
-} from "../../services/membership/membershipPhotoService";
+import { getMembershipHeadPhotoUrl } from "../../services/membership/membershipPhotoService";
 
 const FILTERS = ["All", "Active", "Inactive"];
 
@@ -81,7 +80,6 @@ function MembershipCard({ membership, onOpen }) {
 
   const area = [membership.area, membership.city].filter(Boolean).join(", ");
 
-  // Use a real membership image when available; otherwise show a placeholder.
   const imageUrl =
     getMembershipHeadPhotoUrl(membership.head_photo_path) ||
     membership.head_photo_url ||
@@ -103,14 +101,12 @@ function MembershipCard({ membership, onOpen }) {
       }}
       className="group flex min-h-[250px] cursor-pointer flex-col rounded-[28px] border border-[#e9e9eb] bg-white p-5 shadow-[0_1px_2px_rgba(15,15,20,0.04)] transition duration-200 hover:-translate-y-0.5 hover:border-[#d9def8] hover:shadow-[0_8px_25px_rgba(15,15,20,0.06)] sm:p-6"
     >
-      {/* Top row: membership display number */}
       <div className="flex items-center justify-end">
         <span className="inline-flex h-[36px] min-w-[48px] items-center justify-center rounded-[12px] bg-[#eeeeef] px-3 text-[16px] font-bold tracking-[-0.4px] text-[#131418]">
           {displayNumber}
         </span>
       </div>
 
-      {/* Main content: image placeholder and membership details */}
       <div className="-mt-4 flex min-w-0 items-center gap-4">
         <div className="h-[112px] w-[112px] shrink-0 overflow-hidden rounded-[15px] bg-[#f0f0f1]">
           {imageUrl ? (
@@ -159,7 +155,6 @@ function MembershipCard({ membership, onOpen }) {
         </div>
       </div>
 
-      {/* Bottom row: member counts, status and profile link */}
       <div className="mt-auto flex flex-wrap items-center justify-between gap-x-3 gap-y-3 border-t border-[#f0f0f1] pt-4">
         <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
           <span className="text-[12px] text-[#777984]">
@@ -189,6 +184,14 @@ function MembershipCard({ membership, onOpen }) {
 export default function MembershipPage() {
   const navigate = useNavigate();
   const { searchValue, setSearchValue } = useOutletContext();
+
+  const { role, permissions } = useAuth();
+
+  const isFellowshipLeader = role === "Fellowship Leader";
+  const canManageMemberships =
+    !isFellowshipLeader && permissions.canWrite("membership");
+  const canExportMemberships =
+    !isFellowshipLeader && permissions.canDownload("membership");
 
   const [directory, setDirectory] = useState([]);
   const [activeRegister, setActiveRegister] = useState(null);
@@ -260,7 +263,8 @@ export default function MembershipPage() {
         card_head_name: branch.head_name ?? branch.card_head_name ?? null,
         member_count: branch.member_count ?? 0,
 
-        membership_status: branch.branch_status ?? membership.membership_status,
+        membership_status:
+          branch.branch_status ?? membership.membership_status,
       }));
 
       return [mainCard, ...branchCards];
@@ -270,7 +274,6 @@ export default function MembershipPage() {
   const filteredMemberships = useMemo(() => {
     const query = (searchValue || "").trim().toLowerCase();
 
-    // Filter first, then sort the visible results.
     const filtered = displayCards.filter((membership) => {
       const status = membership.membership_status;
 
@@ -318,7 +321,6 @@ export default function MembershipPage() {
       const numberA = String(a.membership_number ?? "").trim();
       const numberB = String(b.membership_number ?? "").trim();
 
-      // Memberships without a number appear at the end.
       if (!numberA && numberB) return 1;
       if (numberA && !numberB) return -1;
 
@@ -331,12 +333,10 @@ export default function MembershipPage() {
         return numberComparison;
       }
 
-      // For the same membership number, show the main record first.
       if (a.is_branch !== b.is_branch) {
         return a.is_branch ? 1 : -1;
       }
 
-      // If both are branches of the same membership, sort by suffix.
       if (a.is_branch && b.is_branch) {
         return membershipNumberCollator.compare(
           String(a.suffix ?? ""),
@@ -344,7 +344,6 @@ export default function MembershipPage() {
         );
       }
 
-      // Stable, predictable ordering when main records share a number.
       return membershipNumberCollator.compare(
         String(a.head_name ?? ""),
         String(b.head_name ?? ""),
@@ -369,6 +368,8 @@ export default function MembershipPage() {
   }
 
   function handleExport() {
+    if (!canExportMemberships) return;
+
     const headers = [
       "Displayed Number",
       "Record Type",
@@ -393,7 +394,8 @@ export default function MembershipPage() {
       membership.membership_id,
     ]);
 
-    const escapeCsv = (value) => `"${String(value ?? "").replace(/"/g, '""')}"`;
+    const escapeCsv = (value) =>
+      `"${String(value ?? "").replace(/"/g, '""')}"`;
 
     const csv = [headers, ...rows]
       .map((row) => row.map(escapeCsv).join(","))
@@ -413,6 +415,28 @@ export default function MembershipPage() {
     URL.revokeObjectURL(url);
   }
 
+  if (isFellowshipLeader) {
+    return (
+      <section className="rounded-[16px] border border-[#ececed] bg-white p-6">
+        <h1 className="text-[20px] font-extrabold text-[#131418]">
+          Membership directory unavailable
+        </h1>
+        <p className="mt-2 text-[13px] leading-6 text-[#777984]">
+          Fellowship Leaders can access members within their assigned
+          fellowships through the Members directory. General household
+          membership records are not available in this workspace.
+        </p>
+        <button
+          type="button"
+          onClick={() => navigate("/members")}
+          className="mt-4 rounded-xl bg-[#191a1f] px-4 py-3 text-[12px] font-semibold text-white"
+        >
+          Open Members
+        </button>
+      </section>
+    );
+  }
+
   return (
     <div className="mx-auto w-full max-w-[1500px]">
       <header className="mb-6">
@@ -427,23 +451,26 @@ export default function MembershipPage() {
       </header>
 
       <div className="mb-8 flex flex-wrap items-center gap-3">
-        <ActionButton onClick={() => setImportModalOpen(true)}>
-          <ArrowDownToLine size={17} />
-          Import
-        </ActionButton>
-        {importModalOpen && (
-          <MembershipImportModal onClose={() => setImportModalOpen(false)} />
+        {canManageMemberships && (
+          <>
+            <ActionButton onClick={() => setImportModalOpen(true)}>
+              <ArrowDownToLine size={17} />
+              Import
+            </ActionButton>
+
+            <ActionButton primary onClick={() => setAddModalOpen(true)}>
+              <CirclePlus size={17} />
+              Add New Membership
+            </ActionButton>
+          </>
         )}
 
-        <ActionButton onClick={handleExport} disabled={loading}>
-          <ArrowUpFromLine size={17} />
-          Export
-        </ActionButton>
-
-        <ActionButton primary onClick={() => setAddModalOpen(true)}>
-          <CirclePlus size={17} />
-          Add New Membership
-        </ActionButton>
+        {canExportMemberships && (
+          <ActionButton onClick={handleExport} disabled={loading}>
+            <ArrowUpFromLine size={17} />
+            Export
+          </ActionButton>
+        )}
       </div>
 
       <div className="mb-7 flex flex-col gap-3 xl:flex-row xl:items-center">
@@ -519,16 +546,18 @@ export default function MembershipPage() {
               : "Memberships created in Church Desk will appear here."}
           </p>
 
-          {!searchValue && statusFilter === "All" && (
-            <button
-              type="button"
-              onClick={() => setAddModalOpen(true)}
-              className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#191a1f] px-4 py-3 text-[12px] font-semibold text-white hover:bg-black"
-            >
-              <CirclePlus size={15} />
-              Add New Membership
-            </button>
-          )}
+          {!searchValue &&
+            statusFilter === "All" &&
+            canManageMemberships && (
+              <button
+                type="button"
+                onClick={() => setAddModalOpen(true)}
+                className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#191a1f] px-4 py-3 text-[12px] font-semibold text-white hover:bg-black"
+              >
+                <CirclePlus size={15} />
+                Add New Membership
+              </button>
+            )}
         </div>
       ) : (
         <>
@@ -571,7 +600,7 @@ export default function MembershipPage() {
         <p>{loading ? "Loading..." : `${filteredMemberships.length} shown`}</p>
       </div>
 
-      {addModalOpen && (
+      {addModalOpen && canManageMemberships && (
         <AddMembershipModal
           onClose={() => setAddModalOpen(false)}
           onCreated={async () => {
@@ -580,8 +609,11 @@ export default function MembershipPage() {
           }}
         />
       )}
-      {importModalOpen && (
-        <MembershipImportModal onClose={() => setImportModalOpen(false)} />
+
+      {importModalOpen && canManageMemberships && (
+        <MembershipImportModal
+          onClose={() => setImportModalOpen(false)}
+        />
       )}
     </div>
   );

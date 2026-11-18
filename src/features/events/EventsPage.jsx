@@ -1,6 +1,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { useAuth } from '../auth/AuthContext'
 import {
   CalendarDays,
   ChevronLeft,
@@ -475,11 +476,19 @@ function EventModal({
   )
 }
 
-function EventDetailsModal({ event, onClose, onEdit, onDelete }) {
+function EventDetailsModal({
+  event,
+  onClose,
+  onEdit,
+  onDelete,
+  canManage,
+}) {
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState('')
 
   async function handleDelete() {
+    if (!canManage || !onDelete) return
+
     if (
       !window.confirm(
         `Delete "${event.title}"? This cannot be undone.`,
@@ -515,7 +524,7 @@ function EventDetailsModal({ event, onClose, onEdit, onDelete }) {
         <div className="mb-5 flex items-start justify-between gap-3">
           <div>
             <span
-              className={`inline-flex rounded-md px-2 py-1 text-[10px] font-medium ${EVENT_COLORS[event.event_type]}`}
+              className={`inline-flex rounded-md px-2 py-1 text-[10px] font-medium ${EVENT_COLORS[event.event_type] || EVENT_COLORS.church}`}
             >
               {getTypeLabel(event.event_type)}
             </span>
@@ -589,26 +598,32 @@ function EventDetailsModal({ event, onClose, onEdit, onDelete }) {
         )}
 
         <div className="mt-6 flex flex-wrap items-center justify-between gap-2 border-t border-[#eeeeef] pt-4">
-          <button
-            type="button"
-            onClick={handleDelete}
-            disabled={deleting}
-            className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-[#bd3e32] hover:bg-[#fff0ee] disabled:opacity-60"
-          >
-            <Trash2 size={14} />
-            {deleting ? 'Deleting...' : 'Delete'}
-          </button>
-
-          <div className="flex gap-2">
+          {canManage ? (
             <button
               type="button"
-              onClick={() => onEdit(event)}
+              onClick={handleDelete}
               disabled={deleting}
-              className="inline-flex items-center gap-2 rounded-lg bg-[#202126] px-3 py-2 text-sm font-medium text-white hover:bg-[#35363d]"
+              className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-[#bd3e32] hover:bg-[#fff0ee] disabled:opacity-60"
             >
-              <Pencil size={14} />
-              Modify
+              <Trash2 size={14} />
+              {deleting ? 'Deleting...' : 'Delete'}
             </button>
+          ) : (
+            <span className="text-xs text-[#92949c]">Read-only view</span>
+          )}
+
+          <div className="flex gap-2">
+            {canManage && (
+              <button
+                type="button"
+                onClick={() => onEdit(event)}
+                disabled={deleting}
+                className="inline-flex items-center gap-2 rounded-lg bg-[#202126] px-3 py-2 text-sm font-medium text-white hover:bg-[#35363d]"
+              >
+                <Pencil size={14} />
+                Modify
+              </button>
+            )}
 
             <button
               type="button"
@@ -631,7 +646,7 @@ function CalendarEvent({ event, onClick }) {
       type="button"
       onClick={() => onClick(event)}
       title={`${formatTime(event.start_time)} — ${event.title}`}
-      className={`block w-full truncate rounded-md px-1.5 py-1 text-left text-[10px] font-medium leading-4 hover:brightness-95 sm:text-[11px] ${EVENT_COLORS[event.event_type]}`}
+      className={`block w-full truncate rounded-md px-1.5 py-1 text-left text-[10px] font-medium leading-4 hover:brightness-95 sm:text-[11px] ${EVENT_COLORS[event.event_type] || EVENT_COLORS.church}`}
     >
       <span className="mr-1 opacity-70">
         {formatTime(event.start_time)}
@@ -795,7 +810,7 @@ function ChurchCalendar({ events, loading, month, setMonth, onSelect }) {
   )
 }
 
-function SpecialEventsTable({ events, onSelect }) {
+function SpecialEventsTable({ events, onSelect, canManage }) {
   if (!events.length) {
     return (
       <div className="rounded-2xl border border-[#e9e9ec] bg-white px-5 py-14 text-center">
@@ -804,7 +819,9 @@ function SpecialEventsTable({ events, onSelect }) {
           No special events yet
         </h3>
         <p className="mt-1 text-xs text-[#858894]">
-          Create a special event to add it to the list and calendar.
+          {canManage
+            ? 'Create a special event to add it to the list and calendar.'
+            : 'There are no special events to display.'}
         </p>
       </div>
     )
@@ -822,9 +839,11 @@ function SpecialEventsTable({ events, onSelect }) {
               <th className="border-b border-[#e9e9ec] px-5 py-4">
                 Status
               </th>
-              <th className="border-b border-[#e9e9ec] px-5 py-4 text-right">
-                Actions
-              </th>
+              {canManage && (
+                <th className="border-b border-[#e9e9ec] px-5 py-4 text-right">
+                  Actions
+                </th>
+              )}
             </tr>
           </thead>
 
@@ -872,29 +891,31 @@ function SpecialEventsTable({ events, onSelect }) {
                     </div>
                   </td>
 
-                  <td className="px-5 py-4">
-                    <div className="flex justify-end gap-1">
-                      <button
-                        type="button"
-                        onClick={() => onSelect(event, true)}
-                        aria-label={`Modify ${event.title}`}
-                        title="Modify event"
-                        className="rounded-lg p-2 text-[#555966] hover:bg-[#eeeeef]"
-                      >
-                        <Pencil size={15} />
-                      </button>
+                  {canManage && (
+                    <td className="px-5 py-4">
+                      <div className="flex justify-end gap-1">
+                        <button
+                          type="button"
+                          onClick={() => onSelect(event, true)}
+                          aria-label={`Modify ${event.title}`}
+                          title="Modify event"
+                          className="rounded-lg p-2 text-[#555966] hover:bg-[#eeeeef]"
+                        >
+                          <Pencil size={15} />
+                        </button>
 
-                      <button
-                        type="button"
-                        onClick={() => onSelect(event, 'delete')}
-                        aria-label={`Delete ${event.title}`}
-                        title="Delete event"
-                        className="rounded-lg p-2 text-[#bd3e32] hover:bg-[#fff0ee]"
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                    </div>
-                  </td>
+                        <button
+                          type="button"
+                          onClick={() => onSelect(event, 'delete')}
+                          aria-label={`Delete ${event.title}`}
+                          title="Delete event"
+                          className="rounded-lg p-2 text-[#bd3e32] hover:bg-[#fff0ee]"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    </td>
+                  )}
                 </tr>
               )
             })}
@@ -908,6 +929,9 @@ function SpecialEventsTable({ events, onSelect }) {
 export default function EventsPage() {
   const location = useLocation()
   const navigate = useNavigate()
+  const { permissions } = useAuth()
+
+  const canManageEvents = permissions.canWrite('events')
 
   const activeTab =
     TABS.find((tab) => tab.path === location.pathname) || TABS[0]
@@ -960,6 +984,8 @@ export default function EventsPage() {
   )
 
   function openCreateForm() {
+    if (!canManageEvents) return
+
     setDetailsEvent(null)
     setModalEvent(null)
     setFormType(activeTab.type || 'church')
@@ -967,6 +993,8 @@ export default function EventsPage() {
   }
 
   function openModifyForm(event) {
+    if (!canManageEvents) return
+
     setDetailsEvent(null)
     setModalEvent(event)
     setFormType(event.event_type)
@@ -974,6 +1002,8 @@ export default function EventsPage() {
   }
 
   function handleSaved(savedEvent) {
+    if (!canManageEvents) return
+
     setEvents((current) => {
       const exists = current.some((event) => event.id === savedEvent.id)
 
@@ -998,6 +1028,10 @@ export default function EventsPage() {
   }
 
   async function handleDelete(event) {
+    if (!canManageEvents) {
+      throw new Error('You do not have permission to delete events.')
+    }
+
     await deleteChurchEvent(event.id)
 
     setEvents((current) =>
@@ -1009,11 +1043,13 @@ export default function EventsPage() {
 
   function handleSelect(event, action = false) {
     if (action === 'delete') {
+      if (!canManageEvents) return
       setDetailsEvent(event)
       return
     }
 
     if (action === true) {
+      if (!canManageEvents) return
       openModifyForm(event)
       return
     }
@@ -1030,7 +1066,9 @@ export default function EventsPage() {
           </h1>
 
           <p className="mt-2 text-sm text-[#777b88] sm:text-[15px]">
-            Manage church events and their schedules
+            {canManageEvents
+              ? 'Manage church events and their schedules'
+              : 'View church events and their schedules'}
           </p>
         </div>
 
@@ -1048,16 +1086,24 @@ export default function EventsPage() {
             <span className="hidden sm:inline">Refresh</span>
           </button>
 
-          <button
-            type="button"
-            onClick={openCreateForm}
-            className="inline-flex h-[41px] items-center gap-2 rounded-[11px] bg-[#202126] px-3.5 text-sm font-medium text-white hover:bg-[#35363d] sm:px-4"
-          >
-            <Plus size={16} />
-            Create Event
-          </button>
+          {canManageEvents && (
+            <button
+              type="button"
+              onClick={openCreateForm}
+              className="inline-flex h-[41px] items-center gap-2 rounded-[11px] bg-[#202126] px-3.5 text-sm font-medium text-white hover:bg-[#35363d] sm:px-4"
+            >
+              <Plus size={16} />
+              Create Event
+            </button>
+          )}
         </div>
       </div>
+
+      {!canManageEvents && (
+        <div className="mb-5 rounded-xl border border-[#e5e5e7] bg-white px-4 py-3 text-xs text-[#777b88]">
+          You have read-only access to the Events workspace.
+        </div>
+      )}
 
       <div className="mb-7 border-b border-[#e8e8ea]">
         <nav
@@ -1121,6 +1167,7 @@ export default function EventsPage() {
           <SpecialEventsTable
             events={visibleEvents}
             onSelect={handleSelect}
+            canManage={canManageEvents}
           />
         )
       ) : (
@@ -1140,7 +1187,9 @@ export default function EventsPage() {
                 No Christmas carol events yet
               </p>
               <p className="mt-1 text-xs text-[#858894]">
-                Create a carol event to add it to the calendar.
+                {canManageEvents
+                  ? 'Create a carol event to add it to the calendar.'
+                  : 'There are no Christmas carol events to display.'}
               </p>
             </div>
           ) : (
@@ -1172,23 +1221,27 @@ export default function EventsPage() {
                       {getEventStatus(event)}
                     </span>
 
-                    <button
-                      type="button"
-                      onClick={() => handleSelect(event, true)}
-                      aria-label={`Modify ${event.title}`}
-                      className="rounded-lg p-2 text-[#555966] hover:bg-[#eeeeef]"
-                    >
-                      <Pencil size={15} />
-                    </button>
+                    {canManageEvents && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleSelect(event, true)}
+                          aria-label={`Modify ${event.title}`}
+                          className="rounded-lg p-2 text-[#555966] hover:bg-[#eeeeef]"
+                        >
+                          <Pencil size={15} />
+                        </button>
 
-                    <button
-                      type="button"
-                      onClick={() => handleSelect(event, 'delete')}
-                      aria-label={`Delete ${event.title}`}
-                      className="rounded-lg p-2 text-[#bd3e32] hover:bg-[#fff0ee]"
-                    >
-                      <Trash2 size={15} />
-                    </button>
+                        <button
+                          type="button"
+                          onClick={() => handleSelect(event, 'delete')}
+                          aria-label={`Delete ${event.title}`}
+                          className="rounded-lg p-2 text-[#bd3e32] hover:bg-[#fff0ee]"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               ))}
@@ -1204,7 +1257,7 @@ export default function EventsPage() {
         <span>All dates and times are shown in your local timezone.</span>
       </div>
 
-      {showForm && (
+      {showForm && canManageEvents && (
         <EventModal
           key={modalEvent?.id || `new-${formType}`}
           event={modalEvent}
@@ -1220,6 +1273,7 @@ export default function EventsPage() {
       {detailsEvent && (
         <EventDetailsModal
           event={detailsEvent}
+          canManage={canManageEvents}
           onClose={() => setDetailsEvent(null)}
           onEdit={openModifyForm}
           onDelete={handleDelete}

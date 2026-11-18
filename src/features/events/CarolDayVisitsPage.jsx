@@ -3,25 +3,28 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
-  Check,
   CheckCheck,
   Clock3,
   MapPin,
   RefreshCw,
-  Search,
   Trash2,
   Users,
   X,
   Plus,
-  CircleDollarSign,
   FileSpreadsheet,
   FileText,
 } from "lucide-react";
-import CarolOfferingPanel from "./CarolOfferingPanel";
-import { exportCarolVisitsToExcel, exportCarolVisitsToPdf } from "../../services/events/CarolServiceExportService";
+import { useAuth } from "../auth/AuthContext";
 import CarolMembershipPickerModal from "./CarolMembershipPickerModal";
 import CarolOfferingAmountInput from "./CarolOfferingAmountInput";
-import { clearCarolOffering, getCarolOfferingsForVisits } from "../../services/events/carolOfferingService";
+import {
+  exportCarolVisitsToExcel,
+  exportCarolVisitsToPdf,
+} from "../../services/events/CarolServiceExportService";
+import {
+  clearCarolOffering,
+  getCarolOfferingsForVisits,
+} from "../../services/events/carolOfferingService";
 import {
   assignMembershipsToCarolDay,
   getAssignableCarolMemberships,
@@ -46,23 +49,6 @@ function formatDate(value) {
     month: "short",
     year: "numeric",
   });
-}
-
-function formatAddress(membership) {
-  if (!membership) return "Address not recorded";
-
-  return (
-    [
-      membership.door_number,
-      membership.street_name,
-      membership.area,
-      membership.landmark ? `Near ${membership.landmark}` : null,
-      membership.city,
-      membership.pincode,
-    ]
-      .filter((part) => String(part ?? "").trim())
-      .join(", ") || "Address not recorded"
-  );
 }
 
 function getMembershipNumber(membership) {
@@ -100,6 +86,10 @@ function StatCard({ label, value, icon: Icon }) {
 export default function CarolDayVisitsPage() {
   const { dayId } = useParams();
   const navigate = useNavigate();
+  const { permissions } = useAuth();
+
+  const canManage = permissions.canWrite("events");
+  const canDownload = canManage;
 
   const [day, setDay] = useState(null);
   const [memberships, setMemberships] = useState([]);
@@ -296,6 +286,8 @@ export default function CarolDayVisitsPage() {
   ).length;
 
   function toggleMembership(membershipId) {
+    if (!canManage) return;
+
     setSelectedIds((current) =>
       current.includes(membershipId)
         ? current.filter((id) => id !== membershipId)
@@ -304,7 +296,7 @@ export default function CarolDayVisitsPage() {
   }
 
   function toggleVisibleMemberships() {
-    if (!eligibleVisibleIds.length) return;
+    if (!canManage || !eligibleVisibleIds.length) return;
 
     const allSelected = eligibleVisibleIds.every((id) =>
       selectedIds.includes(id),
@@ -322,7 +314,7 @@ export default function CarolDayVisitsPage() {
   }
 
   async function handleAssign() {
-    if (!day || selectedIds.length === 0) return;
+    if (!canManage || !day || selectedIds.length === 0) return;
 
     setAssigning(true);
     setError("");
@@ -346,41 +338,43 @@ export default function CarolDayVisitsPage() {
       setAssigning(false);
     }
   }
-  
-    async function handleStatusChange(visit, nextStatus) {
-      if (visit.status === nextStatus) return;
 
-      setBusyVisitId(visit.id);
-      setError("");
-      setNotice("");
+  async function handleStatusChange(visit, nextStatus) {
+    if (!canManage || visit.status === nextStatus) return;
 
-      try {
-        await updateCarolVisitStatus(visit.id, nextStatus);
+    setBusyVisitId(visit.id);
+    setError("");
+    setNotice("");
 
-        if (nextStatus !== "Visited") {
-          await clearCarolOffering(visit.id);
-        }
+    try {
+      await updateCarolVisitStatus(visit.id, nextStatus);
 
-        setNotice(
-          nextStatus === "Visited"
-            ? "Visit marked as visited. You can now enter the offering amount."
-            : "Visit status updated and offering cleared.",
-        );
-
-        await loadPage();
-      } catch (err) {
-        setError(
-          err.message ||
-            "Unable to update the visit status or clear its offering.",
-        );
-
-        await loadPage();
-      } finally {
-        setBusyVisitId("");
+      if (nextStatus !== "Visited") {
+        await clearCarolOffering(visit.id);
       }
+
+      setNotice(
+        nextStatus === "Visited"
+          ? "Visit marked as visited. You can now enter the offering amount."
+          : "Visit status updated and offering cleared.",
+      );
+
+      await loadPage();
+    } catch (err) {
+      setError(
+        err.message ||
+          "Unable to update the visit status or clear its offering.",
+      );
+
+      await loadPage();
+    } finally {
+      setBusyVisitId("");
     }
+  }
 
   async function handleRemoveVisit(visit) {
+    if (!canManage) return;
+
     const name = visit.membership?.head_name || "this membership";
 
     if (
@@ -407,22 +401,20 @@ export default function CarolDayVisitsPage() {
   }
 
   async function handleExport(format) {
-    if (!day || exporting || visits.length === 0) return;
-    
+    if (!canDownload || !day || exporting || visits.length === 0) return;
+
     setExporting(format);
     setError("");
     setNotice("");
 
     try {
-      // Fetch saved amounts for every visit, including amounts not
-      // currently visible or focused in the input fields.
       const offerings = await getCarolOfferingsForVisits(
         visits.map((visit) => visit.id),
       );
 
       const exportData = {
         day,
-        visits, // Preserve the exact current displayed order.
+        visits,
         offerings,
       };
 
@@ -505,7 +497,9 @@ export default function CarolDayVisitsPage() {
 
           <p className="mt-1.5 text-sm text-[#777985]">
             {day?.name} · {formatDate(day?.visit_date)}
-            {day?.start_time ? ` · ${String(day.start_time).slice(0, 5)}` : ""}
+            {day?.start_time
+              ? ` · ${String(day.start_time).slice(0, 5)}`
+              : ""}
           </p>
         </div>
 
@@ -519,6 +513,13 @@ export default function CarolDayVisitsPage() {
           Refresh
         </button>
       </header>
+
+      {!canManage && (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+          You have read-only access to this Carol Day. Visit assignments,
+          statuses, offerings, and downloads cannot be changed.
+        </div>
+      )}
 
       {error && (
         <div
@@ -553,107 +554,118 @@ export default function CarolDayVisitsPage() {
       )}
 
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard
-          label="Assigned families"
-          value={assignedCount}
-          icon={Users}
-        />
+        <StatCard label="Assigned families" value={assignedCount} icon={Users} />
         <StatCard label="Pending visits" value={pendingCount} icon={Clock3} />
         <StatCard label="Visited" value={visitedCount} icon={CheckCheck} />
         <StatCard label="Missed" value={missedCount} icon={MapPin} />
       </section>
 
-      <section className="overflow-hidden rounded-2xl border border-[#e8e8ec] bg-white">
-        <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
-          <div>
-            <h2 className="text-lg font-bold text-[#1e1e1e]">
+      {canManage && (
+        <section className="overflow-hidden rounded-2xl border border-[#e8e8ec] bg-white">
+          <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+            <div>
+              <h2 className="text-lg font-bold text-[#1e1e1e]">
+                Find memberships
+              </h2>
+              <p className="mt-1 text-sm text-[#777985]">
+                Search and filter households in a popup, then select the ones
+                to assign.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setMembershipPickerOpen(true)}
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-[#1e1e1e] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-black"
+            >
+              <Plus size={16} />
               Find memberships
-            </h2>
-            <p className="mt-1 text-sm text-[#777985]">
-              Search and filter households in a popup, then select the ones to
-              assign.
-            </p>
+            </button>
           </div>
+        </section>
+      )}
 
-          <button
-            type="button"
-            onClick={() => setMembershipPickerOpen(true)}
-            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-[#1e1e1e] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-black"
-          >
-            <Plus size={16} />
-            Find memberships
-          </button>
-        </div>
-      </section>
+      {canManage && (
+        <CarolMembershipPickerModal
+          open={membershipPickerOpen}
+          onClose={() => setMembershipPickerOpen(false)}
+          memberships={memberships}
+          visits={visits}
+          campaignAssignments={campaignAssignments}
+          dayId={dayId}
+          search={search}
+          setSearch={setSearch}
+          areaFilter={areaFilter}
+          setAreaFilter={setAreaFilter}
+          streetFilter={streetFilter}
+          setStreetFilter={setStreetFilter}
+          statusFilter={statusFilter}
+          setStatusFilter={setStatusFilter}
+          selectedIds={selectedIds}
+          setSelectedIds={setSelectedIds}
+          assigning={assigning}
+          onAssign={handleAssign}
+          onClearFilters={clearFilters}
+        />
+      )}
 
-      <CarolMembershipPickerModal
-        open={membershipPickerOpen}
-        onClose={() => setMembershipPickerOpen(false)}
-        memberships={memberships}
-        visits={visits}
-        campaignAssignments={campaignAssignments}
-        dayId={dayId}
-        search={search}
-        setSearch={setSearch}
-        areaFilter={areaFilter}
-        setAreaFilter={setAreaFilter}
-        streetFilter={streetFilter}
-        setStreetFilter={setStreetFilter}
-        statusFilter={statusFilter}
-        setStatusFilter={setStatusFilter}
-        selectedIds={selectedIds}
-        setSelectedIds={setSelectedIds}
-        assigning={assigning}
-        onAssign={handleAssign}
-        onClearFilters={clearFilters}
-      />
-
-      {/* Assigned visits */}
       <section className="overflow-hidden rounded-xl border border-[#e8e8ec] bg-white">
-        <div className="flex flex-col gap-2 border-b border-[#ededf0] p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5 sm:py-4">
+        <div className="flex flex-col gap-3 border-b border-[#ededf0] p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5 sm:py-4">
           <div>
             <h2 className="text-base font-semibold text-[#1e1e1e]">
               Assigned visit list
             </h2>
             <p className="mt-1 text-sm text-[#777985]">
-              Update each household's visit status or remove its assignment.
+              {canManage
+                ? "Update each household's visit status or remove its assignment."
+                : "View the households assigned to this Carol Day and their visit status."}
             </p>
           </div>
 
-          <span className="self-start rounded-lg bg-[#f2f2f4] px-3 py-1.5 text-sm font-medium text-[#454650] sm:self-auto">
-            {visits.length} assigned
-          </span>
           <div className="flex flex-wrap items-center gap-2">
-            <button
-            type="button"
-            onClick={() => handleExport("pdf")}
-            disabled={visits.length === 0 || Boolean(exporting)}
-            className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#e1e1e6] bg-white px-3.5 py-2.5 text-sm font-semibold text-[#34353d] transition hover:bg-[#f7f7f9] disabled:cursor-not-allowed disabled:opacity-50"
-            >
-            <FileText size={16} />
-            {exporting === "pdf" ? "Exporting PDF..." : "Download PDF"}
-            </button>
+            <span className="self-start rounded-lg bg-[#f2f2f4] px-3 py-1.5 text-sm font-medium text-[#454650]">
+              {visits.length} assigned
+            </span>
 
-            <button
-            type="button"
-            onClick={() => handleExport("excel")}
-            disabled={visits.length === 0 || Boolean(exporting)}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#1e1e1e] px-3.5 py-2.5 text-sm font-semibold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-50"
-            >
-            <FileSpreadsheet size={16} />
-            {exporting === "excel" ? "Exporting Excel..." : "Download Excel"}
-            </button>
+            {canDownload && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => handleExport("pdf")}
+                  disabled={visits.length === 0 || Boolean(exporting)}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#e1e1e6] bg-white px-3.5 py-2.5 text-sm font-semibold text-[#34353d] transition hover:bg-[#f7f7f9] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <FileText size={16} />
+                  {exporting === "pdf" ? "Exporting PDF..." : "Download PDF"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleExport("excel")}
+                  disabled={visits.length === 0 || Boolean(exporting)}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#1e1e1e] px-3.5 py-2.5 text-sm font-semibold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <FileSpreadsheet size={16} />
+                  {exporting === "excel"
+                    ? "Exporting Excel..."
+                    : "Download Excel"}
+                </button>
+              </>
+            )}
+          </div>
         </div>
-        </div>
+
         {visits.length === 0 ? (
           <div className="px-6 py-14 text-center">
             <Users size={28} className="mx-auto text-[#b6b7be]" />
             <p className="mt-3 text-sm font-semibold text-[#454650]">
               No families assigned yet
             </p>
-            <p className="mt-1 text-sm text-[#898b95]">
-              Use Find memberships to assign households to this Carol Day.
-            </p>
+            {canManage && (
+              <p className="mt-1 text-sm text-[#898b95]">
+                Use Find memberships to assign households to this Carol Day.
+              </p>
+            )}
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -662,12 +674,14 @@ export default function CarolDayVisitsPage() {
                 <tr className="border-b border-[#e9e9ed] text-[11px] font-semibold uppercase tracking-wide text-[#777985]">
                   <th className="w-16 px-4 py-3 text-center">S.No.</th>
                   <th className="px-4 py-3">Name</th>
-                  <th className="px-4 py-3">Membeship No</th>
+                  <th className="px-4 py-3">Membership No.</th>
                   <th className="px-4 py-3">Street Name</th>
                   <th className="px-4 py-3">Area</th>
                   <th className="px-4 py-3">Visited Status</th>
                   <th className="px-4 py-3">Offering</th>
-                  <th className="w-16 px-4 py-3 text-center">Remove</th>
+                  {canManage && (
+                    <th className="w-16 px-4 py-3 text-center">Remove</th>
+                  )}
                 </tr>
               </thead>
 
@@ -705,21 +719,29 @@ export default function CarolDayVisitsPage() {
                       </td>
 
                       <td className="px-4 py-3">
-                        <select
-                          aria-label={`Visit status for ${membership?.head_name || "membership"}`}
-                          value={visit.status}
-                          disabled={busyVisitId === visit.id}
-                          onChange={(event) =>
-                            handleStatusChange(visit, event.target.value)
-                          }
-                          className={`rounded-lg border px-2.5 py-2 text-xs font-semibold outline-none disabled:opacity-50 ${statusClasses(visit.status)}`}
-                        >
-                          {VISIT_STATUS_OPTIONS.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
+                        {canManage ? (
+                          <select
+                            aria-label={`Visit status for ${membership?.head_name || "membership"}`}
+                            value={visit.status}
+                            disabled={busyVisitId === visit.id}
+                            onChange={(event) =>
+                              handleStatusChange(visit, event.target.value)
+                            }
+                            className={`rounded-lg border px-2.5 py-2 text-xs font-semibold outline-none disabled:opacity-50 ${statusClasses(visit.status)}`}
+                          >
+                            {VISIT_STATUS_OPTIONS.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span
+                            className={`inline-flex rounded-lg border px-2.5 py-2 text-xs font-semibold ${statusClasses(visit.status)}`}
+                          >
+                            {visit.status}
+                          </span>
+                        )}
                       </td>
 
                       <td className="px-3 py-3">
@@ -731,18 +753,20 @@ export default function CarolDayVisitsPage() {
                         </div>
                       </td>
 
-                      <td className="px-4 py-3 text-center">
-                        <button
-                          type="button"
-                          title="Remove from this Carol Day"
-                          aria-label={`Remove ${membership?.head_name || "membership"} from this Carol Day`}
-                          disabled={busyVisitId === visit.id}
-                          onClick={() => handleRemoveVisit(visit)}
-                          className="inline-flex size-9 items-center justify-center rounded-lg border border-transparent text-[#898b95] transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 disabled:opacity-40"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </td>
+                      {canManage && (
+                        <td className="px-4 py-3 text-center">
+                          <button
+                            type="button"
+                            title="Remove from this Carol Day"
+                            aria-label={`Remove ${membership?.head_name || "membership"} from this Carol Day`}
+                            disabled={busyVisitId === visit.id}
+                            onClick={() => handleRemoveVisit(visit)}
+                            className="inline-flex size-9 items-center justify-center rounded-lg border border-transparent text-[#898b95] transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 disabled:opacity-40"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
