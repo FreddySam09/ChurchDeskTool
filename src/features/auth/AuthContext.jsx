@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
+
 import { supabase } from "../../lib/supabase";
 
 import {
@@ -15,6 +16,10 @@ import {
   isReadOnlyWorkspace,
   getWorkspaceAccess,
   canAccessAssignedGroups,
+  canManageAssignedFellowshipMembers,
+  canAddMemberToAssignedFellowship,
+  canEditAssignedFellowshipMember,
+  canDownloadWorkspace,
   canManageUsers as roleCanManageUsers,
   canCreateSuperAdmin,
   canManageCustomRoles,
@@ -36,6 +41,10 @@ export function AuthProvider({ children }) {
   // Prevent multiple simultaneous requests for the same profile.
   const profileRequestRef = useRef(null);
 
+  // ---------------------------------------------------------
+  // PROFILE LOADING
+  // ---------------------------------------------------------
+
   const loadProfile = useCallback(async () => {
     // Reuse an existing request instead of making duplicate calls.
     if (profileRequestRef.current) {
@@ -46,7 +55,9 @@ export function AuthProvider({ children }) {
       const { data, error } = await supabase.functions.invoke(
         "user-creation",
         {
-          body: { action: "complete-login" },
+          body: {
+            action: "complete-login",
+          },
         },
       );
 
@@ -75,6 +86,10 @@ export function AuthProvider({ children }) {
       }
     }
   }, []);
+
+  // ---------------------------------------------------------
+  // AUTH INITIALIZATION AND SESSION LISTENER
+  // ---------------------------------------------------------
 
   useEffect(() => {
     let mounted = true;
@@ -197,6 +212,10 @@ export function AuthProvider({ children }) {
     };
   }, [loadProfile]);
 
+  // ---------------------------------------------------------
+  // SIGN IN
+  // ---------------------------------------------------------
+
   async function signIn(email, password) {
     setAuthError("");
     setLoading(true);
@@ -233,6 +252,10 @@ export function AuthProvider({ children }) {
     }
   }
 
+  // ---------------------------------------------------------
+  // SIGN OUT
+  // ---------------------------------------------------------
+
   async function signOut() {
     const { error } = await supabase.auth.signOut();
 
@@ -245,47 +268,138 @@ export function AuthProvider({ children }) {
     setLoading(false);
   }
 
-  
-const role = profile?.role?.name ?? null;
+  // ---------------------------------------------------------
+  // CURRENT USER AND ROLE
+  // ---------------------------------------------------------
 
-const canManageUsers = roleCanManageUsers(role);
-const isSuperAdmin = role === "Super Admin";
+  const role = profile?.role?.name ?? null;
 
-const permissions = {
-  getAccess: (workspace) => getWorkspaceAccess(role, workspace),
-  canAccess: (workspace) => canAccessWorkspace(role, workspace),
-  canWrite: (workspace) => canWriteWorkspace(role, workspace),
-  isReadOnly: (workspace) => isReadOnlyWorkspace(role, workspace),
-  canAccessAssignedGroups: (workspace) =>
-    canAccessAssignedGroups(role, workspace),
-  canCreateSuperAdmin: () => canCreateSuperAdmin(role),
-  canManageCustomRoles: () => canManageCustomRoles(role),
-  canManageOtherUsers: (targetRole) =>
-    canManageOtherUsers(role, targetRole),
-};
+  const isSuperAdmin = role === "Super Admin";
+  const isAdmin = role === "Admin";
+  const isFellowshipLeader = role === "Fellowship Leader";
 
+  const canManageUsers = roleCanManageUsers(role);
+
+  // ---------------------------------------------------------
+  // FELLOWSHIP ASSIGNMENTS
+  // ---------------------------------------------------------
+
+  /*
+   * These IDs will be populated by the user-creation
+   * complete-login response once the fellowship assignment
+   * mechanism is implemented.
+   *
+   * Until then, the array remains empty.
+   *
+   * Supported profile property names:
+   * - assigned_fellowship_ids
+   * - fellowship_ids
+   *
+   * The backend should eventually return assigned_fellowship_ids.
+   */
+
+  const assignedFellowshipIds = Array.isArray(
+    profile?.assigned_fellowship_ids,
+  )
+    ? profile.assigned_fellowship_ids
+    : Array.isArray(profile?.fellowship_ids)
+      ? profile.fellowship_ids
+      : [];
+
+  const hasAssignedFellowships =
+    assignedFellowshipIds.length > 0;
+
+  // ---------------------------------------------------------
+  // CENTRAL PERMISSION INTERFACE
+  // ---------------------------------------------------------
+
+  const permissions = {
+    // Returns:
+    // full | read | assigned | restricted | none
+    getAccess: (workspace) =>
+      getWorkspaceAccess(role, workspace),
+
+    // Whether the user can open a workspace.
+    canAccess: (workspace) =>
+      canAccessWorkspace(role, workspace),
+
+    // Whether the user has general full write access.
+    canWrite: (workspace) =>
+      canWriteWorkspace(role, workspace),
+
+    // Whether the workspace is read-only/restricted.
+    isReadOnly: (workspace) =>
+      isReadOnlyWorkspace(role, workspace),
+
+    // Whether the user can download/export workspace data.
+    canDownload: (workspace) =>
+      canDownloadWorkspace(role, workspace),
+
+    // Whether the workspace is limited to assigned groups.
+    canAccessAssignedGroups: (workspace) =>
+      canAccessAssignedGroups(role, workspace),
+
+    // Fellowship Leader-specific permissions.
+    canManageAssignedFellowshipMembers: (workspace) =>
+      canManageAssignedFellowshipMembers(role, workspace),
+
+    canAddMemberToAssignedFellowship: (workspace) =>
+      canAddMemberToAssignedFellowship(role, workspace),
+
+    canEditAssignedFellowshipMember: (workspace) =>
+      canEditAssignedFellowshipMember(role, workspace),
+
+    // User and role administration.
+    canCreateSuperAdmin: () =>
+      canCreateSuperAdmin(role),
+
+    canManageCustomRoles: () =>
+      canManageCustomRoles(role),
+
+    canManageOtherUsers: (targetRole) =>
+      canManageOtherUsers(role, targetRole),
+  };
+
+  // ---------------------------------------------------------
+  // AUTH CONTEXT
+  // ---------------------------------------------------------
 
   return (
     <AuthContext.Provider
       value={{
+        // Authentication
         session,
         user: session?.user ?? null,
         profile,
-        role,
-        permissions,
-        canManageUsers,
-        isSuperAdmin,
         loading,
         authError,
         signIn,
         signOut,
         refreshProfile: loadProfile,
+
+        // Current role
+        role,
+        isSuperAdmin,
+        isAdmin,
+        isFellowshipLeader,
+        canManageUsers,
+
+        // RBAC
+        permissions,
+
+        // Fellowship scope
+        assignedFellowshipIds,
+        hasAssignedFellowships,
       }}
     >
       {children}
     </AuthContext.Provider>
   );
 }
+
+// -----------------------------------------------------------
+// AUTH HOOK
+// -----------------------------------------------------------
 
 export function useAuth() {
   const context = useContext(AuthContext);

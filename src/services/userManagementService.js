@@ -37,9 +37,23 @@ export async function getAvailableRoles() {
   );
 }
 
-export async function getManagedUsers() {
+export async function getAvailableFellowships() {
   return (
     unwrap(
+      await supabase
+        .from("church_groups")
+        .select("id, name")
+        .eq("group_type", "fellowship")
+        .eq("group_status", "Active")
+        .order("name"),
+    ) ?? []
+  );
+}
+
+
+export async function getManagedUsers() {
+  const users =
+    (await unwrap(
       await supabase
         .from("users")
         .select(`
@@ -55,9 +69,69 @@ export async function getManagedUsers() {
           )
         `)
         .order("created_at", { ascending: false }),
-    ) ?? []
-  );
+    )) ?? [];
+
+  if (!Array.isArray(users) || users.length === 0) {
+    return [];
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  const userIds = users
+    .map((user) => user.auth_user_id)
+    .filter(Boolean);
+
+  if (userIds.length === 0) {
+    return users.map((user) => ({
+      ...user,
+      assigned_fellowships: [],
+    }));
+  }
+
+  const assignments =
+    (await unwrap(
+      await supabase
+        .from("user_group_access")
+        .select(`
+          auth_user_id,
+          group_id,
+          valid_from,
+          valid_until,
+          fellowship:church_groups!inner (
+            id,
+            name,
+            group_type,
+            group_status
+          )
+        `)
+        .lte("valid_from", today)
+        .or(`valid_until.is.null,valid_until.gte.${today}`)
+        .eq("fellowship.group_type", "fellowship")
+        .eq("fellowship.group_status", "Active")
+        .in("auth_user_id", userIds),
+    )) ?? [];
+
+  const assignmentMap = new Map();
+
+  for (const assignment of assignments) {
+    const current =
+      assignmentMap.get(assignment.auth_user_id) ?? [];
+
+    current.push({
+      id: assignment.group_id,
+      name: assignment.fellowship?.name,
+    });
+
+    assignmentMap.set(assignment.auth_user_id, current);
+  }
+
+  return users.map((user) => ({
+    ...user,
+    assigned_fellowships:
+      assignmentMap.get(user.auth_user_id) ?? [],
+  }));
 }
+
 
 export async function createManagedUser(values) {
   return unwrap(
@@ -68,6 +142,23 @@ export async function createManagedUser(values) {
         email: values.email,
         password: values.password,
         roleId: values.roleId,
+        passwordMode: values.passwordMode,
+        fellowshipIds: values.fellowshipIds ?? [],
+      },
+    }),
+  );
+}
+
+export async function updateManagedUserFellowships(
+  authUserId,
+  fellowshipIds,
+) {
+  return unwrap(
+    await supabase.functions.invoke("user-creation", {
+      body: {
+        action: "update-user-fellowships",
+        authUserId,
+        fellowshipIds,
       },
     }),
   );

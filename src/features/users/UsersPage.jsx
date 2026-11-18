@@ -1,9 +1,7 @@
-
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Users,
   UserPlus,
-  ShieldCheck,
   Plus,
   RefreshCw,
   Search,
@@ -12,6 +10,9 @@ import {
   AlertTriangle,
   CheckCircle2,
   KeyRound,
+  ShieldCheck,
+  UsersRound,
+  Save,
 } from "lucide-react";
 
 import { useAuth } from "../auth/AuthContext";
@@ -20,7 +21,9 @@ import {
   createManagedRole,
   createManagedUser,
   getAvailableRoles,
+  getAvailableFellowships,
   getManagedUsers,
+  updateManagedUserFellowships,
   sendManagedUserPasswordReset,
 } from "../../services/userManagementService";
 
@@ -30,12 +33,11 @@ const initialForm = {
   password: "",
   roleId: "",
   passwordMode: "temporary",
+  fellowshipIds: [],
 };
 
 function roleName(user) {
-  return Array.isArray(user.role)
-    ? user.role[0]?.name
-    : user.role?.name;
+  return Array.isArray(user.role) ? user.role[0]?.name : user.role?.name;
 }
 
 function StatusPill({ active }) {
@@ -57,22 +59,77 @@ function StatusPill({ active }) {
   );
 }
 
+function FellowshipCheckboxList({
+  fellowships,
+  selectedIds,
+  onChange,
+  disabled = false,
+}) {
+  function toggle(id) {
+    if (selectedIds.includes(id)) {
+      onChange(selectedIds.filter((item) => item !== id));
+    } else {
+      onChange([...selectedIds, id]);
+    }
+  }
+
+  if (!fellowships.length) {
+    return (
+      <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-[11px] leading-5 text-amber-800">
+        No active fellowships are available. Create or activate a fellowship
+        before assigning this user.
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-h-52 space-y-1 overflow-y-auto rounded-lg border border-[#e5e5e7] p-2">
+      {fellowships.map((fellowship) => {
+        const checked = selectedIds.includes(fellowship.id);
+
+        return (
+          <label
+            key={fellowship.id}
+            className={`flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 transition ${
+              checked ? "bg-[#f0f2fa]" : "hover:bg-[#f8f8f9]"
+            } ${disabled ? "cursor-not-allowed opacity-60" : ""}`}
+          >
+            <input
+              type="checkbox"
+              checked={checked}
+              disabled={disabled}
+              onChange={() => toggle(fellowship.id)}
+              className="h-4 w-4 rounded border-[#c9cbd2] accent-[#343b55]"
+            />
+            <span className="min-w-0 flex-1 text-[12px] font-medium text-[#34353b]">
+              {fellowship.name}
+            </span>
+            {checked && (
+              <CheckCircle2 size={14} className="shrink-0 text-[#5265b8]" />
+            )}
+          </label>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function UsersPage() {
-  const {
-    role,
-    isSuperAdmin,
-  } = useAuth();
+  const { isSuperAdmin } = useAuth();
 
   const [users, setUsers] = useState([]);
   const [roles, setRoles] = useState([]);
+  const [fellowships, setFellowships] = useState([]);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   const [showCreateUser, setShowCreateUser] = useState(false);
   const [showCreateRole, setShowCreateRole] = useState(false);
+  const [editingAssignments, setEditingAssignments] = useState(null);
 
   const [form, setForm] = useState(initialForm);
+  const [selectedFellowshipIds, setSelectedFellowshipIds] = useState([]);
   const [newRoleName, setNewRoleName] = useState("");
 
   const [search, setSearch] = useState("");
@@ -84,13 +141,15 @@ export default function UsersPage() {
     setError("");
 
     try {
-      const [userData, roleData] = await Promise.all([
+      const [userData, roleData, fellowshipData] = await Promise.all([
         getManagedUsers(),
         getAvailableRoles(),
+        getAvailableFellowships(),
       ]);
 
       setUsers(userData);
       setRoles(roleData);
+      setFellowships(fellowshipData);
     } catch (err) {
       setError(err.message || "Unable to load users.");
     } finally {
@@ -102,27 +161,37 @@ export default function UsersPage() {
     loadData();
   }, [loadData]);
 
-  const availableRoles = roles.filter(
-    (item) => isSuperAdmin || item.name !== "Super Admin",
+  const availableRoles = useMemo(
+    () => roles.filter((item) => isSuperAdmin || item.name !== "Super Admin"),
+    [roles, isSuperAdmin],
   );
 
-  const filteredUsers = users.filter((item) => {
+  const selectedRole = roles.find((item) => item.id === form.roleId);
+  const isTransfer = selectedRole?.name === "Super Admin";
+  const isCreatingFellowshipLeader =
+    selectedRole?.name === "Fellowship Leader";
+
+  const filteredUsers = useMemo(() => {
     const query = search.trim().toLowerCase();
 
-    if (!query) return true;
+    if (!query) return users;
 
-    return (
-      item.full_name?.toLowerCase().includes(query) ||
-      item.email?.toLowerCase().includes(query) ||
-      roleName(item)?.toLowerCase().includes(query)
-    );
-  });
+    return users.filter((item) => {
+      const assignedNames = (item.assigned_fellowships || [])
+        .map((fellowship) => fellowship.name)
+        .join(" ");
+
+      return (
+        item.full_name?.toLowerCase().includes(query) ||
+        item.email?.toLowerCase().includes(query) ||
+        roleName(item)?.toLowerCase().includes(query) ||
+        assignedNames.toLowerCase().includes(query)
+      );
+    });
+  }, [users, search]);
 
   function updateForm(field, value) {
-    setForm((current) => ({
-      ...current,
-      [field]: value,
-    }));
+    setForm((current) => ({ ...current, [field]: value }));
   }
 
   function closeCreateUser() {
@@ -131,51 +200,69 @@ export default function UsersPage() {
     setError("");
   }
 
+  function openCreateUser() {
+    setError("");
+    setSuccess("");
+    setForm(initialForm);
+    setShowCreateUser(true);
+  }
+
   async function handleCreateUser(event) {
     event.preventDefault();
+
+    if (
+      isCreatingFellowshipLeader &&
+      form.fellowshipIds.length === 0
+    ) {
+      setError("Assign at least one fellowship to the Fellowship Leader.");
+      return;
+    }
+
+    if (!isCreatingFellowshipLeader && form.fellowshipIds.length > 0) {
+      setError("Fellowships can only be assigned to a Fellowship Leader.");
+      return;
+    }
+
     setSaving(true);
     setError("");
     setSuccess("");
 
     try {
-        // When using email setup, generate a random initial password.
-        // The user will replace it using the recovery email.
-        const initialPassword =
+      // Email setup uses a random initial password; the user replaces it
+      // through the password setup email.
+      const initialPassword =
         form.passwordMode === "email"
-            ? `${crypto.randomUUID()}Aa1!`
-            : form.password;
+          ? `${crypto.randomUUID()}Aa1!`
+          : form.password;
 
-        const result = await createManagedUser({
+      const result = await createManagedUser({
         ...form,
         password: initialPassword,
-        });
+      });
 
-        if (form.passwordMode === "email") {
+      if (form.passwordMode === "email") {
         try {
-            await sendManagedUserPasswordReset(form.email.trim());
-
-            setSuccess(
+          await sendManagedUserPasswordReset(form.email.trim());
+          setSuccess(
             "User created successfully. A password setup email has been requested.",
-            );
-        } catch (emailError) {
-            setSuccess(
+          );
+        } catch {
+          setSuccess(
             "User created, but the password email could not be sent. Use the reset action in the user list to try again.",
-            );
+          );
         }
-        } else {
-        setSuccess(
-            result.message || "User created successfully.",
-        );
-        }
+      } else {
+        setSuccess(result.message || "User created successfully.");
+      }
 
-        closeCreateUser();
-        await loadData();
+      closeCreateUser();
+      await loadData();
     } catch (err) {
-        setError(err.message || "Unable to create user.");
+      setError(err.message || "Unable to create user.");
     } finally {
-        setSaving(false);
+      setSaving(false);
     }
-    }
+  }
 
   async function handleCreateRole(event) {
     event.preventDefault();
@@ -208,37 +295,81 @@ export default function UsersPage() {
 
     try {
       await sendManagedUserPasswordReset(user.email);
-
       setSuccess(`Password reset email requested for ${user.email}.`);
     } catch (err) {
       setError(err.message || "Unable to request a password reset.");
     }
   }
 
-  const selectedRole = roles.find(
-    (item) => item.id === form.roleId,
-  );
+  function openAssignmentEditor(user) {
+    setError("");
+    setSuccess("");
+    setEditingAssignments(user);
+    setSelectedFellowshipIds(
+      (user.assigned_fellowships || []).map((item) => item.id),
+    );
+  }
 
-  const isTransfer = selectedRole?.name === "Super Admin";
+  function closeAssignmentEditor() {
+    if (saving) return;
+    setEditingAssignments(null);
+    setSelectedFellowshipIds([]);
+  }
+
+  async function handleSaveAssignments(event) {
+    event.preventDefault();
+
+    if (!editingAssignments) return;
+
+    if (selectedFellowshipIds.length === 0) {
+      setError("Assign at least one fellowship to this Fellowship Leader.");
+      return;
+    }
+
+    setSaving(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const result = await updateManagedUserFellowships(
+        editingAssignments.auth_user_id,
+        selectedFellowshipIds,
+      );
+
+      setSuccess(
+        result?.message ||
+          `Fellowship assignments updated for ${editingAssignments.full_name}.`,
+      );
+
+      setEditingAssignments(null);
+      setSelectedFellowshipIds([]);
+      await loadData();
+    } catch (err) {
+      setError(err.message || "Unable to update fellowship assignments.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const fellowshipLeaderCount = users.filter(
+    (item) => roleName(item) === "Fellowship Leader",
+  ).length;
 
   return (
     <div className="mx-auto w-full max-w-[1500px] space-y-6">
       {/* PAGE HEADER */}
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#e9edfd] text-[#3457d5]">
-              <Users size={19} />
-            </span>
-
-            <div>
-              <h1 className="text-[25px] font-bold tracking-tight text-[#17181d]">
-                User Management
-              </h1>
-              <p className="mt-1 text-[13px] text-[#777984]">
-                Manage Church Desk accounts and role assignments.
-              </p>
-            </div>
+        <div className="flex items-center gap-2">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#e9edfd] text-[#3457d5]">
+            <Users size={19} />
+          </span>
+          <div>
+            <h1 className="text-[25px] font-bold tracking-tight text-[#17181d]">
+              User Management
+            </h1>
+            <p className="mt-1 text-[13px] text-[#777984]">
+              Manage Church Desk accounts, roles, and fellowship access.
+            </p>
           </div>
         </div>
 
@@ -259,11 +390,7 @@ export default function UsersPage() {
 
           <button
             type="button"
-            onClick={() => {
-              setError("");
-              setSuccess("");
-              setShowCreateUser(true);
-            }}
+            onClick={openCreateUser}
             className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#191a1f] px-4 text-[12px] font-semibold text-white transition hover:bg-black"
           >
             <UserPlus size={15} />
@@ -294,7 +421,7 @@ export default function UsersPage() {
       )}
 
       {/* SUMMARY */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-xl border border-[#e9e9eb] bg-white p-4">
           <p className="text-[11px] font-medium text-[#858791]">
             Total accounts
@@ -321,6 +448,15 @@ export default function UsersPage() {
             {roles.length}
           </p>
         </div>
+
+        <div className="rounded-xl border border-[#e9e9eb] bg-white p-4">
+          <p className="text-[11px] font-medium text-[#858791]">
+            Fellowship Leaders
+          </p>
+          <p className="mt-2 text-[25px] font-bold text-[#191a1f]">
+            {fellowshipLeaderCount}
+          </p>
+        </div>
       </div>
 
       {/* USER DIRECTORY */}
@@ -336,7 +472,7 @@ export default function UsersPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <div className="relative w-full sm:w-[260px]">
+            <div className="relative w-full sm:w-[280px]">
               <Search
                 size={15}
                 className="absolute left-3 top-1/2 -translate-y-1/2 text-[#999ba3]"
@@ -344,7 +480,7 @@ export default function UsersPage() {
               <input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search users..."
+                placeholder="Search users, roles, fellowships..."
                 className="h-9 w-full rounded-lg border border-[#e5e5e7] pl-9 pr-3 text-[12px] outline-none focus:border-[#6681ff]"
               />
             </div>
@@ -380,11 +516,12 @@ export default function UsersPage() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[850px] text-left">
+            <table className="w-full min-w-[1050px] text-left">
               <thead className="bg-[#fafafa]">
                 <tr className="border-b border-[#ededee] text-[10px] font-semibold uppercase tracking-wide text-[#858791]">
                   <th className="px-4 py-3">User</th>
                   <th className="px-4 py-3">Role</th>
+                  <th className="px-4 py-3">Fellowship access</th>
                   <th className="px-4 py-3">Created</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3">Actions</th>
@@ -394,6 +531,7 @@ export default function UsersPage() {
               <tbody className="divide-y divide-[#f0f0f1]">
                 {filteredUsers.map((item) => {
                   const itemRole = roleName(item);
+                  const assigned = item.assigned_fellowships || [];
 
                   return (
                     <tr
@@ -409,7 +547,6 @@ export default function UsersPage() {
                               .map((part) => part[0]?.toUpperCase())
                               .join("") || "U"}
                           </span>
-
                           <div className="min-w-0">
                             <p className="truncate text-[12px] font-semibold text-[#25262c]">
                               {item.full_name}
@@ -430,23 +567,65 @@ export default function UsersPage() {
                         </span>
                       </td>
 
-                      <td className="px-4 py-3 text-[11px] text-[#777984]">
-                        {new Date(item.created_at).toLocaleDateString()}
+                      <td className="px-4 py-3">
+                        {itemRole === "Fellowship Leader" ? (
+                          assigned.length ? (
+                            <div className="flex max-w-[300px] flex-wrap gap-1.5">
+                              {assigned.map((fellowship) => (
+                                <span
+                                  key={fellowship.id}
+                                  className="rounded-md bg-[#f0f2fa] px-2 py-1 text-[10px] font-medium text-[#46558e]"
+                                >
+                                  {fellowship.name}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-[11px] font-medium text-amber-700">
+                              No fellowship assigned
+                            </span>
+                          )
+                        ) : (
+                          <span className="text-[11px] text-[#a0a1a8]">
+                            Not applicable
+                          </span>
+                        )}
+                      </td>
+
+                      <td className="whitespace-nowrap px-4 py-3 text-[11px] text-[#777984]">
+                        {item.created_at
+                          ? new Date(item.created_at).toLocaleDateString()
+                          : "—"}
                       </td>
 
                       <td className="px-4 py-3">
                         <StatusPill active={item.is_active} />
                       </td>
+
                       <td className="px-4 py-3">
-                        <button
+                        <div className="flex flex-wrap items-center gap-2">
+                          {itemRole === "Fellowship Leader" && (
+                            <button
+                              type="button"
+                              onClick={() => openAssignmentEditor(item)}
+                              disabled={!item.is_active}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-[#dfe3f1] bg-[#f7f8fc] px-3 py-2 text-[11px] font-semibold text-[#46558e] transition hover:bg-[#eef0f8] disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              <UsersRound size={13} />
+                              Manage fellowships
+                            </button>
+                          )}
+
+                          <button
                             type="button"
                             onClick={() => handleSendPasswordReset(item)}
                             className="inline-flex items-center gap-1.5 rounded-lg border border-[#e5e5e7] px-3 py-2 text-[11px] font-semibold text-[#45464e] transition hover:bg-[#f7f7f8]"
-                        >
+                          >
                             <KeyRound size={13} />
                             Send reset link
-                        </button>
-                        </td>
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   );
                 })}
@@ -513,64 +692,64 @@ export default function UsersPage() {
 
               <div>
                 <label className="mb-2 block text-[11px] font-semibold text-[#45464e]">
-                    Password setup *
+                  Password setup *
                 </label>
 
                 <div className="grid grid-cols-2 gap-2">
-                    <button
+                  <button
                     type="button"
                     onClick={() => updateForm("passwordMode", "temporary")}
                     className={`rounded-lg border px-3 py-2.5 text-[11px] font-semibold transition ${
-                        form.passwordMode === "temporary"
+                      form.passwordMode === "temporary"
                         ? "border-[#343b55] bg-[#f0f1f6] text-[#252b42]"
                         : "border-[#e5e5e7] bg-white text-[#777984]"
                     }`}
-                    >
+                  >
                     Temporary password
-                    </button>
+                  </button>
 
-                    <button
+                  <button
                     type="button"
                     onClick={() => updateForm("passwordMode", "email")}
                     className={`rounded-lg border px-3 py-2.5 text-[11px] font-semibold transition ${
-                        form.passwordMode === "email"
+                      form.passwordMode === "email"
                         ? "border-[#343b55] bg-[#f0f1f6] text-[#252b42]"
                         : "border-[#e5e5e7] bg-white text-[#777984]"
                     }`}
-                    >
+                  >
                     Email setup link
-                    </button>
+                  </button>
                 </div>
 
                 {form.passwordMode === "temporary" ? (
-                    <>
+                  <>
                     <input
-                        required
-                        type="password"
-                        minLength={8}
-                        autoComplete="new-password"
-                        value={form.password}
-                        onChange={(event) =>
+                      required
+                      type="password"
+                      minLength={8}
+                      autoComplete="new-password"
+                      value={form.password}
+                      onChange={(event) =>
                         updateForm("password", event.target.value)
-                        }
-                        placeholder="Minimum 8 characters"
-                        className="mt-3 h-10 w-full rounded-lg border border-[#e5e5e7] px-3 text-[12px] outline-none focus:border-[#6681ff]"
+                      }
+                      placeholder="Minimum 8 characters"
+                      className="mt-3 h-10 w-full rounded-lg border border-[#e5e5e7] px-3 text-[12px] outline-none focus:border-[#6681ff]"
                     />
-
                     <p className="mt-1 text-[10px] text-[#92949c]">
-                        Set a temporary password and share it securely with the user.
+                      Set a temporary password and share it securely with the
+                      user.
                     </p>
-                    </>
+                  </>
                 ) : (
-                    <div className="mt-3 rounded-lg border border-blue-100 bg-blue-50 p-3">
+                  <div className="mt-3 rounded-lg border border-blue-100 bg-blue-50 p-3">
                     <p className="text-[11px] leading-5 text-blue-800">
-                        Church Desk will create the account and request a password
-                        setup email. The user can choose their own password through
-                        the link.
+                      Church Desk will create the account and request a
+                      password setup email. The user can choose their own
+                      password through the link.
                     </p>
-                    </div>
+                  </div>
                 )}
-                </div>
+              </div>
 
               <div>
                 <label className="mb-1.5 block text-[11px] font-semibold text-[#45464e]">
@@ -579,13 +758,18 @@ export default function UsersPage() {
                 <select
                   required
                   value={form.roleId}
-                  onChange={(event) =>
-                    updateForm("roleId", event.target.value)
-                  }
+                  onChange={(event) => {
+                    const nextRole = roles.find(
+                      (item) => item.id === event.target.value,
+                    );
+                    updateForm("roleId", event.target.value);
+                    if (nextRole?.name !== "Fellowship Leader") {
+                      updateForm("fellowshipIds", []);
+                    }
+                  }}
                   className="h-10 w-full rounded-lg border border-[#e5e5e7] bg-white px-3 text-[12px] outline-none focus:border-[#6681ff]"
                 >
                   <option value="">Select a role</option>
-
                   {availableRoles.map((item) => (
                     <option key={item.id} value={item.id}>
                       {item.name}
@@ -593,6 +777,28 @@ export default function UsersPage() {
                   ))}
                 </select>
               </div>
+
+              {isCreatingFellowshipLeader && (
+                <div className="space-y-2 rounded-xl border border-[#e5e7f0] bg-[#fafbfe] p-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-[#343b55]">
+                      Assign fellowships *
+                    </label>
+                    <p className="mt-1 text-[10px] leading-4 text-[#858791]">
+                      This user will only receive access to the selected
+                      fellowships. Multiple selections are allowed.
+                    </p>
+                  </div>
+                  <FellowshipCheckboxList
+                    fellowships={fellowships}
+                    selectedIds={form.fellowshipIds}
+                    onChange={(ids) => updateForm("fellowshipIds", ids)}
+                  />
+                  <p className="text-[10px] text-[#777984]">
+                    Selected: {form.fellowshipIds.length}
+                  </p>
+                </div>
+              )}
 
               {isTransfer && (
                 <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
@@ -606,10 +812,9 @@ export default function UsersPage() {
                         Super Admin transfer
                       </p>
                       <p className="mt-1 text-[11px] leading-5 text-amber-800">
-                        This account will be created as a pending
-                        Super Admin. When the new user logs in
-                        successfully, the current Super Admin will
-                        automatically be deactivated.
+                        This account will be created as a pending Super Admin.
+                        When the new user logs in successfully, the current
+                        Super Admin will automatically be deactivated.
                       </p>
                     </div>
                   </div>
@@ -627,10 +832,88 @@ export default function UsersPage() {
 
                 <button
                   type="submit"
-                  disabled={saving}
+                  disabled={
+                    saving ||
+                    (isCreatingFellowshipLeader &&
+                      form.fellowshipIds.length === 0)
+                  }
                   className="h-9 rounded-lg bg-[#191a1f] px-4 text-[12px] font-semibold text-white hover:bg-black disabled:opacity-50"
                 >
                   {saving ? "Creating..." : "Create user"}
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
+
+      {/* EDIT FELLOWSHIP ASSIGNMENTS MODAL */}
+      {editingAssignments && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/45 p-4">
+          <section className="max-h-[90vh] w-full max-w-[460px] overflow-y-auto rounded-2xl bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-[#ededee] px-5 py-4">
+              <div>
+                <h2 className="text-[16px] font-bold text-[#191a1f]">
+                  Manage fellowships
+                </h2>
+                <p className="mt-1 text-[11px] text-[#858791]">
+                  Update the fellowships assigned to{" "}
+                  <span className="font-semibold text-[#45464e]">
+                    {editingAssignments.full_name}
+                  </span>
+                  .
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeAssignmentEditor}
+                disabled={saving}
+                className="flex h-8 w-8 items-center justify-center rounded-full border border-[#e7e7e9] text-[#777984] hover:bg-[#f6f6f7] disabled:opacity-50"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveAssignments} className="space-y-4 p-5">
+              <div className="flex items-start gap-2 rounded-lg bg-[#f5f6fa] p-3">
+                <ShieldCheck
+                  size={16}
+                  className="mt-0.5 shrink-0 text-[#5265a5]"
+                />
+                <p className="text-[11px] leading-5 text-[#555d79]">
+                  Access is limited to the fellowships selected below. Ordinary
+                  groups such as Choir, Prayer Group, Sunday School, and Media
+                  Team are not assignable here.
+                </p>
+              </div>
+
+              <FellowshipCheckboxList
+                fellowships={fellowships}
+                selectedIds={selectedFellowshipIds}
+                onChange={setSelectedFellowshipIds}
+                disabled={saving}
+              />
+
+              <p className="text-[10px] text-[#777984]">
+                Selected: {selectedFellowshipIds.length}
+              </p>
+
+              <div className="flex justify-end gap-2 border-t border-[#ededee] pt-4">
+                <button
+                  type="button"
+                  onClick={closeAssignmentEditor}
+                  disabled={saving}
+                  className="h-9 rounded-lg border border-[#e5e5e7] px-4 text-[12px] font-semibold text-[#555761] hover:bg-[#f7f7f8] disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving || selectedFellowshipIds.length === 0}
+                  className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#191a1f] px-4 text-[12px] font-semibold text-white hover:bg-black disabled:opacity-50"
+                >
+                  <Save size={14} />
+                  {saving ? "Saving..." : "Save assignments"}
                 </button>
               </div>
             </form>
@@ -651,7 +934,6 @@ export default function UsersPage() {
                   Add a custom role to Church Desk.
                 </p>
               </div>
-
               <button
                 type="button"
                 onClick={() => setShowCreateRole(false)}
@@ -670,9 +952,7 @@ export default function UsersPage() {
                   required
                   maxLength={60}
                   value={newRoleName}
-                  onChange={(event) =>
-                    setNewRoleName(event.target.value)
-                  }
+                  onChange={(event) => setNewRoleName(event.target.value)}
                   placeholder="e.g. Assistant Secretary"
                   className="h-10 w-full rounded-lg border border-[#e5e5e7] px-3 text-[12px] outline-none focus:border-[#6681ff]"
                 />
@@ -686,7 +966,6 @@ export default function UsersPage() {
                 >
                   Cancel
                 </button>
-
                 <button
                   type="submit"
                   disabled={saving}

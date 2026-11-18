@@ -20,11 +20,21 @@ export const WORKSPACES = {
   ADMINISTRATION: "administration",
 };
 
-// "full" = read and write
-// "read" = read-only
-// "assigned" = access limited to assigned groups
-// "restricted" = restricted directory access only
-// "none" = no access
+/*
+ * Access levels:
+ *
+ * full       - View and perform all permitted workspace actions.
+ * read       - View and use non-mutating actions only.
+ * assigned   - Access only explicitly assigned fellowships.
+ * restricted - Limited directory access.
+ * none       - No access.
+ *
+ * Important:
+ * These helpers control frontend visibility and interaction.
+ * Supabase RLS and server-side authorization must enforce the same
+ * permissions independently.
+ */
+
 const ROLE_PERMISSIONS = {
   [ROLES.SUPER_ADMIN]: {
     membership: "full",
@@ -48,6 +58,7 @@ const ROLE_PERMISSIONS = {
     administration: "full",
   },
 
+  // Elder maps to Committee in the supplied permission matrix.
   [ROLES.ELDER]: {
     membership: "read",
     groups: "read",
@@ -63,9 +74,9 @@ const ROLE_PERMISSIONS = {
     membership: "read",
     groups: "read",
     leadership: "read",
-    events: "read",
-    communications: "read",
-    reports: "read",
+    events: "full",
+    communications: "full",
+    reports: "none",
     finance: "read",
     administration: "none",
   },
@@ -74,9 +85,9 @@ const ROLE_PERMISSIONS = {
     membership: "full",
     groups: "read",
     leadership: "read",
-    events: "read",
+    events: "full",
     communications: "none",
-    reports: "read",
+    reports: "full",
     finance: "full",
     administration: "none",
   },
@@ -92,6 +103,7 @@ const ROLE_PERMISSIONS = {
     administration: "none",
   },
 
+  // Preserve the existing Others permissions.
   [ROLES.OTHERS]: {
     membership: "restricted",
     groups: "read",
@@ -118,11 +130,50 @@ export function canWriteWorkspace(role, workspace) {
 
 export function isReadOnlyWorkspace(role, workspace) {
   const access = getWorkspaceAccess(role, workspace);
+
   return access === "read" || access === "restricted";
 }
 
 export function canAccessAssignedGroups(role, workspace) {
-  return getWorkspaceAccess(role, workspace) === "assigned";
+  return (
+    role === ROLES.FELLOWSHIP_LEADER &&
+    getWorkspaceAccess(role, workspace) === "assigned"
+  );
+}
+
+/*
+ * Fellowship Leader permissions are intentionally narrow.
+ *
+ * They may:
+ * - View their assigned fellowships.
+ * - View members assigned to those fellowships.
+ * - Add an existing member to an assigned fellowship.
+ * - Edit the member's fellowship-specific assignment/details.
+ *
+ * They may not:
+ * - Create or edit fellowship records.
+ * - Create or edit leadership positions.
+ * - Appoint or remove leaders.
+ * - Modify general membership records.
+ * - Access unassigned fellowships or regular groups.
+ */
+export function canManageAssignedFellowshipMembers(role, workspace) {
+  return (
+    role === ROLES.FELLOWSHIP_LEADER &&
+    workspace === WORKSPACES.GROUPS
+  );
+}
+
+export function canAddMemberToAssignedFellowship(role, workspace) {
+  return canManageAssignedFellowshipMembers(role, workspace);
+}
+
+export function canEditAssignedFellowshipMember(role, workspace) {
+  return canManageAssignedFellowshipMembers(role, workspace);
+}
+
+export function canDownloadWorkspace(role, workspace) {
+  return canAccessWorkspace(role, workspace);
 }
 
 export function canManageUsers(role) {
