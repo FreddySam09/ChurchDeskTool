@@ -256,9 +256,9 @@ function SpecialDaysTable({ type, rows }) {
 }
 
 export default function SpecialDaysTab() {
-  const [activeWeek, setActiveWeek] = useState("next");
-  const [fromDate, setFromDate] = useState(() => getWeekMonthDays(1).from);
-  const [toDate, setToDate] = useState(() => getWeekMonthDays(1).to);
+  const [activeWeek, setActiveWeek] = useState("this");
+  const [fromDate, setFromDate] = useState(() => getWeekMonthDays(0).from);
+  const [toDate, setToDate] = useState(() => getWeekMonthDays(0).to);
 
   const [data, setData] = useState({
     birthdays: [],
@@ -296,12 +296,12 @@ export default function SpecialDaysTab() {
   }, []);
 
   useEffect(() => {
-    const nextWeek = getWeekMonthDays(1);
+    const thisWeek = getWeekMonthDays(0);
 
-    setActiveWeek("next");
-    setFromDate(nextWeek.from);
-    setToDate(nextWeek.to);
-    fetchDays(nextWeek.from, nextWeek.to);
+    setActiveWeek("this");
+    setFromDate(thisWeek.from);
+    setToDate(thisWeek.to);
+    fetchDays(thisWeek.from, thisWeek.to);
   }, [fetchDays]);
 
   function chooseWeek(option) {

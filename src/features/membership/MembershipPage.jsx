@@ -84,8 +84,7 @@ function MembershipCard({ membership, onOpen }) {
     getMembershipHeadPhotoUrl(membership.head_photo_path) ||
     membership.head_photo_url ||
     membership.photo_url ||
-    membership.head_photo ||
-    null;
+    membership.head_photo;
 
   return (
     <article
@@ -99,84 +98,203 @@ function MembershipCard({ membership, onOpen }) {
           onOpen(membership);
         }
       }}
-      className="group flex min-h-[250px] cursor-pointer flex-col rounded-[28px] border border-[#e9e9eb] bg-white p-5 shadow-[0_1px_2px_rgba(15,15,20,0.04)] transition duration-200 hover:-translate-y-0.5 hover:border-[#d9def8] hover:shadow-[0_8px_25px_rgba(15,15,20,0.06)] sm:p-6"
+      className="group relative isolate h-[290px] cursor-pointer
+        overflow-hidden rounded-[24px]
+        border border-white/60 bg-[#252525]
+        shadow-[0_4px_15px_rgba(15,15,20,0.08)]
+        transition-all duration-500 ease-out
+        hover:-translate-y-1
+        hover:border-white/80
+        hover:shadow-[0_18px_40px_rgba(15,15,20,0.20)]
+        focus-visible:outline-none
+        focus-visible:ring-2 focus-visible:ring-[#536bd6]
+        focus-visible:ring-offset-2"
     >
-      <div className="flex items-center justify-end">
-        <span className="inline-flex h-[36px] min-w-[48px] items-center justify-center rounded-[12px] bg-[#eeeeef] px-3 text-[16px] font-bold tracking-[-0.4px] text-[#131418]">
+      {imageUrl ? (
+        <img
+          src={imageUrl}
+          alt={membership.card_head_name ||
+              membership.head_name ||
+              membership.head?.name ||
+              "Head not assigned"}
+          className="
+            absolute inset-0 h-full w-full
+            object-cover object-center
+            transition-transform duration-700 ease-out
+            group-hover:scale-110
+          "
+        />
+      ) : (
+        <div className="
+          absolute inset-0 flex items-center justify-center
+          bg-gradient-to-br from-[#777984] via-[#41434c] to-[#17181d]
+        ">
+          <img
+          src="https://csyylshgxedhvojaikph.supabase.co/storage/v1/object/sign/ChurchDeskBucket/membership-photos/WhatsApp%20Image%202026-11-18%20at%2018.54.41.jpeg?token=eyJraWQiOiI2YjYzNzg2Mi02MzQwLTQzODktOTFmMy0zNDllZWRjNjU4OTYiLCJhbGciOiJIUzUxMiJ9.eyJ1cmwiOiJDaHVyY2hEZXNrQnVja2V0L21lbWJlcnNoaXAtcGhvdG9zL1doYXRzQXBwIEltYWdlIDIwMjYtMTEtMTggYXQgMTguNTQuNDEuanBlZyIsInNjb3BlIjoiZG93bmxvYWQiLCJpYXQiOjE3OTUwMjc4ODEsImV4cCI6MzE1NTM2MzQ5MTg4MX0.uHJAMw9R-W9xS-aitvBoZmIXSnJhESGBH1HvmBW0ySt6o2GWdmrzS06apQ3PSoChTkJrRKbu3U3moCQdT28dXw"
+          alt={membership.card_head_name ||
+              membership.head_name ||
+              membership.head?.name ||
+              "Head not assigned"}
+          className="
+            absolute inset-0 h-full w-full
+            object-cover object-center
+            transition-transform duration-700 ease-out
+            group-hover:scale-110
+          "
+        />
+        </div>
+      )}
+      <div className={`absolute inset-0 bg-gradient-to-b 
+      ${imageUrl ? 'from-transparent via-transparent to-white/40 hover:to-white/40' : 'from-black/20 via-transparent to-black/80'}`}
+       />
+
+      {/* Glossy overlay */}
+      <div className="
+        pointer-events-none absolute inset-0 z-10
+        bg-gradient-to-br from-white/20 via-transparent to-transparent
+        opacity-40 transition-opacity duration-500
+        group-hover:opacity-80
+      " />
+
+      {/* Shine sweep */}
+      <div className="
+        pointer-events-none absolute -inset-y-full -left-1/2 z-20
+        w-1/2 rotate-[25deg]
+        bg-gradient-to-r from-transparent via-white/20 to-transparent
+        transition-transform duration-1000 ease-in-out
+        group-hover:translate-x-[350%]
+      " />
+      <div className="absolute right-4 top-4 z-30">
+        <span className="
+          inline-flex h-10 min-w-8 items-center justify-center
+          rounded-sm border border-white/30
+          bg-white/20 px-3
+          text-[20px] font-bold tracking-wide text-black
+          shadow-sm backdrop-blur-xl
+        ">
           {displayNumber}
         </span>
       </div>
-
-      <div className="-mt-4 flex min-w-0 items-center gap-4">
-        <div className="h-[112px] w-[112px] shrink-0 overflow-hidden rounded-[15px] bg-[#f0f0f1]">
-          {imageUrl ? (
-            <img
-              src={imageUrl}
-              alt={
-                membership.card_head_name ||
-                membership.head_name ||
-                "Membership"
-              }
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center text-[#b0b1b8]">
-              <Users size={38} strokeWidth={1.35} />
-            </div>
-          )}
-        </div>
-
-        <div className="min-w-0 flex-1">
+      <div className="
+        absolute inset-x-0 bottom-0 z-30
+        p-5 sm:p-6
+      ">
+        {/* Always visible name */}
+        <div className="
+          transition-all duration-500 ease-out
+          group-hover:-translate-y-2
+        ">
           {isBranch && (
-            <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-[#536bd6]">
-              <GitBranch size={13} />
-              <span>Branch of {membership.membership_number || "—"}</span>
+            <div className="
+              mb-2 inline-flex items-center gap-1.5
+              rounded-full border border-white/20
+              bg-white/15 px-2.5 py-1
+              text-[10px] font-semibold text-white
+              backdrop-blur-md
+            ">
+              <GitBranch size={12} />
+              Branch of {membership.membership_number || "—"}
             </div>
           )}
 
-          <h2 className="line-clamp-2 text-[17px] font-bold tracking-[-0.3px] text-[#131418] sm:text-[18px]">
+          <h2 className={`
+            line-clamp-2 max-w-[90%]
+            text-[22px] font-bold leading-tight
+            tracking-[-0.5px] ${imageUrl ? 'text-black' : 'text-white'}
+            drop-shadow-lg sm:text-[25px]
+          `}>
             {membership.card_head_name ||
               membership.head_name ||
               membership.head?.name ||
               "Head not assigned"}
           </h2>
 
-          <p className="mt-1.5 flex items-start gap-1.5 text-[13px] leading-5 text-[#92939b]">
-            <span className="min-w-0 break-words">
-              {area || "Not Recorded"}
-            </span>
+          <p className="
+            mt-1 text-[12px] font-medium text-white/75
+          ">
+            {area || "Location not recorded"}
           </p>
-
           {displayNumber === "—" && (
             <p className="mt-1 text-[11px] text-[#92939b]">
               Awaiting membership number
             </p>
           )}
         </div>
-      </div>
 
-      <div className="mt-auto flex flex-wrap items-center justify-between gap-x-3 gap-y-3 border-t border-[#f0f0f1] pt-4">
-        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
-          <span className="text-[12px] text-[#777984]">
-            {membership.member_count ?? 0}{" "}
-            {(membership.member_count ?? 0) === 1 ? "Member" : "Members"}
-            {!isBranch && membership.branch_count > 0 && (
-              <>
-                {" · "}
-                {membership.branch_count}{" "}
-                {membership.branch_count === 1 ? "branch" : "branches"}
-              </>
-            )}
-          </span>
+        {/* Details revealed on hover */}
+        <div className="
+          grid grid-rows-[0fr]
+          opacity-0 blur-[3px]
+          transition-all duration-500 ease-out
+          group-hover:mt-4
+          group-hover:grid-rows-[1fr]
+          group-hover:opacity-100
+          group-hover:blur-0
+          motion-reduce:transition-none
+        ">
+          <div className="overflow-hidden">
+            <div className="
+              border-t border-white/25 pt-3
+            ">
+              <div className="
+                flex flex-wrap items-center
+                justify-between gap-3
+              ">
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="text-[12px] font-medium text-white/90">
+                    {membership.member_count ?? 0}{" "}
+                    {(membership.member_count ?? 0) === 1
+                      ? "Member"
+                      : "Members"}
+                  </span>
 
-          <StatusBadge status={membership.membership_status} />
+                  {!isBranch && membership.branch_count > 0 && (
+                    <span className="text-[12px] text-white/90">
+                      {membership.branch_count}{" "}
+                      {membership.branch_count === 1
+                        ? "Branch"
+                        : "Branches"}
+                    </span>
+                  )}
+                </div>
+
+                <span className="
+                  rounded-full border border-white/30
+                  bg-white/15 px-2.5 py-1
+                  text-[10px] font-semibold text-white
+                  backdrop-blur-lg
+                ">
+                  {membership.membership_status || "Unknown"}
+                </span>
+              </div>
+
+              <div className="
+                mt-4 flex items-center justify-between
+                text-[12px] font-semibold text-white
+              ">
+                <span>Membership Profile</span>
+
+                <span className="
+                  inline-flex items-center gap-1
+                  transition-transform duration-300
+                  group-hover:translate-x-1
+                ">
+                  View Profile
+                  <ChevronRight size={16} />
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
-
-        <span className="inline-flex shrink-0 items-center gap-1 text-[12px] font-semibold text-[#131418] transition group-hover:text-[#3457d5]">
-          View profile
-          <ChevronRight size={15} />
-        </span>
       </div>
+      <div 
+        className="
+          pointer-events-none absolute inset-0 z-20
+          rounded-[24px] border border-white/10
+          transition-all duration-500
+          group-hover:border-white/40
+          group-hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.35)]"
+      />
     </article>
   );
 }
